@@ -16,6 +16,11 @@ invalidIdentifiers = keywords ++ ["true", "false", "null"]
 javaLetters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_$"
 javaLettersAndDigits = javaLetters ++ "0123456789"
 
+decimalDigits = ['0'..'9']
+octalDigits = ['0'..'7']
+hexDigits = ['a'..'f'] ++ ['A'..'F'] ++ decimalDigits
+longSuffixes = "Ll"
+
 -- Reserved keywords that turn into keyword tokens but can't be identifiers
 keywords = ["boolean", "break", "byte", "case", "catch", "char", "class",
   "const", "continue", "default", "do", "double", "else", "extends", "final",
@@ -35,7 +40,8 @@ operators = [">>>=", ">>>", ">>=", "<<=", "++", "+=", "%=", "&&", "&=", "*=",
 separators = "(){}[];,."
 
 scanners = [scanBool, scanNull, scanWhitespace, scanKeyword, scanOperator, scanIdentifier,
-            scanSeparator, scanEolComment, scanBlockComment]
+            scanSeparator, scanEolComment, scanBlockComment, scanDecimalInteger,
+            scanHexInteger, scanOctalInteger]
 
 scanBool :: String -> Maybe (String, String)
 scanBool string
@@ -50,18 +56,6 @@ scanEolComment string
     in Just ("COMMENT", comment)
   | otherwise = Nothing
 
-scanIdentifier :: String -> Maybe (String, String)
-scanIdentifier string
-  | not (leadingChar `elem` javaLetters) = Nothing
-  | lex `elem` invalidIdentifiers = Nothing
-  | otherwise = Just ("IDENTIFIER", (leadingChar : rest))
-  where leadingChar = head string
-        rest = takeWhile (\char -> char `elem` javaLettersAndDigits) (tail string)
-        lex = leadingChar : rest
-
-scanKeyword :: String -> Maybe (String, String)
-scanKeyword = scanWhitelist keywords "KEYWORD"
-
 scanBlockComment :: String -> Maybe (String, String)
 scanBlockComment ('/':'*':rest)
   | comment == Nothing = Nothing
@@ -72,6 +66,51 @@ scanBlockComment ('/':'*':rest)
         grabComment (x:xs) = fmap (x:) $ grabComment xs
 scanBlockComment _ = Nothing
 
+scanIdentifier :: String -> Maybe (String, String)
+scanIdentifier string
+  | not (leadingChar `elem` javaLetters) = Nothing
+  | lex `elem` invalidIdentifiers = Nothing
+  | otherwise = Just ("IDENTIFIER", (leadingChar : rest))
+  where leadingChar = head string
+        rest = takeWhile (\char -> char `elem` javaLettersAndDigits) (tail string)
+        lex = leadingChar : rest
+
+scanDecimalInteger :: String -> Maybe (String, String)
+scanDecimalInteger ('0':xs) = Just ("DEC_INTEGER", '0': takeWhileThenEnd [] longSuffixes xs)
+scanDecimalInteger (x:xs)
+  | x `elem` decimalDigits =
+    let lex = x : takeWhileThenEnd decimalDigits longSuffixes xs
+    in Just ("DEC_INTEGER", lex)
+  | otherwise = Nothing
+
+scanHexInteger :: String -> Maybe (String, String)
+scanHexInteger ('0':y:xs)
+  | y `elem` "xX" =
+    let lex = '0' : y : takeWhileThenEnd hexDigits longSuffixes xs in
+      if length lex > 2 then Just ("HEX_INTEGER", lex)
+      else Nothing
+  | otherwise = Nothing
+scanHexInteger _ = Nothing
+
+scanOctalInteger :: String -> Maybe (String, String)
+scanOctalInteger ('0':xs) =
+  if length lex > 1 && (lex !! 1) `elem` octalDigits
+  then Just ("OCT_INTEGER", lex)
+  else Nothing
+  where lex = '0' : takeWhileThenEnd octalDigits longSuffixes xs
+scanOctalInteger _ = Nothing
+
+-- Takes elements from a list that are members of the intermediary list,
+-- then optionally prepends a final ending element
+takeWhileThenEnd :: Eq a => [a] -> [a] -> [a] -> [a]
+takeWhileThenEnd _ _ [] = []
+takeWhileThenEnd intermediary ending (x:xs)
+  | x `elem` intermediary = x : takeWhileThenEnd intermediary ending xs
+  | x `elem` ending = [x]
+  | otherwise = []
+
+scanKeyword :: String -> Maybe (String, String)
+scanKeyword = scanWhitelist keywords "KEYWORD"
 
 scanNull :: String -> Maybe (String, String)
 scanNull string
