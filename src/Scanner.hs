@@ -35,7 +35,7 @@ operators = [">>>=", ">>>", ">>=", "<<=", "++", "+=", "%=", "&&", "&=", "*=",
 separators = "(){}[];,."
 
 scanners = [scanBool, scanNull, scanWhitespace, scanKeyword, scanOperator, scanIdentifier,
-            scanSeparator, scanEolComment]
+            scanSeparator, scanEolComment, scanBlockComment]
 
 scanBool :: String -> Maybe (String, String)
 scanBool string
@@ -61,6 +61,17 @@ scanIdentifier string
 
 scanKeyword :: String -> Maybe (String, String)
 scanKeyword = scanWhitelist keywords "KEYWORD"
+
+scanBlockComment :: String -> Maybe (String, String)
+scanBlockComment ('/':'*':rest)
+  | comment == Nothing = Nothing
+  | otherwise = Just $ ("COMMENT", "/*" ++ (fromJust comment))
+  where comment = grabComment rest
+        grabComment "" = Nothing
+        grabComment ('*':'/':xs) = Just "*/"
+        grabComment (x:xs) = fmap (x:) $ grabComment xs
+scanBlockComment _ = Nothing
+
 
 scanNull :: String -> Maybe (String, String)
 scanNull string
