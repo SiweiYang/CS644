@@ -30,7 +30,7 @@ keywords = ["boolean", "break", "byte", "case", "catch", "char", "class",
   "transient", "try", "void", "volatile", "while"]
 
 -- Valid operators in joos
-operators = ["-", "+", "*", "%", "/",
+operators = ["-", "+", "*", "%", "/", "=",
              "<", ">", "<=", ">=", "==", "!=",
              "&", "|", "!", "&&", "||"]
 
@@ -40,7 +40,8 @@ escapeChars = "btnfr\"'\\"
 separators = "(){}[];,."
 
 scanners = [scanBool, scanNull, scanWhitespace, scanKeyword, scanOperator, scanIdentifier,
-            scanSeparator, scanEolComment, scanBlockComment, scanDecimalInteger]
+            scanSeparator, scanEolComment, scanBlockComment, scanDecimalInteger, scanChar,
+            scanString]
 
 scanBool :: String -> Maybe (String, String)
 scanBool string
@@ -52,19 +53,37 @@ scanChar :: String -> Maybe (String, String)
 scanChar ('\'':xs)
   | javaChar == "" = Nothing
   | rest /= [] && head rest == '\'' = Just ("CHAR", '\'' : javaChar ++ '\'' : [])
-  where javaChar = getJavaCharacter xs
+  where getLoneChar = getJavaCharacter '\''
+        javaChar = getLoneChar xs
         rest = fromJust $ stripPrefix javaChar xs
 scanChar _ = Nothing
 
-getJavaCharacter :: String -> String
-getJavaCharacter ('\\':x:xs)
+scanString :: String -> Maybe (String, String)
+scanString ('"':xs)
+  | rest /= [] && head rest == '"' = Just ("STRING", '"' : content ++ '"' : [])
+  | otherwise = Nothing
+  where content = getJavaString xs
+        rest =  fromJust $ stripPrefix content xs
+scanString _ = Nothing
+
+getJavaString :: String -> String
+getJavaString "" = ""
+getJavaString ('"':_) = ""
+getJavaString string =
+  if null newChar then ""
+  else newChar ++ getJavaString (fromJust $ stripPrefix newChar string)
+  where getStringChar = getJavaCharacter '"'
+        newChar = getStringChar string
+
+getJavaCharacter :: Char -> String -> String
+getJavaCharacter _ ('\\':x:xs)
   | x `elem` octalDigits = '\\' : takeWhile (`elem` octalDigits) (x:xs)
   | x `elem` escapeChars = '\\' : x : []
   | otherwise = ""
-getJavaCharacter (x:xs)
-  | x `elem` "\\'" = ""
+getJavaCharacter delimeter (x:xs)
+  | x `elem` (delimeter:"\\") = ""
   | otherwise = [x]
-getJavaCharacter "" = ""
+getJavaCharacter _ "" = ""
 
 scanEolComment :: String -> Maybe (String, String)
 scanEolComment string
