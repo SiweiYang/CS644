@@ -34,12 +34,20 @@ operators = [">>>=", ">>>", ">>=", "<<=", "++", "+=", "%=", "&&", "&=", "*=",
 -- Characters that are consideed 'separators'
 separators = "(){}[];,."
 
-scanners = [scanBool, scanNull, scanWhitespace, scanKeyword, scanOperator, scanIdentifier, scanSeparator]
+scanners = [scanBool, scanNull, scanWhitespace, scanKeyword, scanOperator, scanIdentifier,
+            scanSeparator, scanEolComment]
 
 scanBool :: String -> Maybe (String, String)
 scanBool string
   | isPrefixOf "true" string = Just ("BOOL", "true")
   | isPrefixOf "false" string = Just ("BOOL", "false")
+  | otherwise = Nothing
+
+scanEolComment :: String -> Maybe (String, String)
+scanEolComment string
+  | isPrefixOf "//" string =
+    let comment = takeWhile (\char -> not (char `elem` lineTerminators)) string
+    in Just ("COMMENT", comment)
   | otherwise = Nothing
 
 scanIdentifier :: String -> Maybe (String, String)
@@ -99,4 +107,4 @@ scanLine lineNum string = token : scanLine lineNum (drop (tokenLength token) str
         token = Token tokenKind tokenContent lineNum
 
 scanTokens :: String -> [Token]
-scanTokens string = foldr (++) [] . map (\(line, content) -> scanLine line content) $ zip [0..] $ splitOneOf lineTerminators string
+scanTokens string = foldr (++) [] . map (\(line, content) -> scanLine line content) $ zip [0..] [string]
