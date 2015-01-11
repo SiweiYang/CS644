@@ -81,7 +81,7 @@ getJavaCharacter _ ('\\':x:xs)
   | x `elem` escapeChars = '\\' : x : []
   | otherwise = ""
 getJavaCharacter delimeter (x:xs)
-  | x `elem` (delimeter:"\\") = ""
+  | x `elem` (delimeter:'\\':lineTerminators) = ""
   | otherwise = [x]
 getJavaCharacter _ "" = ""
 
