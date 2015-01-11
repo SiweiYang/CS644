@@ -19,7 +19,6 @@ javaLettersAndDigits = javaLetters ++ "0123456789"
 decimalDigits = ['0'..'9']
 octalDigits = ['0'..'7']
 hexDigits = ['a'..'f'] ++ ['A'..'F'] ++ decimalDigits
-longSuffixes = "Ll"
 
 -- Reserved keywords that turn into keyword tokens but can't be identifiers
 keywords = ["boolean", "break", "byte", "case", "catch", "char", "class",
@@ -40,8 +39,7 @@ operators = [">>>=", ">>>", ">>=", "<<=", "++", "+=", "%=", "&&", "&=", "*=",
 separators = "(){}[];,."
 
 scanners = [scanBool, scanNull, scanWhitespace, scanKeyword, scanOperator, scanIdentifier,
-            scanSeparator, scanEolComment, scanBlockComment, scanDecimalInteger,
-            scanHexInteger, scanOctalInteger]
+            scanSeparator, scanEolComment, scanBlockComment, scanDecimalInteger]
 
 scanBool :: String -> Maybe (String, String)
 scanBool string
@@ -76,29 +74,12 @@ scanIdentifier string
         lex = leadingChar : rest
 
 scanDecimalInteger :: String -> Maybe (String, String)
-scanDecimalInteger ('0':xs) = Just ("DEC_INTEGER", '0': takeWhileThenEnd [] longSuffixes xs)
+scanDecimalInteger ('0':xs) = Just ("DEC_INTEGER", "0")
 scanDecimalInteger (x:xs)
   | x `elem` decimalDigits =
-    let lex = x : takeWhileThenEnd decimalDigits longSuffixes xs
+    let lex = x : takeWhile (\x -> x `elem` decimalDigits) xs
     in Just ("DEC_INTEGER", lex)
   | otherwise = Nothing
-
-scanHexInteger :: String -> Maybe (String, String)
-scanHexInteger ('0':y:xs)
-  | y `elem` "xX" =
-    let lex = '0' : y : takeWhileThenEnd hexDigits longSuffixes xs in
-      if length lex > 2 then Just ("HEX_INTEGER", lex)
-      else Nothing
-  | otherwise = Nothing
-scanHexInteger _ = Nothing
-
-scanOctalInteger :: String -> Maybe (String, String)
-scanOctalInteger ('0':xs) =
-  if length lex > 1 && (lex !! 1) `elem` octalDigits
-  then Just ("OCT_INTEGER", lex)
-  else Nothing
-  where lex = '0' : takeWhileThenEnd octalDigits longSuffixes xs
-scanOctalInteger _ = Nothing
 
 -- Takes elements from a list that are members of the intermediary list,
 -- then optionally prepends a final ending element
