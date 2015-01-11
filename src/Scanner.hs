@@ -3,7 +3,6 @@ import Lexical
 
 import Data.Char
 import Data.List
-import Data.List.Split
 import Data.Maybe
 
 -- Line terminators are whitespace AND can't be present in strings
@@ -164,7 +163,7 @@ scanLine :: Int -> String -> [Token]
 scanLine _ "" = []
 scanLine lineNum string = token : scanLine lineNum (drop (tokenLength token) string)
   where (tokenKind, tokenContent) = scanToken string
-        token = Token tokenKind tokenContent lineNum
+        Just token = tokenBuilder (tokenKind, tokenContent)
 
 scanTokens :: String -> [Token]
 scanTokens string = foldr (++) [] . map (\(line, content) -> scanLine line content) $ zip [0..] [string]
