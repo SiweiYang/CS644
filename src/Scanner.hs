@@ -30,10 +30,9 @@ keywords = ["boolean", "break", "byte", "case", "catch", "char", "class",
   "transient", "try", "void", "volatile", "while"]
 
 -- Valid operators in joos
-operators = [">>>=", ">>>", ">>=", "<<=", "++", "+=", "%=", "&&", "&=", "*=",
-             "/=", "!=", "--", "-=", "||", "|=", ">>", ">=", "=>", "==", "<=",
-             "<<", "^=", "+", "-", "%", "&", "*", "/", "?", "!", ":", "|", "<",
-             "~", "^"]
+operators = ["-", "+", "*", "%", "/",
+             "<", ">", "<=", ">=", "==", "!=",
+             "&", "|", "!", "&&", "||"]
 
 -- Characters that are consideed 'separators'
 separators = "(){}[];,."
