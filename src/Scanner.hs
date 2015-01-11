@@ -1,6 +1,7 @@
 module Scanner where
 import Lexical
 
+import Data.Char
 import Data.List
 import Data.List.Split
 import Data.Maybe
@@ -18,7 +19,6 @@ javaLettersAndDigits = javaLetters ++ "0123456789"
 
 decimalDigits = ['0'..'9']
 octalDigits = ['0'..'7']
-hexDigits = ['a'..'f'] ++ ['A'..'F'] ++ decimalDigits
 
 -- Reserved keywords that turn into keyword tokens but can't be identifiers
 keywords = ["boolean", "break", "byte", "case", "catch", "char", "class",
@@ -34,6 +34,8 @@ operators = ["-", "+", "*", "%", "/",
              "<", ">", "<=", ">=", "==", "!=",
              "&", "|", "!", "&&", "||"]
 
+escapeChars = "btnfr\"'\\"
+
 -- Characters that are consideed 'separators'
 separators = "(){}[];,."
 
@@ -45,6 +47,24 @@ scanBool string
   | isPrefixOf "true" string = Just ("BOOL", "true")
   | isPrefixOf "false" string = Just ("BOOL", "false")
   | otherwise = Nothing
+
+scanChar :: String -> Maybe (String, String)
+scanChar ('\'':xs)
+  | javaChar == "" = Nothing
+  | rest /= [] && head rest == '\'' = Just ("CHAR", '\'' : javaChar ++ '\'' : [])
+  where javaChar = getJavaCharacter xs
+        rest = fromJust $ stripPrefix javaChar xs
+scanChar _ = Nothing
+
+getJavaCharacter :: String -> String
+getJavaCharacter ('\\':x:xs)
+  | x `elem` octalDigits = '\\' : takeWhile (`elem` octalDigits) (x:xs)
+  | x `elem` escapeChars = '\\' : x : []
+  | otherwise = ""
+getJavaCharacter (x:xs)
+  | x `elem` "\\'" = ""
+  | otherwise = [x]
+getJavaCharacter "" = ""
 
 scanEolComment :: String -> Maybe (String, String)
 scanEolComment string
@@ -69,25 +89,16 @@ scanIdentifier string
   | lex `elem` invalidIdentifiers = Nothing
   | otherwise = Just ("IDENTIFIER", (leadingChar : rest))
   where leadingChar = head string
-        rest = takeWhile (\char -> char `elem` javaLettersAndDigits) (tail string)
+        rest = takeWhile (`elem` javaLettersAndDigits) (tail string)
         lex = leadingChar : rest
 
 scanDecimalInteger :: String -> Maybe (String, String)
 scanDecimalInteger ('0':xs) = Just ("DEC_INTEGER", "0")
 scanDecimalInteger (x:xs)
   | x `elem` decimalDigits =
-    let lex = x : takeWhile (\x -> x `elem` decimalDigits) xs
+    let lex = x : takeWhile (`elem` decimalDigits) xs
     in Just ("DEC_INTEGER", lex)
   | otherwise = Nothing
-
--- Takes elements from a list that are members of the intermediary list,
--- then optionally prepends a final ending element
-takeWhileThenEnd :: Eq a => [a] -> [a] -> [a] -> [a]
-takeWhileThenEnd _ _ [] = []
-takeWhileThenEnd intermediary ending (x:xs)
-  | x `elem` intermediary = x : takeWhileThenEnd intermediary ending xs
-  | x `elem` ending = [x]
-  | otherwise = []
 
 scanKeyword :: String -> Maybe (String, String)
 scanKeyword = scanWhitelist keywords "KEYWORD"
@@ -121,7 +132,7 @@ scanWhitespace :: String -> Maybe (String, String)
 scanWhitespace string
   | content == [] = Nothing
   | otherwise = Just ("WHITESPACE", content)
-  where content = takeWhile (\char -> char `elem` whitespaceCharacters) string
+  where content = takeWhile (`elem` whitespaceCharacters) string
 
 scanToken :: String -> (String, String)
 scanToken string = token
