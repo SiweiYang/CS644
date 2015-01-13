@@ -76,7 +76,10 @@ getJavaString string =
 
 getJavaCharacter :: Char -> String -> String
 getJavaCharacter _ ('\\':x:xs)
-  | x `elem` octalDigits = '\\' : takeWhile (`elem` octalDigits) (x:xs)
+  | x `elem` octalDigits = let
+    maxNumChars = if x `elem` ['0'..'3'] then 3 else 2
+    chars = take maxNumChars $ takeWhile (`elem` octalDigits) (x:xs)
+    in '\\' : chars
   | x `elem` escapeChars = '\\' : x : []
   | otherwise = ""
 getJavaCharacter delimeter (x:xs)
