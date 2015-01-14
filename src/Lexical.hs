@@ -12,7 +12,7 @@ splitOneOf del (c:r) = h:(splitOneOf del (if t == [] then t else tail t))
 splitOneOf _ [] = []
 
 ---------------------------------------- Data Types that describe a Token-----------------------------------------------------------------------------
-data TokenType = Keyword | Operator | Separator | Identifier | Comment | WhiteSpace | BoolLit | OctalLit | DecimalLit | HexLit | StringLit | NullLit | NotYetSupported | FAILURE deriving (Show, Eq)
+data TokenType = Keyword | Operator | Separator | Identifier | Comment | WhiteSpace | BoolLit | OctalLit | DecimalLit | HexLit | CharLit | StringLit | NullLit | NotYetSupported | FAILURE deriving (Show, Eq)
 data Token = Token { tokenType :: TokenType
                    , lexeme :: String
                    } deriving (Show, Eq)
@@ -28,11 +28,18 @@ tokenLength token = length $ lexeme token
 
 ---------------------------------------- Transformer from (String, String) to Token -----------------------------------------------------------------------------
 tokenBuilder :: (String, String) -> Maybe Token
-tokenBuilder ("BOOL", l) = Just (Token BoolLit l)
 tokenBuilder ("IDENTIFIER", l) = Just (Token Identifier l)
 tokenBuilder ("KEYWORD", l) = Just (Token Keyword l)
 tokenBuilder ("SEPARATOR", l) = Just (Token Separator l)
 tokenBuilder ("OPERATOR", l) = Just (Token Operator l)
+
+tokenBuilder ("BOOL", l) = Just (Token BoolLit l)
+tokenBuilder ("CHAR", l) = Just (Token CharLit l)
+tokenBuilder ("STRING", l) = Just (Token StringLit l)
+tokenBuilder ("DEC_INTEGER", l) = Just (Token DecimalLit l)
+tokenBuilder ("NULL", l) = Just (Token NullLit l)
+
+tokenBuilder ("COMMENT", l) = Just (Token Comment l)
 tokenBuilder ("WHITESPACE", l) = Just (Token WhiteSpace l)
 
 tokenBuilder ("ERR", l) = Just (Token FAILURE l)
@@ -44,6 +51,8 @@ class RE a where
     -- create a recognizer from a function
     (|>) :: String -> a -> Maybe Token
     lift :: (String -> Maybe Token) -> a
+    build :: (String -> Maybe (String, String)) -> a
+    
 
 class (RE a) => Combinator a where
     -- the ordinal combinator that takes the maximal token and break tie by ordering
@@ -66,6 +75,7 @@ data Lex = Lex (String -> Maybe Token)
 instance RE Lex where
     (|>) s (Lex f) = f s
     lift f = Lex f
+    build f = lift (\s -> (f s) >>= tokenBuilder)
 instance Combinator Lex where
 
 ---------------------------------------- Dummies for quick check ------------------------------------------------------------------------------

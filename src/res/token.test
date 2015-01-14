@@ -1,6 +1,18 @@
 123485
-Int
+DecimalLit
+"sdfe\\n"
+StringLit
+"sd\\"fe\t"
+StringLit
 "sdfe\n"
-String
+NotYetSupported
+'a'
+CharLit
+'"'
+CharLit
+'\\n'
+CharLit
+null
+NullLit
 /* this \n is a comment /* // /** \n lol end here */
 Comment
