@@ -62,16 +62,19 @@ lexerRunner ((lexeme, token):ls) = do
     then return ()
     else lexerRunner ls
 
-scannerRunner :: (String, String) -> IO [(Token, TokenInfo)]
-scannerRunner ([], _) = return []
-scannerRunner (fc, fn) = do
+scannerRunner :: Int -> Int -> (String, String) -> IO [(Token, TokenInfo)]
+scannerRunner _ _ ([], _) = return []
+scannerRunner ln col (fc, fn) = do
     let m = fc |> lexer
     if isNothing m
-    then return [(Token FAILURE (head (splitOneOf "\n" fc)), TI fn 0 0)]
+    then return [(Token FAILURE (head (splitOneOf "\n" fc)), TI fn ln col)]
     else do
         let Just tk = m
-        rst <- scannerRunner ((drop (length (lexeme tk)) fc), fn)
-        return ((tk, TI fn 0 0):rst)
+        let multiline = if (elem '\n' (lexeme tk)) then splitOneOf "\n" (lexeme tk) else []
+        let nextLn = ln + (length multiline)
+        let nextCol = if multiline == [] then col + (length (lexeme tk)) else (length (last multiline))
+        rst <- scannerRunner nextLn nextCol ((drop (length (lexeme tk)) fc), fn)
+        return ((tk, TI fn ln col):rst)
 
 -----------------------------------------------------------------------------------------------------------------------------
 main :: IO()
@@ -79,11 +82,11 @@ main = do
     pairs <- testTokens
     efiles <- testEFiles
     vfiles <- testVFiles
-    fileResults <- mapM scannerRunner vfiles
+    fileResults <- mapM (scannerRunner 1 1) vfiles
     let res = map (\items -> filter (\(tk, fn) -> elem (tokenType tk) [FAILURE]) items) fileResults
     --putStrLn (show res)
     
-    fileResults <- mapM scannerRunner efiles
+    fileResults <- mapM (scannerRunner 1 1) efiles
     let res = map (\items -> filter (\(tk, fn) -> elem (tokenType tk) [FAILURE]) items) fileResults
     printList (zip (map snd efiles) res)
     --lexerRunner pairs
