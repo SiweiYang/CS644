@@ -66,7 +66,7 @@ class (RE a) => Combinator a where
                             if isJust (s |> y) then (s |> y) else (s |> x))
     x <=> y = lift (\s -> if isJust (s |> x) && isJust (s |> y)
                           then
-                            if (s |> x) < (s |> y) then Nothing else if (s |> x) < (s |> y) then (s |> y) else (s |> x)
+                            if (s |> x) == (s |> y) then Nothing else if (s |> x) < (s |> y) then (s |> y) else (s |> x)
                           else
                             if isJust (s |> y) then (s |> y) else (s |> x))
 
