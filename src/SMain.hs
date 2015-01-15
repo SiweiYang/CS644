@@ -3,6 +3,7 @@ module Main where
 import Lexical
 import Scanner
 
+import Data.Maybe
 import Data.Char(readLitChar)
 import Text.ParserCombinators.ReadP(eof, many, ReadP, readS_to_P, readP_to_S)
 
@@ -33,14 +34,24 @@ testFiles = do
     let files = ["../assignment_testcases/a1/" ++ file | file <- f, file /= ".", file /= ".."]
     contents <- mapM readFile files
     return (zip contents files)
+testEFiles :: IO [(String, String)]
+testEFiles = do
+    f <- getDirectoryContents "../assignment_testcases/a1"
+    let files = ["../assignment_testcases/a1/" ++ file | file <- f, file /= ".", file /= "..", take 2 file == "Je"]
+    contents <- mapM readFile files
+    return (zip contents files)
+testVFiles :: IO [(String, String)]
+testVFiles = do
+    f <- getDirectoryContents "../assignment_testcases/a1"
+    let files = ["../assignment_testcases/a1/" ++ file | file <- f, file /= ".", file /= "..", take 2 file /= "Je"]
+    contents <- mapM readFile files
+    return (zip contents files)
 
-printPairs :: [(String, String)] -> IO()
-printPairs ((lexeme, token):ls) = do
-    putStrLn lexeme
-    putStrLn token
-    if ls == []
-    then return ()
-    else printPairs ls
+printList :: Show a => [a] -> IO()
+printList [] = return ()
+printList (x:ls) = do
+    putStrLn (show x)
+    printList ls
 
 lexerRunner :: [(String, String)] -> IO()
 lexerRunner ((lexeme, token):ls) = do
@@ -50,9 +61,30 @@ lexerRunner ((lexeme, token):ls) = do
     if ls == []
     then return ()
     else lexerRunner ls
+
+scannerRunner :: (String, String) -> IO [(Token, TokenInfo)]
+scannerRunner ([], _) = return []
+scannerRunner (fc, fn) = do
+    let m = fc |> lexer
+    if isNothing m
+    then return [(Token FAILURE (head (splitOneOf "\n" fc)), TI fn 0 0)]
+    else do
+        let Just tk = m
+        rst <- scannerRunner ((drop (length (lexeme tk)) fc), fn)
+        return ((tk, TI fn 0 0):rst)
+
 -----------------------------------------------------------------------------------------------------------------------------
 main :: IO()
 main = do
     pairs <- testTokens
-    lexerRunner pairs
+    efiles <- testEFiles
+    vfiles <- testVFiles
+    fileResults <- mapM scannerRunner vfiles
+    let res = map (\items -> filter (\(tk, fn) -> elem (tokenType tk) [FAILURE]) items) fileResults
+    --putStrLn (show res)
+    
+    fileResults <- mapM scannerRunner efiles
+    let res = map (\items -> filter (\(tk, fn) -> elem (tokenType tk) [FAILURE]) items) fileResults
+    printList (zip (map snd efiles) res)
+    --lexerRunner pairs
     --putStrLn (show pairs)
