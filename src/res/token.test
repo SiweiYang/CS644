@@ -12,6 +12,10 @@ CharLit
 CharLit
 '\\n'
 CharLit
+'\\7'
+CharLit
+'\\8'
+Nothing
 null
 NullLit
 /* this \n is a comment /* // /** \n lol end here */
