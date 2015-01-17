@@ -1,0 +1,539 @@
+CompilationUnit:
+  _PackageDeclaration_ _ImportDeclarations_ _TypeDeclarations_
+
+Literal:
+  IntegerLiteral
+  FloatingPointLiteral
+  BooleanLiteral
+  CharacterLiteral
+  StringLiteral
+  NullLiteral
+
+Type:
+  PrimitiveType
+  ReferenceType
+
+PrimitiveType:
+  NumericType
+  boolean
+
+NumericType:
+  IntegralType
+  FloatingPointType
+
+IntegralType:
+  byte
+  short
+  int
+  long
+  char
+
+FloatingPointType:
+  float
+  double
+
+ReferenceType:
+  ClassOrInterfaceType
+  ArrayType
+
+ClassOrInterfaceType:
+  Name
+
+ClassType:
+  ClassOrInterfaceType
+
+InterfaceType:
+  ClassOrInterfaceType
+
+ArrayType:
+  PrimitiveType [ ]
+  Name [ ]
+  ArrayType [ ]
+
+Name:
+  SimpleName
+  QualifiedName
+
+SimpleName:
+  Identifier
+
+QualifiedName:
+  Name . Identifier
+
+ImportDeclarations:
+  ImportDeclaration
+  ImportDeclarations ImportDeclaration
+
+TypeDeclarations:
+  TypeDeclaration
+  TypeDeclarations TypeDeclaration
+
+PackageDeclaration:
+  package Name ;
+
+ImportDeclaration:
+  SingleTypeImportDeclaration
+  TypeImportOnDemandDeclaration
+
+SingleTypeImportDeclaration:
+  import Name ;
+
+TypeImportOnDemandDeclaration:
+  import Name . * ;
+
+TypeDeclaration:
+  ClassDeclaration
+  InterfaceDeclaration
+  ;
+
+Modifiers:
+  Modifier
+  Modifiers Modifier
+
+Modifier:
+  public
+  protected
+  private
+  static
+  abstract
+  final
+  native
+  synchronized
+  transient
+  volatile
+
+ClassDeclaration:
+  _Modifiers_ class Identifier _Super_ _Interfaces_ ClassBody
+
+Super:
+  extends ClassType
+
+Interfaces:
+  implements InterfaceTypeList
+
+InterfaceTypeList:
+  InterfaceType
+  InterfaceTypeList , InterfaceType
+
+ClassBody:
+  { _ClassBodyDeclarations_ }
+
+ClassBodyDeclarations:
+  ClassBodyDeclaration
+  ClassBodyDeclarations ClassBodyDeclaration
+
+ClassBodyDeclaration:
+  ClassMemberDeclaration
+  StaticInitializer
+  ConstructorDeclaration
+
+ClassMemberDeclaration:
+  FieldDeclaration
+  MethodDeclaration
+FieldDeclaration:
+  _Modifiers_ Type VariableDeclarators ;
+
+VariableDeclarators:
+  VariableDeclarator
+  VariableDeclarators , VariableDeclarator
+
+VariableDeclarator:
+  VariableDeclaratorId
+  VariableDeclaratorId = VariableInitializer
+
+VariableDeclaratorId:
+  Identifier
+  VariableDeclaratorId [ ]
+
+VariableInitializer:
+  Expression
+  ArrayInitializer
+MethodDeclaration:
+  MethodHeader MethodBody
+
+MethodHeader:
+  _Modifiers_ Type MethodDeclarator _Throws_
+  _Modifiers_ void MethodDeclarator _Throws_
+
+MethodDeclarator:
+  Identifier ( _FormalParameterList_ )
+  MethodDeclarator [ ]
+
+FormalParameterList:
+  FormalParameter
+  FormalParameterList , FormalParameter
+
+FormalParameter:
+  Type VariableDeclaratorId
+
+Throws:
+  throws ClassTypeList
+
+ClassTypeList:
+  ClassType
+  ClassTypeList , ClassType
+
+MethodBody:
+  Block
+  ;
+StaticInitializer:
+  static Block
+ConstructorDeclaration:
+  _Modifiers_ ConstructorDeclarator Throwsopt ConstructorBody
+
+ConstructorDeclarator:
+  SimpleName ( _FormalParameterList_ )
+
+ConstructorBody:
+  { _ExplicitConstructorInvocation_ _BlockStatements_ }
+
+ExplicitConstructorInvocation:
+  this ( _ArgumentList_ ) ;
+  super ( _ArgumentList_ ) ;
+InterfaceDeclaration:
+  _Modifiers_ interface Identifier _ExtendsInterfaces_ InterfaceBody
+
+ExtendsInterfaces:
+  extends InterfaceType
+  ExtendsInterfaces , InterfaceType
+
+InterfaceBody:
+  { _InterfaceMemberDeclarations_ }
+
+InterfaceMemberDeclarations:
+  InterfaceMemberDeclaration
+  InterfaceMemberDeclarations InterfaceMemberDeclaration
+
+InterfaceMemberDeclaration:
+  ConstantDeclaration
+  AbstractMethodDeclaration
+
+ConstantDeclaration:
+  FieldDeclaration
+
+AbstractMethodDeclaration:
+  MethodHeader ;
+ArrayInitializer:
+  { _VariableInitializers_ _,_ }
+
+VariableInitializers:
+  VariableInitializer
+  VariableInitializers , VariableInitializer
+Block:
+  { _BlockStatements_ }
+
+BlockStatements:
+  BlockStatement
+  BlockStatements BlockStatement
+
+BlockStatement:
+  LocalVariableDeclarationStatement
+  Statement
+
+LocalVariableDeclarationStatement:
+  LocalVariableDeclaration ;
+
+LocalVariableDeclaration:
+  Type VariableDeclarators
+
+Statement:
+  StatementWithoutTrailingSubstatement
+  LabeledStatement
+  IfThenStatement
+  IfThenElseStatement
+  WhileStatement
+  ForStatement
+
+StatementNoShortIf:
+  StatementWithoutTrailingSubstatement
+  LabeledStatementNoShortIf
+  IfThenElseStatementNoShortIf
+  WhileStatementNoShortIf
+  ForStatementNoShortIf
+
+StatementWithoutTrailingSubstatement:
+  Block
+  EmptyStatement
+  ExpressionStatement
+  SwitchStatement
+  DoStatement
+  BreakStatement
+  ContinueStatement
+  ReturnStatement
+  SynchronizedStatement
+  ThrowStatement
+  TryStatement
+
+EmptyStatement:
+  ;
+
+LabeledStatement:
+  Identifier : Statement
+
+LabeledStatementNoShortIf:
+  Identifier : StatementNoShortIf
+
+ExpressionStatement:
+  StatementExpression ;
+
+StatementExpression:
+  Assignment
+  PreIncrementExpression
+  PreDecrementExpression
+  PostIncrementExpression
+  PostDecrementExpression
+  MethodInvocation
+  ClassInstanceCreationExpression
+IfThenStatement:
+  if ( Expression ) Statement
+
+IfThenElseStatement:
+  if ( Expression ) StatementNoShortIf else Statement
+
+IfThenElseStatementNoShortIf:
+  if ( Expression ) StatementNoShortIf else StatementNoShortIf
+
+SwitchStatement:
+  switch ( Expression ) SwitchBlock
+
+SwitchBlock:
+  { _SwitchBlockStatementGroups_ _SwitchLabels_ }
+
+SwitchBlockStatementGroups:
+  SwitchBlockStatementGroup
+  SwitchBlockStatementGroups SwitchBlockStatementGroup
+
+SwitchBlockStatementGroup:
+  SwitchLabels BlockStatements
+
+SwitchLabels:
+  SwitchLabel
+  SwitchLabels SwitchLabel
+
+SwitchLabel:
+  case ConstantExpression :
+  default :
+
+WhileStatement:
+  while ( Expression ) Statement
+
+WhileStatementNoShortIf:
+  while ( Expression ) StatementNoShortIf
+
+DoStatement:
+  do Statement while ( Expression ) ;
+
+ForStatement:
+  for ( _ForInit_ ; _Expression_ ; _ForUpdate_ ) Statement
+
+ForStatementNoShortIf:
+  for ( _ForInit_ ; _Expression_ ; _ForUpdate_ ) StatementNoShortIf
+
+ForInit:
+  StatementExpressionList
+  LocalVariableDeclaration
+
+ForUpdate:
+  StatementExpressionList
+
+StatementExpressionList:
+  StatementExpression
+  StatementExpressionList , StatementExpression
+
+BreakStatement:
+  break _Identifier_ ;
+
+ContinueStatement:
+  continue _Identifier_ ;
+
+ReturnStatement:
+  return _Expression_ ;
+
+ThrowStatement:
+  throw Expression ;
+
+SynchronizedStatement:
+  synchronized ( Expression ) Block
+
+TryStatement:
+  try Block Catches
+  try Block _Catches_ Finally
+
+Catches:
+  CatchClause
+  Catches CatchClause
+
+CatchClause:
+  catch ( FormalParameter ) Block
+
+Finally:
+  finally Block
+
+Primary:
+  PrimaryNoNewArray
+  ArrayCreationExpression
+
+PrimaryNoNewArray:
+  Literal
+  this
+  ( Expression )
+  ClassInstanceCreationExpression
+  FieldAccess
+  MethodInvocation
+  ArrayAccess
+
+ClassInstanceCreationExpression:
+  new ClassType ( _ArgumentList_ )
+
+ArgumentList:
+  Expression
+  ArgumentList , Expression
+
+ArrayCreationExpression:
+  new PrimitiveType DimExprs _Dims_
+  new ClassOrInterfaceType DimExprs _Dims_
+
+DimExprs:
+  DimExpr
+  DimExprs DimExpr
+
+DimExpr:
+  [ Expression ]
+
+Dims:
+  [ ]
+  Dims [ ]
+
+FieldAccess:
+  Primary . Identifier
+  super . Identifier
+
+MethodInvocation:
+  Name ( _ArgumentList_ )
+  Primary . Identifier ( _ArgumentList_ )
+  super . Identifier ( _ArgumentList_ )
+
+ArrayAccess:
+  Name [ Expression ]
+  PrimaryNoNewArray [ Expression ]
+
+PostfixExpression:
+  Primary
+  Name
+  PostIncrementExpression
+  PostDecrementExpression
+
+PostIncrementExpression:
+  PostfixExpression ++
+
+PostDecrementExpression:
+  PostfixExpression --
+
+UnaryExpression:
+  PreIncrementExpression
+  PreDecrementExpression
+  + UnaryExpression
+  - UnaryExpression
+  UnaryExpressionNotPlusMinus
+
+PreIncrementExpression:
+  ++ UnaryExpression
+
+PreDecrementExpression:
+  -- UnaryExpression
+
+UnaryExpressionNotPlusMinus:
+  PostfixExpression
+  ~ UnaryExpression
+  ! UnaryExpression
+  CastExpression
+
+CastExpression:
+  ( PrimitiveType _Dims_ ) UnaryExpression
+  ( Expression ) UnaryExpressionNotPlusMinus
+  ( Name Dims ) UnaryExpressionNotPlusMinus
+
+MultiplicativeExpression:
+  UnaryExpression
+  MultiplicativeExpression * UnaryExpression
+  MultiplicativeExpression / UnaryExpression
+  MultiplicativeExpression % UnaryExpression
+
+AdditiveExpression:
+  MultiplicativeExpression
+  AdditiveExpression + MultiplicativeExpression
+  AdditiveExpression - MultiplicativeExpression
+
+ShiftExpression:
+  AdditiveExpression
+  ShiftExpression << AdditiveExpression
+  ShiftExpression >> AdditiveExpression
+  ShiftExpression >>> AdditiveExpression
+
+RelationalExpression:
+  ShiftExpression
+  RelationalExpression < ShiftExpression
+  RelationalExpression > ShiftExpression
+  RelationalExpression <= ShiftExpression
+  RelationalExpression >= ShiftExpression
+  RelationalExpression instanceof ReferenceType
+
+EqualityExpression:
+  RelationalExpression
+  EqualityExpression == RelationalExpression
+  EqualityExpression != RelationalExpression
+
+AndExpression:
+  EqualityExpression
+  AndExpression & EqualityExpression
+
+ExclusiveOrExpression:
+  AndExpression
+  ExclusiveOrExpression ^ AndExpression
+
+InclusiveOrExpression:
+  ExclusiveOrExpression
+  InclusiveOrExpression | ExclusiveOrExpression
+
+ConditionalAndExpression:
+  InclusiveOrExpression
+  ConditionalAndExpression && InclusiveOrExpression
+
+ConditionalOrExpression:
+  ConditionalAndExpression
+  ConditionalOrExpression || ConditionalAndExpression
+
+ConditionalExpression:
+  ConditionalOrExpression
+
+AssignmentExpression:
+  ConditionalExpression
+  Assignment
+
+Assignment:
+  LeftHandSide AssignmentOperator AssignmentExpression
+
+LeftHandSide:
+  Name
+  FieldAccess
+  ArrayAccess
+
+AssignmentOperator:
+  =
+  *=
+  /=
+  %=
+  +=
+  -=
+  <<=
+  >>=
+  >>>=
+  &=
+  ^=
+  |=
+
+Expression:
+  AssignmentExpression
+
+ConstantExpression:
+  Expression
