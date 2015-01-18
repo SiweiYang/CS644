@@ -1,5 +1,5 @@
 CompilationUnit:
-  _PackageDeclaration_ _ImportDeclarations_ _TypeDeclarations_
+  _PackageDeclaration_ _ImportDeclarations_ _TypeDeclaration_
 
 Literal:
   IntegerLiteral
@@ -64,10 +64,6 @@ ImportDeclarations:
   ImportDeclaration
   ImportDeclarations ImportDeclaration
 
-TypeDeclarations:
-  TypeDeclaration
-  TypeDeclarations TypeDeclaration
-
 PackageDeclaration:
   package Name ;
 
@@ -130,16 +126,9 @@ ClassBodyDeclaration:
 ClassMemberDeclaration:
   FieldDeclaration
   MethodDeclaration
+
 FieldDeclaration:
-  _Modifiers_ Type VariableDeclarators ;
-
-VariableDeclarators:
-  VariableDeclarator
-  VariableDeclarators , VariableDeclarator
-
-VariableDeclarator:
-  VariableDeclaratorId
-  VariableDeclaratorId = VariableInitializer
+  _Modifiers_ Type VariableDeclaratorId = VariableInitializer ;
 
 VariableDeclaratorId:
   Identifier
@@ -148,6 +137,7 @@ VariableDeclaratorId:
 VariableInitializer:
   Expression
   ArrayInitializer
+
 MethodDeclaration:
   MethodHeader MethodBody
 
@@ -190,6 +180,7 @@ ConstructorBody:
 ExplicitConstructorInvocation:
   this ( _ArgumentList_ ) ;
   super ( _ArgumentList_ ) ;
+
 InterfaceDeclaration:
   _Modifiers_ interface Identifier _ExtendsInterfaces_ InterfaceBody
 
@@ -205,20 +196,18 @@ InterfaceMemberDeclarations:
   InterfaceMemberDeclarations InterfaceMemberDeclaration
 
 InterfaceMemberDeclaration:
-  ConstantDeclaration
   AbstractMethodDeclaration
-
-ConstantDeclaration:
-  FieldDeclaration
 
 AbstractMethodDeclaration:
   MethodHeader ;
+
 ArrayInitializer:
   { _VariableInitializers_ _,_ }
 
 VariableInitializers:
   VariableInitializer
   VariableInitializers , VariableInitializer
+
 Block:
   { _BlockStatements_ }
 
@@ -284,6 +273,7 @@ StatementExpression:
   PostDecrementExpression
   MethodInvocation
   ClassInstanceCreationExpression
+
 IfThenStatement:
   if ( Expression ) Statement
 

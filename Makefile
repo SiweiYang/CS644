@@ -1,6 +1,6 @@
 
-src/res/joos1w.lr1: lib/jlalr/Jlr1.class lib/joos1w.bnf
-	cd lib; ./simplify.rb joos1w.bnf | java jlalr.Jlr1 > ../src/res/joos1w.lr1
+src/res/joos1w.lr1: tools/jlalr/Jlr1.class tools/joos1w.bnf
+	cd tools; ./simplify.rb joos1w.bnf | java jlalr.Jlr1 > ../src/res/joos1w.lr1
 
-lib/jlalr/Jlr1.class: lib/jlalr/Jlalr1.java
-	javac lib/jlalr/Jlalr1.java
+tools/jlalr/Jlr1.class: tools/jlalr/Jlalr1.java
+	javac tools/jlalr/Jlalr1.java
