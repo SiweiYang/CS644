@@ -2,11 +2,11 @@ CompilationUnit:
   |PackageDeclaration| |ImportDeclarations| |TypeDeclaration|
 
 Literal:
-  IntegerLiteral
-  BooleanLiteral
-  CharacterLiteral
-  StringLiteral
-  NullLiteral
+  LITERAL_INT
+  LITERAL_BOOL
+  LITERAL_CHAR
+  LITERAL_STRING
+  LITERAL_NULL
 
 Type:
   PrimitiveType
@@ -14,13 +14,13 @@ Type:
 
 PrimitiveType:
   IntegralType
-  boolean
+  BOOLEAN
 
 IntegralType:
-  byte
-  short
-  int
-  char
+  BYTE
+  SHORT
+  INT
+  CHAR
 
 ReferenceType:
   ClassOrInterfaceType
@@ -44,27 +44,27 @@ Name:
   QualifiedName
 
 SimpleName:
-  Identifier
+  IDENTIFIER
 
 QualifiedName:
-  Name . Identifier
+  Name . IDENTIFIER
 
 ImportDeclarations:
   ImportDeclaration
   ImportDeclarations ImportDeclaration
 
 PackageDeclaration:
-  package Name ;
+  PACKGE Name ;
 
 ImportDeclaration:
   SingleTypeImportDeclaration
   TypeImportOnDemandDeclaration
 
 SingleTypeImportDeclaration:
-  import Name ;
+  IMPORT Name ;
 
 TypeImportOnDemandDeclaration:
-  import Name . * ;
+  IMPORT Name . * ;
 
 TypeDeclaration:
   ClassDeclaration
@@ -76,13 +76,13 @@ Modifiers:
   Modifiers MODIFIER
 
 ClassDeclaration:
-  |Modifiers| class Identifier |Super| |Interfaces| ClassBody
+  |Modifiers| CLASS IDENTIFIER |Super| |Interfaces| ClassBody
 
 Super:
-  extends ClassType
+  EXTENDS ClassType
 
 Interfaces:
-  implements InterfaceTypeList
+  IMPLEMENTS InterfaceTypeList
 
 InterfaceTypeList:
   InterfaceType
@@ -108,27 +108,27 @@ FieldDeclaration:
   |Modifiers| Type VariableDeclarator ;
 
 VariableDeclarator:
-  Identifier = Expression
+  IDENTIFIER OPERATOR_ASSIGN Expression
 
 MethodDeclaration:
   MethodHeader MethodBody
 
 MethodHeader:
   |Modifiers| Type MethodDeclarator |Throws|
-  |Modifiers| void MethodDeclarator |Throws|
+  |Modifiers| VOID MethodDeclarator |Throws|
 
 MethodDeclarator:
-  Identifier ( |FormalParameterList| )
+  IDENTIFIER ( |FormalParameterList| )
 
 FormalParameterList:
   FormalParameter
   FormalParameterList , FormalParameter
 
 FormalParameter:
-  Type Identifier
+  Type IDENTIFIER
 
 Throws:
-  throws ClassTypeList
+  THROWS ClassTypeList
 
 ClassTypeList:
   ClassType
@@ -138,7 +138,7 @@ MethodBody:
   Block
   ;
 StaticInitializer:
-  static Block
+  STATIC Block
 
 ConstructorDeclaration:
   |Modifiers| ConstructorDeclarator |Throws| ConstructorBody
@@ -150,13 +150,13 @@ ConstructorBody:
   { |ExplicitConstructorInvocation| |BlockStatements| }
 
 ExplicitConstructorInvocation:
-  this ( |ArgumentList| ) ;
+  THIS ( |ArgumentList| ) ;
 
 InterfaceDeclaration:
-  |Modifiers| interface Identifier |ExtendsInterfaces| InterfaceBody
+  |Modifiers| INTERFACE IDENTIFIER |ExtendsInterfaces| InterfaceBody
 
 ExtendsInterfaces:
-  extends InterfaceType
+  EXTENDS InterfaceType
   ExtendsInterfaces , InterfaceType
 
 InterfaceBody:
@@ -220,28 +220,28 @@ StatementExpression:
   ClassInstanceCreationExpression
 
 IfThenStatement:
-  if ( Expression ) Statement
+  IF ( Expression ) Statement
 
 IfThenElseStatement:
-  if ( Expression ) StatementNoShortIf else Statement
+  IF ( Expression ) StatementNoShortIf ELSE Statement
 
 IfThenElseStatementNoShortIf:
-  if ( Expression ) StatementNoShortIf else StatementNoShortIf
+  IF ( Expression ) StatementNoShortIf ELSE StatementNoShortIf
 
 WhileStatement:
-  while ( Expression ) Statement
+  WHILE ( Expression ) Statement
 
 WhileStatementNoShortIf:
-  while ( Expression ) StatementNoShortIf
+  WHILE ( Expression ) StatementNoShortIf
 
 ForStatement:
-  for ( |LocalVariableDeclaration| ; |Expression| ; |StatementExpression| ) Statement
+  FOR ( |LocalVariableDeclaration| ; |Expression| ; |StatementExpression| ) Statement
 
 ForStatementNoShortIf:
-  for ( |LocalVariableDeclaration| ; |Expression| ; |StatementExpression| ) StatementNoShortIf
+  FOR ( |LocalVariableDeclaration| ; |Expression| ; |StatementExpression| ) StatementNoShortIf
 
 ReturnStatement:
-  return |Expression| ;
+  RETURN |Expression| ;
 
 Primary:
   PrimaryNoNewArray
@@ -249,7 +249,7 @@ Primary:
 
 PrimaryNoNewArray:
   Literal
-  this
+  THIS
   ( Expression )
   ClassInstanceCreationExpression
   FieldAccess
@@ -257,15 +257,15 @@ PrimaryNoNewArray:
   ArrayAccess
 
 ClassInstanceCreationExpression:
-  new ClassType ( |ArgumentList| )
+  NEW ClassType ( |ArgumentList| )
 
 ArgumentList:
   Expression
   ArgumentList , Expression
 
 ArrayCreationExpression:
-  new PrimitiveType DimExprs |Dims|
-  new ClassOrInterfaceType DimExprs |Dims|
+  NEW PrimitiveType DimExprs |Dims|
+  NEW ClassOrInterfaceType DimExprs |Dims|
 
 DimExprs:
   DimExpr
@@ -279,11 +279,11 @@ Dims:
   Dims [ ]
 
 FieldAccess:
-  Primary . Identifier
+  Primary . IDENTIFIER
 
 MethodInvocation:
   Name ( |ArgumentList| )
-  Primary . Identifier ( |ArgumentList| )
+  Primary . IDENTIFIER ( |ArgumentList| )
 
 ArrayAccess:
   Name [ Expression ]
@@ -299,8 +299,7 @@ UnaryExpression:
 
 UnaryExpressionNotPlusMinus:
   PostfixExpression
-  ~ UnaryExpression
-  ! UnaryExpression
+  NOT UnaryExpression
   CastExpression
 
 CastExpression:
@@ -319,7 +318,7 @@ AdditiveExpression:
 RelationalExpression:
   AdditiveExpression
   RelationalExpression OPERATOR_COMPARE AdditiveExpression
-  RelationalExpression instanceof ReferenceType
+  RelationalExpression INSTANCEOF ReferenceType
 
 EqualityExpression:
   RelationalExpression

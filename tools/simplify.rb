@@ -3,6 +3,21 @@ require 'set'
 
 OPTIONAL_REGEX = / \|.*?\|/
 
+PUNCTUATION_SUBSTITUTIONS = {
+  '(' => 'LPAREN',
+  ')' => 'RPAREN',
+  '{' => 'LBRACE',
+  '}' => 'RBRACE',
+  '[' => 'LBRACK',
+  ']' => 'RBRACK',
+  '.' => 'DOT',
+  ';' => 'SEMI',
+  '*' => 'STAR',
+  ',' => 'COMMA',
+  '=' => 'EQUAL',
+  '-' => 'MINUS'
+}
+
 def expand(rule)
   return [rule].flatten unless rule =~ OPTIONAL_REGEX
 
@@ -24,6 +39,10 @@ def main
   productionRules = Hash.new {|this, key| this[key] = [] }
 
   lines.each do |line|
+    PUNCTUATION_SUBSTITUTIONS.each do |initial, result|
+      line.gsub!(initial, result)
+    end
+
     if line[0] != ' '
       currentRule = line[0..-2]
 
