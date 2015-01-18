@@ -1,9 +1,8 @@
 CompilationUnit:
-  _PackageDeclaration_ _ImportDeclarations_ _TypeDeclaration_
+  |PackageDeclaration| |ImportDeclarations| |TypeDeclaration|
 
 Literal:
   IntegerLiteral
-  FloatingPointLiteral
   BooleanLiteral
   CharacterLiteral
   StringLiteral
@@ -14,23 +13,14 @@ Type:
   ReferenceType
 
 PrimitiveType:
-  NumericType
-  boolean
-
-NumericType:
   IntegralType
-  FloatingPointType
+  boolean
 
 IntegralType:
   byte
   short
   int
-  long
   char
-
-FloatingPointType:
-  float
-  double
 
 ReferenceType:
   ClassOrInterfaceType
@@ -48,7 +38,6 @@ InterfaceType:
 ArrayType:
   PrimitiveType [ ]
   Name [ ]
-  ArrayType [ ]
 
 Name:
   SimpleName
@@ -83,23 +72,11 @@ TypeDeclaration:
   ;
 
 Modifiers:
-  Modifier
-  Modifiers Modifier
-
-Modifier:
-  public
-  protected
-  private
-  static
-  abstract
-  final
-  native
-  synchronized
-  transient
-  volatile
+  MODIFIER
+  Modifiers MODIFIER
 
 ClassDeclaration:
-  _Modifiers_ class Identifier _Super_ _Interfaces_ ClassBody
+  |Modifiers| class Identifier |Super| |Interfaces| ClassBody
 
 Super:
   extends ClassType
@@ -112,7 +89,7 @@ InterfaceTypeList:
   InterfaceTypeList , InterfaceType
 
 ClassBody:
-  { _ClassBodyDeclarations_ }
+  { |ClassBodyDeclarations| }
 
 ClassBodyDeclarations:
   ClassBodyDeclaration
@@ -128,33 +105,27 @@ ClassMemberDeclaration:
   MethodDeclaration
 
 FieldDeclaration:
-  _Modifiers_ Type VariableDeclaratorId = VariableInitializer ;
+  |Modifiers| Type VariableDeclarator ;
 
-VariableDeclaratorId:
-  Identifier
-  VariableDeclaratorId [ ]
-
-VariableInitializer:
-  Expression
-  ArrayInitializer
+VariableDeclarator:
+  Identifier = Expression
 
 MethodDeclaration:
   MethodHeader MethodBody
 
 MethodHeader:
-  _Modifiers_ Type MethodDeclarator _Throws_
-  _Modifiers_ void MethodDeclarator _Throws_
+  |Modifiers| Type MethodDeclarator |Throws|
+  |Modifiers| void MethodDeclarator |Throws|
 
 MethodDeclarator:
-  Identifier ( _FormalParameterList_ )
-  MethodDeclarator [ ]
+  Identifier ( |FormalParameterList| )
 
 FormalParameterList:
   FormalParameter
   FormalParameterList , FormalParameter
 
 FormalParameter:
-  Type VariableDeclaratorId
+  Type Identifier
 
 Throws:
   throws ClassTypeList
@@ -168,28 +139,28 @@ MethodBody:
   ;
 StaticInitializer:
   static Block
+
 ConstructorDeclaration:
-  _Modifiers_ ConstructorDeclarator Throwsopt ConstructorBody
+  |Modifiers| ConstructorDeclarator |Throws| ConstructorBody
 
 ConstructorDeclarator:
-  SimpleName ( _FormalParameterList_ )
+  SimpleName ( |FormalParameterList| )
 
 ConstructorBody:
-  { _ExplicitConstructorInvocation_ _BlockStatements_ }
+  { |ExplicitConstructorInvocation| |BlockStatements| }
 
 ExplicitConstructorInvocation:
-  this ( _ArgumentList_ ) ;
-  super ( _ArgumentList_ ) ;
+  this ( |ArgumentList| ) ;
 
 InterfaceDeclaration:
-  _Modifiers_ interface Identifier _ExtendsInterfaces_ InterfaceBody
+  |Modifiers| interface Identifier |ExtendsInterfaces| InterfaceBody
 
 ExtendsInterfaces:
   extends InterfaceType
   ExtendsInterfaces , InterfaceType
 
 InterfaceBody:
-  { _InterfaceMemberDeclarations_ }
+  { |InterfaceMemberDeclarations| }
 
 InterfaceMemberDeclarations:
   InterfaceMemberDeclaration
@@ -201,15 +172,8 @@ InterfaceMemberDeclaration:
 AbstractMethodDeclaration:
   MethodHeader ;
 
-ArrayInitializer:
-  { _VariableInitializers_ _,_ }
-
-VariableInitializers:
-  VariableInitializer
-  VariableInitializers , VariableInitializer
-
 Block:
-  { _BlockStatements_ }
+  { |BlockStatements| }
 
 BlockStatements:
   BlockStatement
@@ -223,11 +187,10 @@ LocalVariableDeclarationStatement:
   LocalVariableDeclaration ;
 
 LocalVariableDeclaration:
-  Type VariableDeclarators
+  Type VariableDeclarator
 
 Statement:
   StatementWithoutTrailingSubstatement
-  LabeledStatement
   IfThenStatement
   IfThenElseStatement
   WhileStatement
@@ -235,7 +198,6 @@ Statement:
 
 StatementNoShortIf:
   StatementWithoutTrailingSubstatement
-  LabeledStatementNoShortIf
   IfThenElseStatementNoShortIf
   WhileStatementNoShortIf
   ForStatementNoShortIf
@@ -244,33 +206,16 @@ StatementWithoutTrailingSubstatement:
   Block
   EmptyStatement
   ExpressionStatement
-  SwitchStatement
-  DoStatement
-  BreakStatement
-  ContinueStatement
   ReturnStatement
-  SynchronizedStatement
-  ThrowStatement
-  TryStatement
 
 EmptyStatement:
   ;
-
-LabeledStatement:
-  Identifier : Statement
-
-LabeledStatementNoShortIf:
-  Identifier : StatementNoShortIf
 
 ExpressionStatement:
   StatementExpression ;
 
 StatementExpression:
   Assignment
-  PreIncrementExpression
-  PreDecrementExpression
-  PostIncrementExpression
-  PostDecrementExpression
   MethodInvocation
   ClassInstanceCreationExpression
 
@@ -283,81 +228,20 @@ IfThenElseStatement:
 IfThenElseStatementNoShortIf:
   if ( Expression ) StatementNoShortIf else StatementNoShortIf
 
-SwitchStatement:
-  switch ( Expression ) SwitchBlock
-
-SwitchBlock:
-  { _SwitchBlockStatementGroups_ _SwitchLabels_ }
-
-SwitchBlockStatementGroups:
-  SwitchBlockStatementGroup
-  SwitchBlockStatementGroups SwitchBlockStatementGroup
-
-SwitchBlockStatementGroup:
-  SwitchLabels BlockStatements
-
-SwitchLabels:
-  SwitchLabel
-  SwitchLabels SwitchLabel
-
-SwitchLabel:
-  case ConstantExpression :
-  default :
-
 WhileStatement:
   while ( Expression ) Statement
 
 WhileStatementNoShortIf:
   while ( Expression ) StatementNoShortIf
 
-DoStatement:
-  do Statement while ( Expression ) ;
-
 ForStatement:
-  for ( _ForInit_ ; _Expression_ ; _ForUpdate_ ) Statement
+  for ( |LocalVariableDeclaration| ; |Expression| ; |StatementExpression| ) Statement
 
 ForStatementNoShortIf:
-  for ( _ForInit_ ; _Expression_ ; _ForUpdate_ ) StatementNoShortIf
-
-ForInit:
-  StatementExpressionList
-  LocalVariableDeclaration
-
-ForUpdate:
-  StatementExpressionList
-
-StatementExpressionList:
-  StatementExpression
-  StatementExpressionList , StatementExpression
-
-BreakStatement:
-  break _Identifier_ ;
-
-ContinueStatement:
-  continue _Identifier_ ;
+  for ( |LocalVariableDeclaration| ; |Expression| ; |StatementExpression| ) StatementNoShortIf
 
 ReturnStatement:
-  return _Expression_ ;
-
-ThrowStatement:
-  throw Expression ;
-
-SynchronizedStatement:
-  synchronized ( Expression ) Block
-
-TryStatement:
-  try Block Catches
-  try Block _Catches_ Finally
-
-Catches:
-  CatchClause
-  Catches CatchClause
-
-CatchClause:
-  catch ( FormalParameter ) Block
-
-Finally:
-  finally Block
+  return |Expression| ;
 
 Primary:
   PrimaryNoNewArray
@@ -373,15 +257,15 @@ PrimaryNoNewArray:
   ArrayAccess
 
 ClassInstanceCreationExpression:
-  new ClassType ( _ArgumentList_ )
+  new ClassType ( |ArgumentList| )
 
 ArgumentList:
   Expression
   ArgumentList , Expression
 
 ArrayCreationExpression:
-  new PrimitiveType DimExprs _Dims_
-  new ClassOrInterfaceType DimExprs _Dims_
+  new PrimitiveType DimExprs |Dims|
+  new ClassOrInterfaceType DimExprs |Dims|
 
 DimExprs:
   DimExpr
@@ -396,12 +280,10 @@ Dims:
 
 FieldAccess:
   Primary . Identifier
-  super . Identifier
 
 MethodInvocation:
-  Name ( _ArgumentList_ )
-  Primary . Identifier ( _ArgumentList_ )
-  super . Identifier ( _ArgumentList_ )
+  Name ( |ArgumentList| )
+  Primary . Identifier ( |ArgumentList| )
 
 ArrayAccess:
   Name [ Expression ]
@@ -410,27 +292,10 @@ ArrayAccess:
 PostfixExpression:
   Primary
   Name
-  PostIncrementExpression
-  PostDecrementExpression
-
-PostIncrementExpression:
-  PostfixExpression ++
-
-PostDecrementExpression:
-  PostfixExpression --
 
 UnaryExpression:
-  PreIncrementExpression
-  PreDecrementExpression
-  + UnaryExpression
   - UnaryExpression
   UnaryExpressionNotPlusMinus
-
-PreIncrementExpression:
-  ++ UnaryExpression
-
-PreDecrementExpression:
-  -- UnaryExpression
 
 UnaryExpressionNotPlusMinus:
   PostfixExpression
@@ -439,59 +304,34 @@ UnaryExpressionNotPlusMinus:
   CastExpression
 
 CastExpression:
-  ( PrimitiveType _Dims_ ) UnaryExpression
+  ( PrimitiveType |Dims| ) UnaryExpression
   ( Expression ) UnaryExpressionNotPlusMinus
   ( Name Dims ) UnaryExpressionNotPlusMinus
 
 MultiplicativeExpression:
   UnaryExpression
-  MultiplicativeExpression * UnaryExpression
-  MultiplicativeExpression / UnaryExpression
-  MultiplicativeExpression % UnaryExpression
+  MultiplicativeExpression OPERATOR_MULTIPLICATIVE UnaryExpression
 
 AdditiveExpression:
   MultiplicativeExpression
-  AdditiveExpression + MultiplicativeExpression
-  AdditiveExpression - MultiplicativeExpression
-
-ShiftExpression:
-  AdditiveExpression
-  ShiftExpression << AdditiveExpression
-  ShiftExpression >> AdditiveExpression
-  ShiftExpression >>> AdditiveExpression
+  AdditiveExpression OPERATOR_ADDITIVE MultiplicativeExpression
 
 RelationalExpression:
-  ShiftExpression
-  RelationalExpression < ShiftExpression
-  RelationalExpression > ShiftExpression
-  RelationalExpression <= ShiftExpression
-  RelationalExpression >= ShiftExpression
+  AdditiveExpression
+  RelationalExpression OPERATOR_COMPARE AdditiveExpression
   RelationalExpression instanceof ReferenceType
 
 EqualityExpression:
   RelationalExpression
-  EqualityExpression == RelationalExpression
-  EqualityExpression != RelationalExpression
-
-AndExpression:
-  EqualityExpression
-  AndExpression & EqualityExpression
-
-ExclusiveOrExpression:
-  AndExpression
-  ExclusiveOrExpression ^ AndExpression
-
-InclusiveOrExpression:
-  ExclusiveOrExpression
-  InclusiveOrExpression | ExclusiveOrExpression
+  EqualityExpression OPERATOR_EQUALITY RelationalExpression
 
 ConditionalAndExpression:
-  InclusiveOrExpression
-  ConditionalAndExpression && InclusiveOrExpression
+  EqualityExpression
+  ConditionalAndExpression OPERATOR_AND EqualityExpression
 
 ConditionalOrExpression:
   ConditionalAndExpression
-  ConditionalOrExpression || ConditionalAndExpression
+  ConditionalOrExpression OPERATOR_OR ConditionalAndExpression
 
 ConditionalExpression:
   ConditionalOrExpression
@@ -501,29 +341,12 @@ AssignmentExpression:
   Assignment
 
 Assignment:
-  LeftHandSide AssignmentOperator AssignmentExpression
+  LeftHandSide OPERATOR_ASSIGN AssignmentExpression
 
 LeftHandSide:
   Name
   FieldAccess
   ArrayAccess
 
-AssignmentOperator:
-  =
-  *=
-  /=
-  %=
-  +=
-  -=
-  <<=
-  >>=
-  >>>=
-  &=
-  ^=
-  |=
-
 Expression:
   AssignmentExpression
-
-ConstantExpression:
-  Expression

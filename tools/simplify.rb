@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 require 'set'
 
-OPTIONAL_REGEX = / _.*?_/
+OPTIONAL_REGEX = / \|.*?\|/
 
 def expand(rule)
   return [rule].flatten unless rule =~ OPTIONAL_REGEX
@@ -35,7 +35,7 @@ def main
       nonTerminals.add(currentRule)
       terminals.delete(currentRule)
     else
-      newTerminals = line.gsub('_','').split(' ').reject{|token| nonTerminals.include? token}
+      newTerminals = line.gsub('|','').split(' ').reject{|token| nonTerminals.include? token}
       terminals.merge newTerminals
       rules = expand(line).map{|rule| ' ' + rule.strip}
       productionRules[currentRule].concat rules
