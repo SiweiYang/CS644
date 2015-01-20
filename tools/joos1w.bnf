@@ -14,13 +14,13 @@ Type:
 
 PrimitiveType:
   IntegralType
-  BOOLEAN
+  KEYWORD_BOOLEAN
 
 IntegralType:
-  BYTE
-  SHORT
-  INT
-  CHAR
+  KEYWORD_BYTE
+  KEYWORD_SHORT
+  KEYWORD_INT
+  KEYWORD_CHAR
 
 ReferenceType:
   ClassOrInterfaceType
@@ -54,17 +54,17 @@ ImportDeclarations:
   ImportDeclarations ImportDeclaration
 
 PackageDeclaration:
-  PACKGE Name ;
+  KEYWORD_PACKGE Name ;
 
 ImportDeclaration:
   SingleTypeImportDeclaration
   TypeImportOnDemandDeclaration
 
 SingleTypeImportDeclaration:
-  IMPORT Name ;
+  KEYWORD_IMPORT Name ;
 
 TypeImportOnDemandDeclaration:
-  IMPORT Name . * ;
+  KEYWORD_IMPORT Name . OPERATOR_STAR ;
 
 TypeDeclaration:
   ClassDeclaration
@@ -72,17 +72,17 @@ TypeDeclaration:
   ;
 
 Modifiers:
-  MODIFIER
-  Modifiers MODIFIER
+  KEYWORD_MODIFIER
+  Modifiers KEYWORD_MODIFIER
 
 ClassDeclaration:
-  |Modifiers| CLASS IDENTIFIER |Super| |Interfaces| ClassBody
+  |Modifiers| KEYWORD_CLASS IDENTIFIER |Super| |Interfaces| ClassBody
 
 Super:
-  EXTENDS ClassType
+  KEYWORD_EXTENDS ClassType
 
 Interfaces:
-  IMPLEMENTS InterfaceTypeList
+  KEYWORD_IMPLEMENTS InterfaceTypeList
 
 InterfaceTypeList:
   InterfaceType
@@ -115,7 +115,7 @@ MethodDeclaration:
 
 MethodHeader:
   |Modifiers| Type MethodDeclarator |Throws|
-  |Modifiers| VOID MethodDeclarator |Throws|
+  |Modifiers| KEYWORD_VOID MethodDeclarator |Throws|
 
 MethodDeclarator:
   IDENTIFIER ( |FormalParameterList| )
@@ -128,7 +128,7 @@ FormalParameter:
   Type IDENTIFIER
 
 Throws:
-  THROWS ClassTypeList
+  KEYWORD_THROWS ClassTypeList
 
 ClassTypeList:
   ClassType
@@ -138,7 +138,7 @@ MethodBody:
   Block
   ;
 StaticInitializer:
-  STATIC Block
+  KEYWORD_STATIC Block
 
 ConstructorDeclaration:
   |Modifiers| ConstructorDeclarator |Throws| ConstructorBody
@@ -150,13 +150,13 @@ ConstructorBody:
   { |ExplicitConstructorInvocation| |BlockStatements| }
 
 ExplicitConstructorInvocation:
-  THIS ( |ArgumentList| ) ;
+  KEYWORD_THIS ( |ArgumentList| ) ;
 
 InterfaceDeclaration:
-  |Modifiers| INTERFACE IDENTIFIER |ExtendsInterfaces| InterfaceBody
+  |Modifiers| KEYWORD_INTERFACE IDENTIFIER |ExtendsInterfaces| InterfaceBody
 
 ExtendsInterfaces:
-  EXTENDS InterfaceType
+  KEYWORD_EXTENDS InterfaceType
   ExtendsInterfaces , InterfaceType
 
 InterfaceBody:
@@ -220,28 +220,28 @@ StatementExpression:
   ClassInstanceCreationExpression
 
 IfThenStatement:
-  IF ( Expression ) Statement
+  KEYWORD_IF ( Expression ) Statement
 
 IfThenElseStatement:
-  IF ( Expression ) StatementNoShortIf ELSE Statement
+  KEYWORD_IF ( Expression ) StatementNoShortIf ELSE Statement
 
 IfThenElseStatementNoShortIf:
-  IF ( Expression ) StatementNoShortIf ELSE StatementNoShortIf
+  KEYWORD_IF ( Expression ) StatementNoShortIf ELSE StatementNoShortIf
 
 WhileStatement:
-  WHILE ( Expression ) Statement
+  KEYWORD_WHILE ( Expression ) Statement
 
 WhileStatementNoShortIf:
-  WHILE ( Expression ) StatementNoShortIf
+  KEYWORD_WHILE ( Expression ) StatementNoShortIf
 
 ForStatement:
-  FOR ( |LocalVariableDeclaration| ; |Expression| ; |StatementExpression| ) Statement
+  KEYWORD_FOR ( |LocalVariableDeclaration| ; |Expression| ; |StatementExpression| ) Statement
 
 ForStatementNoShortIf:
-  FOR ( |LocalVariableDeclaration| ; |Expression| ; |StatementExpression| ) StatementNoShortIf
+  KEYWORD_FOR ( |LocalVariableDeclaration| ; |Expression| ; |StatementExpression| ) StatementNoShortIf
 
 ReturnStatement:
-  RETURN |Expression| ;
+  KEYWORD_RETURN |Expression| ;
 
 Primary:
   PrimaryNoNewArray
@@ -249,7 +249,7 @@ Primary:
 
 PrimaryNoNewArray:
   Literal
-  THIS
+  KEYWORD_THIS
   ( Expression )
   ClassInstanceCreationExpression
   FieldAccess
@@ -257,15 +257,15 @@ PrimaryNoNewArray:
   ArrayAccess
 
 ClassInstanceCreationExpression:
-  NEW ClassType ( |ArgumentList| )
+  KEYWORD_NEW ClassType ( |ArgumentList| )
 
 ArgumentList:
   Expression
   ArgumentList , Expression
 
 ArrayCreationExpression:
-  NEW PrimitiveType DimExprs |Dims|
-  NEW ClassOrInterfaceType DimExprs |Dims|
+  KEYWORD_NEW PrimitiveType DimExprs |Dims|
+  KEYWORD_NEW ClassOrInterfaceType DimExprs |Dims|
 
 DimExprs:
   DimExpr
@@ -294,12 +294,12 @@ PostfixExpression:
   Name
 
 UnaryExpression:
-  - UnaryExpression
+  OPERATOR_MINUS UnaryExpression
   UnaryExpressionNotPlusMinus
 
 UnaryExpressionNotPlusMinus:
   PostfixExpression
-  NOT UnaryExpression
+  OPERATOR_NOT UnaryExpression
   CastExpression
 
 CastExpression:
@@ -318,7 +318,7 @@ AdditiveExpression:
 RelationalExpression:
   AdditiveExpression
   RelationalExpression OPERATOR_COMPARE AdditiveExpression
-  RelationalExpression INSTANCEOF ReferenceType
+  RelationalExpression KEYWORD_INSTANCEOF ReferenceType
 
 EqualityExpression:
   RelationalExpression
