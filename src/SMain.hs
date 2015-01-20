@@ -3,6 +3,7 @@ module Main where
 import Lexical
 import Scanner
 
+import Data.List
 import Data.Maybe
 import Data.Char(readLitChar)
 import Text.ParserCombinators.ReadP(eof, many, ReadP, readS_to_P, readP_to_S)
@@ -47,6 +48,13 @@ testVFiles = do
     contents <- mapM readFile files
     return (zip contents files)
 
+testSingleFile :: IO (String, String)
+testSingleFile = do
+    --let file = "../assignment_testcases/a1/J1_1_Cast_MultipleCastOfSameValue_1.java"
+    let file = "../assignment_testcases/a1/Je_1_Escapes_1DigitOctal_1.java"
+    content <- readFile file
+    return (content, file)
+
 printList :: Show a => [a] -> IO()
 printList [] = return ()
 printList (x:ls) = do
@@ -70,24 +78,32 @@ scannerRunner ln col (fc, fn) = do
     then return [(Token FAILURE (head (splitOneOf "\n" fc)), TI fn ln col)]
     else do
         let Just tk = m
-        let multiline = if (elem '\n' (lexeme tk)) then splitOneOf "\n" (lexeme tk) else []
-        let nextLn = ln + (length multiline)
-        let nextCol = if multiline == [] then col + (length (lexeme tk)) else (length (last multiline))
+        --let multiline = if (elem '\n' (lexeme tk)) then splitOneOf "\n" (lexeme tk) else []
+        let nextLn = ln + length (filter (\x -> x == '\n') (lexeme tk))
+        let nextCol = foldl (\acc x -> if (x == '\n') then 0 else acc + 1) col (lexeme tk)
+        --putStrLn (show nextLn)
         rst <- scannerRunner nextLn nextCol ((drop (length (lexeme tk)) fc), fn)
         return ((tk, TI fn ln col):rst)
 
 -----------------------------------------------------------------------------------------------------------------------------
 main :: IO()
 main = do
-    pairs <- testTokens
-    efiles <- testEFiles
-    vfiles <- testVFiles
-    fileResults <- mapM (scannerRunner 1 1) vfiles
-    let res = map (\items -> filter (\(tk, fn) -> elem (tokenType tk) [FAILURE]) items) fileResults
+    --pairs <- testTokens
+    --efiles <- testEFiles
+    --vfiles <- testVFiles
+    --fileResults <- mapM (scannerRunner 0 0) vfiles
+    --let res = map (\items -> filter (\(tk, fn) -> elem (tokenType tk) [FAILURE]) items) fileResults
     --putStrLn (show res)
+
+    singlefile <- testSingleFile
+    fileResults <- (scannerRunner 0 0) singlefile
+    let res = map (\(tk, tkinfo) -> (tk, ln tkinfo, col tkinfo)) fileResults
+    putStrLn (foldl (\acc t -> acc ++ (show t) ++ "\n") "" res)
+    --let res = map (\items -> filter (\(tk, fn) -> elem (tokenType tk) [FAILURE]) items) fileResults
+    --printList (zip (map snd singlefile) res)
     
-    fileResults <- mapM (scannerRunner 1 1) efiles
-    let res = map (\items -> filter (\(tk, fn) -> elem (tokenType tk) [FAILURE]) items) fileResults
-    printList (zip (map snd efiles) res)
+    --fileResults <- mapM (scannerRunner 0 0) efiles
+    --let res = map (\items -> filter (\(tk, fn) -> elem (tokenType tk) [FAILURE]) items) fileResults
+    --printList (zip (map snd efiles) res)
     --lexerRunner pairs
     --putStrLn (show pairs)
