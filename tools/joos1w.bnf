@@ -1,0 +1,351 @@
+CompilationUnit:
+  |PackageDeclaration| |ImportDeclarations| |TypeDeclaration|
+
+Literal:
+  LITERAL_INT
+  LITERAL_BOOL
+  LITERAL_CHAR
+  LITERAL_STRING
+  LITERAL_NULL
+
+Type:
+  PrimitiveType
+  ReferenceType
+
+PrimitiveType:
+  IntegralType
+  BOOLEAN
+
+IntegralType:
+  BYTE
+  SHORT
+  INT
+  CHAR
+
+ReferenceType:
+  ClassOrInterfaceType
+  ArrayType
+
+ClassOrInterfaceType:
+  Name
+
+ClassType:
+  ClassOrInterfaceType
+
+InterfaceType:
+  ClassOrInterfaceType
+
+ArrayType:
+  PrimitiveType [ ]
+  Name [ ]
+
+Name:
+  SimpleName
+  QualifiedName
+
+SimpleName:
+  IDENTIFIER
+
+QualifiedName:
+  Name . IDENTIFIER
+
+ImportDeclarations:
+  ImportDeclaration
+  ImportDeclarations ImportDeclaration
+
+PackageDeclaration:
+  PACKGE Name ;
+
+ImportDeclaration:
+  SingleTypeImportDeclaration
+  TypeImportOnDemandDeclaration
+
+SingleTypeImportDeclaration:
+  IMPORT Name ;
+
+TypeImportOnDemandDeclaration:
+  IMPORT Name . * ;
+
+TypeDeclaration:
+  ClassDeclaration
+  InterfaceDeclaration
+  ;
+
+Modifiers:
+  MODIFIER
+  Modifiers MODIFIER
+
+ClassDeclaration:
+  |Modifiers| CLASS IDENTIFIER |Super| |Interfaces| ClassBody
+
+Super:
+  EXTENDS ClassType
+
+Interfaces:
+  IMPLEMENTS InterfaceTypeList
+
+InterfaceTypeList:
+  InterfaceType
+  InterfaceTypeList , InterfaceType
+
+ClassBody:
+  { |ClassBodyDeclarations| }
+
+ClassBodyDeclarations:
+  ClassBodyDeclaration
+  ClassBodyDeclarations ClassBodyDeclaration
+
+ClassBodyDeclaration:
+  ClassMemberDeclaration
+  StaticInitializer
+  ConstructorDeclaration
+
+ClassMemberDeclaration:
+  FieldDeclaration
+  MethodDeclaration
+
+FieldDeclaration:
+  |Modifiers| Type VariableDeclarator ;
+
+VariableDeclarator:
+  IDENTIFIER OPERATOR_ASSIGN Expression
+
+MethodDeclaration:
+  MethodHeader MethodBody
+
+MethodHeader:
+  |Modifiers| Type MethodDeclarator |Throws|
+  |Modifiers| VOID MethodDeclarator |Throws|
+
+MethodDeclarator:
+  IDENTIFIER ( |FormalParameterList| )
+
+FormalParameterList:
+  FormalParameter
+  FormalParameterList , FormalParameter
+
+FormalParameter:
+  Type IDENTIFIER
+
+Throws:
+  THROWS ClassTypeList
+
+ClassTypeList:
+  ClassType
+  ClassTypeList , ClassType
+
+MethodBody:
+  Block
+  ;
+StaticInitializer:
+  STATIC Block
+
+ConstructorDeclaration:
+  |Modifiers| ConstructorDeclarator |Throws| ConstructorBody
+
+ConstructorDeclarator:
+  SimpleName ( |FormalParameterList| )
+
+ConstructorBody:
+  { |ExplicitConstructorInvocation| |BlockStatements| }
+
+ExplicitConstructorInvocation:
+  THIS ( |ArgumentList| ) ;
+
+InterfaceDeclaration:
+  |Modifiers| INTERFACE IDENTIFIER |ExtendsInterfaces| InterfaceBody
+
+ExtendsInterfaces:
+  EXTENDS InterfaceType
+  ExtendsInterfaces , InterfaceType
+
+InterfaceBody:
+  { |InterfaceMemberDeclarations| }
+
+InterfaceMemberDeclarations:
+  InterfaceMemberDeclaration
+  InterfaceMemberDeclarations InterfaceMemberDeclaration
+
+InterfaceMemberDeclaration:
+  AbstractMethodDeclaration
+
+AbstractMethodDeclaration:
+  MethodHeader ;
+
+Block:
+  { |BlockStatements| }
+
+BlockStatements:
+  BlockStatement
+  BlockStatements BlockStatement
+
+BlockStatement:
+  LocalVariableDeclarationStatement
+  Statement
+
+LocalVariableDeclarationStatement:
+  LocalVariableDeclaration ;
+
+LocalVariableDeclaration:
+  Type VariableDeclarator
+
+Statement:
+  StatementWithoutTrailingSubstatement
+  IfThenStatement
+  IfThenElseStatement
+  WhileStatement
+  ForStatement
+
+StatementNoShortIf:
+  StatementWithoutTrailingSubstatement
+  IfThenElseStatementNoShortIf
+  WhileStatementNoShortIf
+  ForStatementNoShortIf
+
+StatementWithoutTrailingSubstatement:
+  Block
+  EmptyStatement
+  ExpressionStatement
+  ReturnStatement
+
+EmptyStatement:
+  ;
+
+ExpressionStatement:
+  StatementExpression ;
+
+StatementExpression:
+  Assignment
+  MethodInvocation
+  ClassInstanceCreationExpression
+
+IfThenStatement:
+  IF ( Expression ) Statement
+
+IfThenElseStatement:
+  IF ( Expression ) StatementNoShortIf ELSE Statement
+
+IfThenElseStatementNoShortIf:
+  IF ( Expression ) StatementNoShortIf ELSE StatementNoShortIf
+
+WhileStatement:
+  WHILE ( Expression ) Statement
+
+WhileStatementNoShortIf:
+  WHILE ( Expression ) StatementNoShortIf
+
+ForStatement:
+  FOR ( |LocalVariableDeclaration| ; |Expression| ; |StatementExpression| ) Statement
+
+ForStatementNoShortIf:
+  FOR ( |LocalVariableDeclaration| ; |Expression| ; |StatementExpression| ) StatementNoShortIf
+
+ReturnStatement:
+  RETURN |Expression| ;
+
+Primary:
+  PrimaryNoNewArray
+  ArrayCreationExpression
+
+PrimaryNoNewArray:
+  Literal
+  THIS
+  ( Expression )
+  ClassInstanceCreationExpression
+  FieldAccess
+  MethodInvocation
+  ArrayAccess
+
+ClassInstanceCreationExpression:
+  NEW ClassType ( |ArgumentList| )
+
+ArgumentList:
+  Expression
+  ArgumentList , Expression
+
+ArrayCreationExpression:
+  NEW PrimitiveType DimExprs |Dims|
+  NEW ClassOrInterfaceType DimExprs |Dims|
+
+DimExprs:
+  DimExpr
+  DimExprs DimExpr
+
+DimExpr:
+  [ Expression ]
+
+Dims:
+  [ ]
+  Dims [ ]
+
+FieldAccess:
+  Primary . IDENTIFIER
+
+MethodInvocation:
+  Name ( |ArgumentList| )
+  Primary . IDENTIFIER ( |ArgumentList| )
+
+ArrayAccess:
+  Name [ Expression ]
+  PrimaryNoNewArray [ Expression ]
+
+PostfixExpression:
+  Primary
+  Name
+
+UnaryExpression:
+  - UnaryExpression
+  UnaryExpressionNotPlusMinus
+
+UnaryExpressionNotPlusMinus:
+  PostfixExpression
+  NOT UnaryExpression
+  CastExpression
+
+CastExpression:
+  ( PrimitiveType |Dims| ) UnaryExpression
+  ( Expression ) UnaryExpressionNotPlusMinus
+  ( Name Dims ) UnaryExpressionNotPlusMinus
+
+MultiplicativeExpression:
+  UnaryExpression
+  MultiplicativeExpression OPERATOR_MULTIPLICATIVE UnaryExpression
+
+AdditiveExpression:
+  MultiplicativeExpression
+  AdditiveExpression OPERATOR_ADDITIVE MultiplicativeExpression
+
+RelationalExpression:
+  AdditiveExpression
+  RelationalExpression OPERATOR_COMPARE AdditiveExpression
+  RelationalExpression INSTANCEOF ReferenceType
+
+EqualityExpression:
+  RelationalExpression
+  EqualityExpression OPERATOR_EQUALITY RelationalExpression
+
+ConditionalAndExpression:
+  EqualityExpression
+  ConditionalAndExpression OPERATOR_AND EqualityExpression
+
+ConditionalOrExpression:
+  ConditionalAndExpression
+  ConditionalOrExpression OPERATOR_OR ConditionalAndExpression
+
+ConditionalExpression:
+  ConditionalOrExpression
+
+AssignmentExpression:
+  ConditionalExpression
+  Assignment
+
+Assignment:
+  LeftHandSide OPERATOR_ASSIGN AssignmentExpression
+
+LeftHandSide:
+  Name
+  FieldAccess
+  ArrayAccess
+
+Expression:
+  AssignmentExpression
