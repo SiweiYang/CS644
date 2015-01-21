@@ -14,7 +14,6 @@ Type:
 
 PrimitiveType:
   IntegralType
-<<<<<<< HEAD
   KEYWORD_BOOLEAN
 
 IntegralType:
@@ -22,15 +21,6 @@ IntegralType:
   KEYWORD_SHORT
   KEYWORD_INT
   KEYWORD_CHAR
-=======
-  BOOLEAN
-
-IntegralType:
-  BYTE
-  SHORT
-  INT
-  CHAR
->>>>>>> master
 
 ReferenceType:
   ClassOrInterfaceType
@@ -64,28 +54,17 @@ ImportDeclarations:
   ImportDeclarations ImportDeclaration
 
 PackageDeclaration:
-<<<<<<< HEAD
   KEYWORD_PACKGE Name ;
-=======
-  PACKGE Name ;
->>>>>>> master
 
 ImportDeclaration:
   SingleTypeImportDeclaration
   TypeImportOnDemandDeclaration
 
 SingleTypeImportDeclaration:
-<<<<<<< HEAD
   KEYWORD_IMPORT Name ;
 
 TypeImportOnDemandDeclaration:
   KEYWORD_IMPORT Name . OPERATOR_STAR ;
-=======
-  IMPORT Name ;
-
-TypeImportOnDemandDeclaration:
-  IMPORT Name . * ;
->>>>>>> master
 
 TypeDeclaration:
   ClassDeclaration
@@ -93,7 +72,6 @@ TypeDeclaration:
   ;
 
 Modifiers:
-<<<<<<< HEAD
   KEYWORD_MODIFIER
   Modifiers KEYWORD_MODIFIER
 
@@ -105,19 +83,6 @@ Super:
 
 Interfaces:
   KEYWORD_IMPLEMENTS InterfaceTypeList
-=======
-  MODIFIER
-  Modifiers MODIFIER
-
-ClassDeclaration:
-  |Modifiers| CLASS IDENTIFIER |Super| |Interfaces| ClassBody
-
-Super:
-  EXTENDS ClassType
-
-Interfaces:
-  IMPLEMENTS InterfaceTypeList
->>>>>>> master
 
 InterfaceTypeList:
   InterfaceType
@@ -150,11 +115,7 @@ MethodDeclaration:
 
 MethodHeader:
   |Modifiers| Type MethodDeclarator |Throws|
-<<<<<<< HEAD
   |Modifiers| KEYWORD_VOID MethodDeclarator |Throws|
-=======
-  |Modifiers| VOID MethodDeclarator |Throws|
->>>>>>> master
 
 MethodDeclarator:
   IDENTIFIER ( |FormalParameterList| )
@@ -167,11 +128,7 @@ FormalParameter:
   Type IDENTIFIER
 
 Throws:
-<<<<<<< HEAD
   KEYWORD_THROWS ClassTypeList
-=======
-  THROWS ClassTypeList
->>>>>>> master
 
 ClassTypeList:
   ClassType
@@ -181,11 +138,7 @@ MethodBody:
   Block
   ;
 StaticInitializer:
-<<<<<<< HEAD
   KEYWORD_STATIC Block
-=======
-  STATIC Block
->>>>>>> master
 
 ConstructorDeclaration:
   |Modifiers| ConstructorDeclarator |Throws| ConstructorBody
@@ -197,7 +150,6 @@ ConstructorBody:
   { |ExplicitConstructorInvocation| |BlockStatements| }
 
 ExplicitConstructorInvocation:
-<<<<<<< HEAD
   KEYWORD_THIS ( |ArgumentList| ) ;
 
 InterfaceDeclaration:
@@ -205,15 +157,6 @@ InterfaceDeclaration:
 
 ExtendsInterfaces:
   KEYWORD_EXTENDS InterfaceType
-=======
-  THIS ( |ArgumentList| ) ;
-
-InterfaceDeclaration:
-  |Modifiers| INTERFACE IDENTIFIER |ExtendsInterfaces| InterfaceBody
-
-ExtendsInterfaces:
-  EXTENDS InterfaceType
->>>>>>> master
   ExtendsInterfaces , InterfaceType
 
 InterfaceBody:
@@ -277,7 +220,6 @@ StatementExpression:
   ClassInstanceCreationExpression
 
 IfThenStatement:
-<<<<<<< HEAD
   KEYWORD_IF ( Expression ) Statement
 
 IfThenElseStatement:
@@ -300,30 +242,6 @@ ForStatementNoShortIf:
 
 ReturnStatement:
   KEYWORD_RETURN |Expression| ;
-=======
-  IF ( Expression ) Statement
-
-IfThenElseStatement:
-  IF ( Expression ) StatementNoShortIf ELSE Statement
-
-IfThenElseStatementNoShortIf:
-  IF ( Expression ) StatementNoShortIf ELSE StatementNoShortIf
-
-WhileStatement:
-  WHILE ( Expression ) Statement
-
-WhileStatementNoShortIf:
-  WHILE ( Expression ) StatementNoShortIf
-
-ForStatement:
-  FOR ( |LocalVariableDeclaration| ; |Expression| ; |StatementExpression| ) Statement
-
-ForStatementNoShortIf:
-  FOR ( |LocalVariableDeclaration| ; |Expression| ; |StatementExpression| ) StatementNoShortIf
-
-ReturnStatement:
-  RETURN |Expression| ;
->>>>>>> master
 
 Primary:
   PrimaryNoNewArray
@@ -331,11 +249,7 @@ Primary:
 
 PrimaryNoNewArray:
   Literal
-<<<<<<< HEAD
   KEYWORD_THIS
-=======
-  THIS
->>>>>>> master
   ( Expression )
   ClassInstanceCreationExpression
   FieldAccess
@@ -343,24 +257,15 @@ PrimaryNoNewArray:
   ArrayAccess
 
 ClassInstanceCreationExpression:
-<<<<<<< HEAD
   KEYWORD_NEW ClassType ( |ArgumentList| )
-=======
-  NEW ClassType ( |ArgumentList| )
->>>>>>> master
 
 ArgumentList:
   Expression
   ArgumentList , Expression
 
 ArrayCreationExpression:
-<<<<<<< HEAD
   KEYWORD_NEW PrimitiveType DimExprs |Dims|
   KEYWORD_NEW ClassOrInterfaceType DimExprs |Dims|
-=======
-  NEW PrimitiveType DimExprs |Dims|
-  NEW ClassOrInterfaceType DimExprs |Dims|
->>>>>>> master
 
 DimExprs:
   DimExpr
@@ -389,20 +294,12 @@ PostfixExpression:
   Name
 
 UnaryExpression:
-<<<<<<< HEAD
   OPERATOR_- UnaryExpression
-=======
-  - UnaryExpression
->>>>>>> master
   UnaryExpressionNotPlusMinus
 
 UnaryExpressionNotPlusMinus:
   PostfixExpression
-<<<<<<< HEAD
   OPERATOR_! UnaryExpression
-=======
-  NOT UnaryExpression
->>>>>>> master
   CastExpression
 
 CastExpression:
@@ -412,7 +309,6 @@ CastExpression:
 
 MultiplicativeExpression:
   UnaryExpression
-<<<<<<< HEAD
   MultiplicativeExpression MultiplicativeOperator UnaryExpression
 
 MultiplicativeOperator:
@@ -459,30 +355,6 @@ ConditionalOrExpression:
 OrOperator:
   OPERATOR_|
   OPERATOR_||
-=======
-  MultiplicativeExpression OPERATOR_MULTIPLICATIVE UnaryExpression
-
-AdditiveExpression:
-  MultiplicativeExpression
-  AdditiveExpression OPERATOR_ADDITIVE MultiplicativeExpression
-
-RelationalExpression:
-  AdditiveExpression
-  RelationalExpression OPERATOR_COMPARE AdditiveExpression
-  RelationalExpression INSTANCEOF ReferenceType
-
-EqualityExpression:
-  RelationalExpression
-  EqualityExpression OPERATOR_EQUALITY RelationalExpression
-
-ConditionalAndExpression:
-  EqualityExpression
-  ConditionalAndExpression OPERATOR_AND EqualityExpression
-
-ConditionalOrExpression:
-  ConditionalAndExpression
-  ConditionalOrExpression OPERATOR_OR ConditionalAndExpression
->>>>>>> master
 
 ConditionalExpression:
   ConditionalOrExpression
@@ -492,11 +364,7 @@ AssignmentExpression:
   Assignment
 
 Assignment:
-<<<<<<< HEAD
   LeftHandSide OPERATOR_= AssignmentExpression
-=======
-  LeftHandSide OPERATOR_ASSIGN AssignmentExpression
->>>>>>> master
 
 LeftHandSide:
   Name
