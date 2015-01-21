@@ -4,6 +4,7 @@ require 'set'
 OPTIONAL_REGEX = / \|.*?\|/
 
 PUNCTUATION_SUBSTITUTIONS = {
+<<<<<<< HEAD
   '(' => 'SEPARATOR_(',
   ')' => 'SEPARATOR_)',
   '{' => 'SEPARATOR_{',
@@ -13,6 +14,20 @@ PUNCTUATION_SUBSTITUTIONS = {
   ',' => 'SEPARATOR_,',
   '.' => 'SEPARATOR_.',
   ';' => 'SEPARATOR_;'
+=======
+  '(' => 'LPAREN',
+  ')' => 'RPAREN',
+  '{' => 'LBRACE',
+  '}' => 'RBRACE',
+  '[' => 'LBRACK',
+  ']' => 'RBRACK',
+  '.' => 'DOT',
+  ';' => 'SEMI',
+  '*' => 'STAR',
+  ',' => 'COMMA',
+  '=' => 'EQUAL',
+  '-' => 'MINUS'
+>>>>>>> master
 }
 
 def expand(rule)
@@ -35,30 +50,51 @@ def main
   nonTerminals = Set.new
   productionRules = Hash.new {|this, key| this[key] = [] }
 
+<<<<<<< HEAD
   lines.each do |line|    
+=======
+  lines.each do |line|
+>>>>>>> master
     PUNCTUATION_SUBSTITUTIONS.each do |initial, result|
       line.gsub!(initial, result)
     end
 
+<<<<<<< HEAD
     if not line.start_with?(' ')
       currentRule = line[0..-2]
 
       if nonTerminals.include? currentRule and false
+=======
+    if line[0] != ' '
+      currentRule = line[0..-2]
+
+      if nonTerminals.include? currentRule
+>>>>>>> master
         puts "Duplicate reference to #{currentRule}"
         exit(1)
       end
 
       nonTerminals.add(currentRule)
+<<<<<<< HEAD
       #terminals.delete(currentRule)
     else
       newTerminals = line.split(' ').map{|token| (token.start_with?('|') and token.end_with?('|')) ? token[1..-2] : token}
       #puts newTerminals
       terminals += newTerminals
+=======
+      terminals.delete(currentRule)
+    else
+      newTerminals = line.gsub('|','').split(' ').reject{|token| nonTerminals.include? token}
+      terminals.merge newTerminals
+>>>>>>> master
       rules = expand(line).map{|rule| ' ' + rule.strip}
       productionRules[currentRule].concat rules
     end
   end
+<<<<<<< HEAD
   terminals -= nonTerminals
+=======
+>>>>>>> master
 
   # Print out terminals
   puts terminals.count
