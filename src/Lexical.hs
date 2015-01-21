@@ -77,12 +77,3 @@ instance RE Lex where
     lift f = Lex f
     build f = lift (\s -> (f s) >>= tokenBuilder)
 instance Combinator Lex where
-
----------------------------------------- Dummies for quick check ------------------------------------------------------------------------------
-dummyLex1 (s:xs) = Just (Token Identifier [s])
-dummyLex1 _ = Nothing
-dl1 = Lex dummyLex1
-
-dummyLex2 (s:t:xs) = Just (Token Identifier [s, t])
-dummyLex2 _ = Nothing
-dl2 = Lex dummyLex2
