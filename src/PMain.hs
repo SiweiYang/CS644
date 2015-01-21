@@ -12,14 +12,17 @@ testSingleFile = do
     content <- readFile file
     return (content, file)
 
-main :: IO ()
-main = do
+testDFA = do
     dfa <- readLR1
     singlefile <- testSingleFile
     tokenList <- (scannerRunner 0 0) singlefile
     let filtedToken = filter (\(tk, fn) -> not (elem (tokenType tk) [Comment, WhiteSpace])) tokenList
     let astList = map tokenToAST filtedToken
-    let res = run (dfa, astList)
+    return (run (dfa, astList))
+    
+main :: IO ()
+main = do
+    res <- testDFA
     let finalAST = snd res
     putStrLn (show finalAST)
 	--putStrLn (foldl (\acc x -> acc ++ show x ++ "\n") "" listC)
