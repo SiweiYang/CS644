@@ -4,15 +4,15 @@ require 'set'
 OPTIONAL_REGEX = / \|.*?\|/
 
 PUNCTUATION_SUBSTITUTIONS = {
-  '(' => 'SEPARATOR_LPAREN',
-  ')' => 'SEPARATOR_RPAREN',
-  '{' => 'SEPARATOR_LBRACE',
-  '}' => 'SEPARATOR_RBRACE',
-  '[' => 'SEPARATOR_LBRACK',
-  ']' => 'SEPARATOR_RBRACK',
-  ',' => 'SEPARATOR_COMMA',
-  '.' => 'SEPARATOR_DOT',
-  ';' => 'SEPARATOR_SEMI'
+  '(' => 'SEPARATOR_(',
+  ')' => 'SEPARATOR_)',
+  '{' => 'SEPARATOR_{',
+  '}' => 'SEPARATOR_}',
+  '[' => 'SEPARATOR_[',
+  ']' => 'SEPARATOR_]',
+  ',' => 'SEPARATOR_,',
+  '.' => 'SEPARATOR_.',
+  ';' => 'SEPARATOR_;'
 }
 
 def expand(rule)
@@ -51,7 +51,8 @@ def main
       nonTerminals.add(currentRule)
       #terminals.delete(currentRule)
     else
-      newTerminals = line.gsub('|','').split(' ').reject{|token| nonTerminals.include? token}
+      newTerminals = line.split(' ').map{|token| (token.start_with?('|') and token.end_with?('|')) ? token[1..-2] : token}
+      #puts newTerminals
       terminals += newTerminals
       rules = expand(line).map{|rule| ' ' + rule.strip}
       productionRules[currentRule].concat rules

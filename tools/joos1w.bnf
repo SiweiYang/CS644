@@ -294,12 +294,12 @@ PostfixExpression:
   Name
 
 UnaryExpression:
-  OPERATOR_MINUS UnaryExpression
+  OPERATOR_- UnaryExpression
   UnaryExpressionNotPlusMinus
 
 UnaryExpressionNotPlusMinus:
   PostfixExpression
-  OPERATOR_NOT UnaryExpression
+  OPERATOR_! UnaryExpression
   CastExpression
 
 CastExpression:
@@ -309,28 +309,52 @@ CastExpression:
 
 MultiplicativeExpression:
   UnaryExpression
-  MultiplicativeExpression OPERATOR_MULTIPLICATIVE UnaryExpression
+  MultiplicativeExpression MultiplicativeOperator UnaryExpression
+
+MultiplicativeOperator:
+  OPERATOR_*
+  OPERATOR_/
+  OPERATOR_%
 
 AdditiveExpression:
   MultiplicativeExpression
-  AdditiveExpression OPERATOR_ADDITIVE MultiplicativeExpression
+  AdditiveExpression AdditiveOperator MultiplicativeExpression
+
+AdditiveOperator:
+  OPERATOR_+
+  OPERATOR_-
 
 RelationalExpression:
   AdditiveExpression
-  RelationalExpression OPERATOR_COMPARE AdditiveExpression
+  RelationalExpression CompareOperator AdditiveExpression
   RelationalExpression KEYWORD_INSTANCEOF ReferenceType
+
+CompareOperator:
+  OPERATOR_<
+  OPERATOR_>
+  OPERATOR_<=
+  OPERATOR_>=
+  OPERATOR_!=
 
 EqualityExpression:
   RelationalExpression
-  EqualityExpression OPERATOR_EQUALITY RelationalExpression
+  EqualityExpression OPERATOR_== RelationalExpression
 
 ConditionalAndExpression:
   EqualityExpression
-  ConditionalAndExpression OPERATOR_AND EqualityExpression
+  ConditionalAndExpression AndOperator EqualityExpression
+
+AndOperator:
+  OPERATOR_&
+  OPERATOR_&&
 
 ConditionalOrExpression:
   ConditionalAndExpression
-  ConditionalOrExpression OPERATOR_OR ConditionalAndExpression
+  ConditionalOrExpression OrOperator ConditionalAndExpression
+
+OrOperator:
+  OPERATOR_|
+  OPERATOR_||
 
 ConditionalExpression:
   ConditionalOrExpression
@@ -340,7 +364,7 @@ AssignmentExpression:
   Assignment
 
 Assignment:
-  LeftHandSide OPERATOR_ASSIGN AssignmentExpression
+  LeftHandSide OPERATOR_= AssignmentExpression
 
 LeftHandSide:
   Name
