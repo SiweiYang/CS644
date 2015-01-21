@@ -23,6 +23,8 @@ data DFA = DFA {
     rules :: TransitionTable,
     productions ::[Production]
 }
+buildDFA :: (Int, [Transition], [Production]) -> DFA
+buildDFA (ms, transitions, productions) = DFA [0] [] ms (fromList transitions) productions
 
 data AST =
     AST {
@@ -55,7 +57,7 @@ run (dfa, (ast:rst)) = if isNothing lku
                         then (dfa, (ast:rst))
                         else if changeState
                                 then run ((DFA (num:ss) (ast:u) ms rules prods), rst)
-                                else run ((DFA (tail ss) nu ms rules prods), (nast:rst))
+                                else run ((DFA nss nu ms rules prods), (nast:ast:rst))
     where
         DFA ss u ms rules prods = dfa
         tk = name ast
@@ -66,6 +68,7 @@ run (dfa, (ast:rst)) = if isNothing lku
         prod = prods !! num
         units = snd prod
         nast = AST (fst prod) (take (length units) u)
+        nss = drop (length units) ss
         nu = drop (length units) u
 
 

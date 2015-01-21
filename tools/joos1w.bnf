@@ -64,7 +64,7 @@ SingleTypeImportDeclaration:
   KEYWORD_IMPORT Name ;
 
 TypeImportOnDemandDeclaration:
-  KEYWORD_IMPORT Name . OPERATOR_STAR ;
+  KEYWORD_IMPORT Name . OPERATOR_* ;
 
 TypeDeclaration:
   ClassDeclaration
@@ -72,8 +72,14 @@ TypeDeclaration:
   ;
 
 Modifiers:
-  KEYWORD_MODIFIER
-  Modifiers KEYWORD_MODIFIER
+  ModifierKeyword
+  Modifiers ModifierKeyword
+
+ModifierKeyword:
+  KEYWORD_STATIC
+  KEYWORD_PRIVATE
+  KEYWORD_PUBLIC
+  KEYWORD_PROTECTED
 
 ClassDeclaration:
   |Modifiers| KEYWORD_CLASS IDENTIFIER |Super| |Interfaces| ClassBody
@@ -108,7 +114,7 @@ FieldDeclaration:
   |Modifiers| Type VariableDeclarator ;
 
 VariableDeclarator:
-  IDENTIFIER OPERATOR_ASSIGN Expression
+  IDENTIFIER OPERATOR_= Expression
 
 MethodDeclaration:
   MethodHeader MethodBody
