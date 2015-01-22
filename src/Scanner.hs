@@ -170,3 +170,34 @@ scanLine lineNum string = token : scanLine lineNum (drop (tokenLength token) str
 
 scanTokens :: String -> [Token]
 scanTokens string = foldr (++) [] . map (\(line, content) -> scanLine line content) $ zip [0..] [string]
+
+-----------------------------------------------------------------------------------------------------------------------------------------------
+fixLength = (build scanKeyword) <=> (build scanOperator) <=> (build scanSeparator) <=> (build scanBool) <=> (build scanNull) :: Lex
+literal = (build scanChar) <=> (build scanString) <=> (build scanDecimalInteger) :: Lex
+leftover = (build scanIdentifier) <=> (build scanEolComment) <=> (build scanBlockComment) <=> (build scanWhitespace) :: Lex
+lexer = fixLength <|> literal <|> leftover
+-----------------------------------------------------------------------------------------------------------------------------------------------
+
+lexerRunner :: [(String, String)] -> IO()
+lexerRunner ((lexeme, token):ls) = do
+    putStr (show (lexeme, token))
+    putStr " => "
+    putStrLn (show (lexeme |> lexer))
+    if ls == []
+    then return ()
+    else lexerRunner ls
+
+scannerRunner :: Int -> Int -> (String, String) -> IO [(Token, TokenInfo)]
+scannerRunner _ _ ([], _) = return []
+scannerRunner ln col (fc, fn) = do
+    let m = fc |> lexer
+    if isNothing m
+    then return [(Token FAILURE (head (splitOneOf "\n" fc)), TI fn ln col)]
+    else do
+        let Just tk = m
+        --let multiline = if (elem '\n' (lexeme tk)) then splitOneOf "\n" (lexeme tk) else []
+        let nextLn = ln + length (filter (\x -> x == '\n') (lexeme tk))
+        let nextCol = foldl (\acc x -> if (x == '\n') then 0 else acc + 1) col (lexeme tk)
+        --putStrLn (show nextLn)
+        rst <- scannerRunner nextLn nextCol ((drop (length (lexeme tk)) fc), fn)
+        return ((tk, TI fn ln col):rst)
