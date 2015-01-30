@@ -1,5 +1,5 @@
 CompilationUnit:
-  |PackageDeclaration| |ImportDeclarations| |TypeDeclaration|
+  |PackageDeclaration| |ImportDeclarations| |TypeDeclaration| EOF
 
 Literal:
   LITERAL_INT
@@ -54,7 +54,7 @@ ImportDeclarations:
   ImportDeclarations ImportDeclaration
 
 PackageDeclaration:
-  KEYWORD_PACKGE Name ;
+  KEYWORD_PACKAGE Name ;
 
 ImportDeclaration:
   SingleTypeImportDeclaration
@@ -365,17 +365,14 @@ OrOperator:
 ConditionalExpression:
   ConditionalOrExpression
 
-AssignmentExpression:
+Expression:
   ConditionalExpression
   Assignment
 
 Assignment:
-  LeftHandSide OPERATOR_= AssignmentExpression
+  LeftHandSide OPERATOR_= Expression
 
 LeftHandSide:
   Name
   FieldAccess
   ArrayAccess
-
-Expression:
-  AssignmentExpression
