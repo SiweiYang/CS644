@@ -9,6 +9,7 @@ import Parser
 -- operator special case := cast where we treat as binary
 data Expression = Unary String Expression | Binary String Expression Expression | Value Primary
 
+
 -- for . access, need to unify qualified name and field access
 -- a.b() is parsed in weird way, or maybe not
 -- just simplify to factors, where () is a factor as well
@@ -52,7 +53,7 @@ buildAST prods = Comp (if length pk > 0 then Just pkg else Nothing) (if length i
 
 data Field = FLD { fieldModifiers :: [String], fieldType :: String, fieldName :: String, fieldValue :: Maybe AST}
 buildField :: AST -> Field
-buildField ast = FLD md [] nm if length e > 0 then (Just (head e)) else Nothing
+buildField ast = FLD md [] nm (if length e > 0 then (Just (head e)) else Nothing)
     where
         m = filter (\ast -> name ast == "Modifiers") (production ast)
         md = reverse (toList (head m))
@@ -67,7 +68,7 @@ toLexeme ast = case ast of
                 _         -> concat (map toLexeme (production ast))
 
 listToLexeme :: [AST] -> String
-listToLexeme ast = concat (map toLexeme (production ast))
+listToLexeme ast = concat (map toLexeme ast)
                 
 toList :: AST -> [String]
 toList ast = case ast of

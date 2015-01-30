@@ -76,10 +76,13 @@ Modifiers:
   Modifiers ModifierKeyword
 
 ModifierKeyword:
-  KEYWORD_STATIC
+  KEYWORD_ABSTRACT
+  KEYWORD_FINAL
+  KEYWORD_NATIVE
   KEYWORD_PRIVATE
-  KEYWORD_PUBLIC
   KEYWORD_PROTECTED
+  KEYWORD_PUBLIC
+  KEYWORD_STATIC
 
 ClassDeclaration:
   |Modifiers| KEYWORD_CLASS IDENTIFIER |Super| |Interfaces| ClassBody
@@ -111,10 +114,7 @@ ClassMemberDeclaration:
   MethodDeclaration
 
 FieldDeclaration:
-  |Modifiers| Type VariableDeclarator ;
-
-VariableDeclarator:
-  IDENTIFIER OPERATOR_= Expression
+  |Modifiers| Type IDENTIFIER |OPERATOR_= Expression| ;
 
 MethodDeclaration:
   MethodHeader MethodBody
@@ -193,7 +193,7 @@ LocalVariableDeclarationStatement:
   LocalVariableDeclaration ;
 
 LocalVariableDeclaration:
-  Type VariableDeclarator
+  Type IDENTIFIER OPERATOR_= Expression
 
 Statement:
   StatementWithoutTrailingSubstatement
@@ -229,10 +229,10 @@ IfThenStatement:
   KEYWORD_IF ( Expression ) Statement
 
 IfThenElseStatement:
-  KEYWORD_IF ( Expression ) StatementNoShortIf ELSE Statement
+  KEYWORD_IF ( Expression ) StatementNoShortIf KEYWORD_ELSE Statement
 
 IfThenElseStatementNoShortIf:
-  KEYWORD_IF ( Expression ) StatementNoShortIf ELSE StatementNoShortIf
+  KEYWORD_IF ( Expression ) StatementNoShortIf KEYWORD_ELSE StatementNoShortIf
 
 WhileStatement:
   KEYWORD_WHILE ( Expression ) Statement
@@ -241,10 +241,14 @@ WhileStatementNoShortIf:
   KEYWORD_WHILE ( Expression ) StatementNoShortIf
 
 ForStatement:
-  KEYWORD_FOR ( |LocalVariableDeclaration| ; |Expression| ; |StatementExpression| ) Statement
+  KEYWORD_FOR ( |ForInit| ; |Expression| ; |StatementExpression| ) Statement
 
 ForStatementNoShortIf:
-  KEYWORD_FOR ( |LocalVariableDeclaration| ; |Expression| ; |StatementExpression| ) StatementNoShortIf
+  KEYWORD_FOR ( |ForInit| ; |Expression| ; |StatementExpression| ) StatementNoShortIf
+
+ForInit:
+  StatementExpression
+  LocalVariableDeclaration
 
 ReturnStatement:
   KEYWORD_RETURN |Expression| ;
