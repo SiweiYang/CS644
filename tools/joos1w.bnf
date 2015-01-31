@@ -1,5 +1,5 @@
 CompilationUnit:
-  |PackageDeclaration| |ImportDeclarations| |TypeDeclaration|
+  |PackageDeclaration| |ImportDeclarations| |TypeDeclaration| EOF
 
 Literal:
   LITERAL_INT
@@ -54,7 +54,7 @@ ImportDeclarations:
   ImportDeclarations ImportDeclaration
 
 PackageDeclaration:
-  KEYWORD_PACKGE Name ;
+  KEYWORD_PACKAGE Name ;
 
 ImportDeclaration:
   SingleTypeImportDeclaration
@@ -114,7 +114,10 @@ ClassMemberDeclaration:
   MethodDeclaration
 
 FieldDeclaration:
-  |Modifiers| Type IDENTIFIER |OPERATOR_= Expression| ;
+  |Modifiers| Type IDENTIFIER |OptionalAssignment| ;
+
+OptionalAssignment:
+  OPERATOR_= Expression
 
 MethodDeclaration:
   MethodHeader MethodBody
@@ -143,6 +146,7 @@ ClassTypeList:
 MethodBody:
   Block
   ;
+
 StaticInitializer:
   KEYWORD_STATIC Block
 
@@ -173,9 +177,6 @@ InterfaceMemberDeclarations:
   InterfaceMemberDeclarations InterfaceMemberDeclaration
 
 InterfaceMemberDeclaration:
-  AbstractMethodDeclaration
-
-AbstractMethodDeclaration:
   MethodHeader ;
 
 Block:
@@ -193,7 +194,7 @@ LocalVariableDeclarationStatement:
   LocalVariableDeclaration ;
 
 LocalVariableDeclaration:
-  Type IDENTIFIER OPERATOR_= Expression
+  Type IDENTIFIER |OptionalAssignment|
 
 Statement:
   StatementWithoutTrailingSubstatement
@@ -369,17 +370,14 @@ OrOperator:
 ConditionalExpression:
   ConditionalOrExpression
 
-AssignmentExpression:
+Expression:
   ConditionalExpression
   Assignment
 
 Assignment:
-  LeftHandSide OPERATOR_= AssignmentExpression
+  LeftHandSide OPERATOR_= Expression
 
 LeftHandSide:
   Name
   FieldAccess
   ArrayAccess
-
-Expression:
-  AssignmentExpression
