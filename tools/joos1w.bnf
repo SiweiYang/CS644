@@ -114,7 +114,10 @@ ClassMemberDeclaration:
   MethodDeclaration
 
 FieldDeclaration:
-  |Modifiers| Type IDENTIFIER |OPERATOR_= Expression| ;
+  |Modifiers| Type IDENTIFIER |OptionalAssignment| ;
+
+OptionalAssignment:
+  OPERATOR_= Expression
 
 MethodDeclaration:
   MethodHeader MethodBody
@@ -143,6 +146,7 @@ ClassTypeList:
 MethodBody:
   Block
   ;
+
 StaticInitializer:
   KEYWORD_STATIC Block
 
@@ -173,9 +177,6 @@ InterfaceMemberDeclarations:
   InterfaceMemberDeclarations InterfaceMemberDeclaration
 
 InterfaceMemberDeclaration:
-  AbstractMethodDeclaration
-
-AbstractMethodDeclaration:
   MethodHeader ;
 
 Block:
@@ -193,7 +194,7 @@ LocalVariableDeclarationStatement:
   LocalVariableDeclaration ;
 
 LocalVariableDeclaration:
-  Type IDENTIFIER OPERATOR_= Expression
+  Type IDENTIFIER |OptionalAssignment|
 
 Statement:
   StatementWithoutTrailingSubstatement

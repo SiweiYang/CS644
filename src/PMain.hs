@@ -11,7 +11,7 @@ import System.Directory
 --------------------------------------------------------------------
 testSingleFile :: IO (String, String)
 testSingleFile = do
-    let file = "../assignment_testcases/a1/J1_siwei.java"
+    let file = "../assignment_testcases/a1/J1_IntRange_MinNegativeInt.java"
     content <- readFile file
     return (content, file)
 
@@ -36,7 +36,15 @@ getImportsNode a = (units (fst a)) !! 2
 getModifiersNode a = (production $ (production $ (units $ fst a) !! 1) !! 0) !! 3
 getClassBodyNode a = (production $ (production $ (units $ fst a) !! 1) !! 0) !! 0
 getClassBodyDecNode a = (production $ (production $ getClassBodyNode a) !! 1) !! 0
-    
+
+testAST = do
+    a <- testDFA
+    let cu = buildAST $ units (fst a)
+    let cons = constructors $ definition cu
+    let flds = fields $ definition cu
+    let mtds = methods $ definition cu
+    return (definition cu)
+
 main :: IO ()
 main = do
     dfa <- readLR1
@@ -45,6 +53,9 @@ main = do
     let tokenByFilesFiltered = map (filter (\(tk, fn) -> not (elem (tokenType tk) [Comment, WhiteSpace]))) tokenByFiles
     let astByFiles = map (map tokenToAST) tokenByFilesFiltered
     let resultByFiles = map (\ast -> run (dfa, ast ++ [AST "EOF" []])) astByFiles
+    let astByFiles = map (\a -> buildAST $ units (fst a)) resultByFiles
+    putStrLn (show astByFiles)
+    
     let res = zip (map snd resultByFiles) (map snd files)
     let pass = filter (\(r, f) -> length r == 0) res
     

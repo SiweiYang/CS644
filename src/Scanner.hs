@@ -20,9 +20,9 @@ decimalDigits = ['0'..'9']
 octalDigits = ['0'..'7']
 
 -- Reserved keywords that turn into keyword tokens but can't be identifiers
-keywords = ["boolean", "break", "byte", "case", "catch", "char", "class",
-  "const", "continue", "default", "do", "double", "else", "extends", "final",
-  "finally", "float", "for", "goto", "if", "implements",
+keywords = ["abstract", "boolean", "break", "byte", "case", "catch", "char",
+  "class", "const", "continue", "default", "do", "double", "else", "extends",
+  "final", "finally", "float", "for", "goto", "if", "implements",
   "import", "instanceof", "int", "interface", "long", "native", "new",
   "package", "private", "protected", "public", "return", "short", "static",
   "strictfp", "super", "switch", "synchronized", "this", "throw", "throws",
