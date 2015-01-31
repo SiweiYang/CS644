@@ -21,11 +21,16 @@ data Primary = ID String
              | Object
              | Array
 
+--	Expression:
+--		AssignmentExpression
 buildExp :: AST -> Expression
 buildExp ast = if nm == "AssignmentExpression" then buildAssignExp ast else buildAssignExp (concat prod)
 	where
 		(AST nm prod) = ast
 
+--	AssignmentExpression:
+--		ConditionalExpression
+--		Assignment
 buildAssignExp :: AST -> Expression
 buildAssignExp ast = if nextnm == "ConditionalExpression" then buildCondExp nextast else buildAssign nextast
 	where
@@ -33,11 +38,15 @@ buildAssignExp ast = if nextnm == "ConditionalExpression" then buildCondExp next
 		nextast = concat prod
 		(AST nextnm nextprod) = nextast
 
+--	ConditionalExpression:
+--		ConditionalOrExpression
 buildCondExp :: AST -> Expression
 buildCondExp ast = if nm == "ConditionalOrExpression" then buildCondOrExp ast else buildCondExp (concat prod)
 	where
 		(AST nm prod) = ast
 
+--	Assignment:
+--		LeftHandSide OPERATOR_= AssignmentExpression
 buildAssign :: AST -> Expression
 buildAssign ast = Binary op lhs expr
 	where
@@ -46,6 +55,10 @@ buildAssign ast = Binary op lhs expr
 		lhs = buildLHS (prod !! 0)
 		expr = buildExp (prod !! 2)
 
+--	LeftHandSide:
+--		Name
+--		FieldAccess
+--		ArrayAccess
 buildLHS :: AST -> Expression
 buildLHS ast = case nextnm of
 		"Name" -> buildName nextast
@@ -56,6 +69,10 @@ buildLHS ast = case nextnm of
 		nextast = concat prod
 		(AST nextnm nextprod) = nextast
 
+
+Name:
+	SimpleName
+	QualifiedName
 buildName :: AST -> Expression
 buildName ast = case nextnm of
 		"SimpleName" -> buildSimpleName
@@ -65,17 +82,14 @@ buildName ast = case nextnm of
 		nextast = concat prod
 		(AST nextnm nextprod) = nextast
 
+
+--	SimpleName:
+--		IDENTIFIER
 buildSimpleName :: AST -> Expression
 buildSimpleName ast = buildID ((concat prod) !! 0)
 	where 
 		(AST nm prod) = ast
 
-buildID :: AST -> Expression
-buildID ast = ID id
-	where
-		(ASTT nm cont) = ast
-		(tk, _) = cont
-		id = lexeme tk
 
 buildQualName :: AST -> Expression
 buildQualName ast = Attribute nextnm id
@@ -84,14 +98,40 @@ buildQualName ast = Attribute nextnm id
 		nextnm = buildName (prod !! 0)
 		id = buildID (prod !! 2)
 
-buildFieldAcc :: AST -> Expression
-buildFieldAcc ast = 
 
+--	FieldAccess:
+-- 		Primary . IDENTIFIER
+buildFieldAcc :: AST -> Expression
+buildFieldAcc ast = Attribute pri id
+	where
+		(ASTT nm prod) = ast
+		nextnm = buildPrimary (prod !! 0)
+		id = buildID (prod !! 2)
+
+
+--	ArrayAccess:
+--		Name [ Expression ]
+--		PrimaryNoNewArray [ Expression ]
 buildArrayAcc :: AST -> Expression
 buildFieldAcc ast = 
 
+--	Primary:
+--		PrimaryNoNewArray
+--		ArrayCreationExpression
+buildPrimary :: AST -> Expression
+
+--------------------------------------------------------
 
 buildOperator :: AST -> String
 buildOperator ast = case ast of 
 	ASTT nm cont -> lexeme (fst cont)
 	_           -> error "Operator"
+
+
+buildID :: AST -> Expression
+buildID ast = ID id
+	where
+		(ASTT nm cont) = ast
+		(tk, _) = cont
+		id = lexeme tk
+
