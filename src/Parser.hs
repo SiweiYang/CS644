@@ -34,7 +34,10 @@ data AST =
     | ASTT {
         name :: String,
         content :: (Token, TokenInfo)
-    } deriving (Show)
+    }
+
+instance Show AST where
+    show ast = name ast
 
 tokenName :: Token -> String
 tokenName (Token Keyword s) = "KEYWORD_" ++ (map toUpper s)
