@@ -7,7 +7,8 @@ import Parser
 ------------------------------------- Value Types
 -- operator including =, +, -, *, /, %, &, &&, |, ||
 -- operator special case := cast where we treat as binary
-data Expression = Unary String Expression | Binary String Expression Expression | Value Primary
+
+-- data Expression = Unary String Expression | Binary String Expression Expression | Value Primary
 
 
 -- for . access, need to unify qualified name and field access
@@ -15,7 +16,8 @@ data Expression = Unary String Expression | Binary String Expression Expression 
 -- just simplify to factors, where () is a factor as well
 -- instantiation and array treat separately
 -- note multi-dimensional array not supported
-data Primary = Pri [String] | Cre | Arr
+
+-- data Primary = Pri [String] | Cre | Arr
 
 
 -------------------------------------- Control Structures
@@ -202,6 +204,7 @@ buildTypedVar ast = TV tp nm
         tp = buildType (last prods)
 
 -- rethink
+{-
 buildType :: AST -> [String]
 buildType ast = case (nast, name arr) of
                     ([], _)             -> nameToPackage ast
@@ -210,6 +213,7 @@ buildType ast = case (nast, name arr) of
     where
         nast = flattenL ["ArrayType", "ClassOrInterfaceType", "PrimitiveType"] ast
         [arr] = nast
+-}
         
 
 toLexeme :: AST -> String
