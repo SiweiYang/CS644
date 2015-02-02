@@ -6,132 +6,78 @@ import Parser
 ------------------------------------- Value Types
 -- operator including =, +, -, *, /, %, &, &&, |, ||
 -- operator special case := cast where we treat as binary
-data Expression = Unary String Expression
-				| Binary String Expression Expression
-				| Value Primary
-				| Attribute Expression String
+data Expression = Unary { op :: String, expr :: Expression }
+				| Binary { op :: String, exprL :: Expression, exprR :: Expression }
+				| Value { expr :: Expression }
+				| Attribute { struct :: Expression, field :: Expression }
+				| Name { name :: Expression, identifier :: String }
+				| ID { identifier :: String }
+				| Array { name :: Expression, index :: Expression} 
+				| Empty
 
 -- for . access, need to unify qualified name and field access
 -- a.b() is parsed in weird way, or maybe not
 -- just simplify to factors, where () is a factor as well
 -- instantiation and array treat separately
 -- note multi-dimensional array not supported
-data Primary = ID String
-             | Pri [String]
-             | Object
-             | Array
+-- data Primary = ID String
+--           | Pri [String]
+--           | Object
+--           | Array
 
---	Expression:
---		AssignmentExpression
+
 buildExp :: AST -> Expression
-buildExp ast = if nm == "AssignmentExpression" then buildAssignExp ast else buildAssignExp (concat prod)
+buildExp ast = case (name ast) of
+					"Expression" -> buildExp singleton
+					"ConditionalExpression" -> buildExp singleton
+					"Assignment" -> Binary opEQ (buildExp lhs) (buildExp expr)
+					"ConditionalOrExpression" -> if (null condOr) then (buildExp singleton) else (Binary (op 1) (buildExp (head condOr)) (buildExp (head condAnd)))
+					"LeftHandSide" -> buildExp singleton
+					"ConditionalAndExpression" -> if (null condAnd) then (buildExp singleton) else (Binary (op 1) (buildExp (head condAnd)) (buildExp (head equal)))
+					"Name" -> buildExp singleton	 
+					"FieldAccess" -> Attribute (buildExp (head primary)) (buildExp (head identifier))
+					"ArrayAccess" -> Array (buildExp (head (if (null name) then (priarray) else name))) (buildExp (head expr))
+					"SimpleName" -> buildExp (head identifier)
+					"IDENTIFIER" -> buildID ast
+					"QualifiedName" -> Name (buildExp (head name)) (buildExp (head identifier))
+					"EqualityExpression" -> if (null equal) then (buildExp (head relational)) else (Binary (op 1) (buildExp (head equal)) (buildExp (head relational)))
+					"RelationalExpression" -> if (null relational) then (buildExp (head additive)) else (if (null additive) then (Binary (op 1) (buildExp (head relational)) (buildExp (head reftype))) else (Binary (op 1) (buildExp (head relational)) (buildExp (head additive))))
+					"Primary" -> buildExp singleton
+					"PrimaryNoNewArray" ->
+					"ReferenceType" -> 
+					"ArrayCreationExpression" -> 
 	where
-		(AST nm prod) = ast
+		[singleton] = production ast
 
---	AssignmentExpression:
---		ConditionalExpression
---		Assignment
-buildAssignExp :: AST -> Expression
-buildAssignExp ast = if nextnm == "ConditionalExpression" then buildCondExp nextast else buildAssign nextast
-	where
-		(AST nm prod) = ast
-		nextast = concat prod
-		(AST nextnm nextprod) = nextast
+		lhs = head (findProd "LeftHandSide" ast)
+		opEQ = buildOperator (head (findProd "OPERATOR_=" ast))
+		expr = head (findProd "Expression" ast)
 
---	ConditionalExpression:
---		ConditionalOrExpression
-buildCondExp :: AST -> Expression
-buildCondExp ast = if nm == "ConditionalOrExpression" then buildCondOrExp ast else buildCondExp (concat prod)
-	where
-		(AST nm prod) = ast
+		condAnd = findProd "ConditionalAndExpression" ast
+		condOr = findProd "ConditionalOrExpression" ast
+		op = \k -> buildOperator expandSingle ((production ast) !! k)
 
---	Assignment:
---		LeftHandSide OPERATOR_= AssignmentExpression
-buildAssign :: AST -> Expression
-buildAssign ast = Binary op lhs expr
-	where
-		(AST nm prod) = ast
-		op = buildOperator (prod !! 1)
-		lhs = buildLHS (prod !! 0)
-		expr = buildExp (prod !! 2)
+		equal = findProd "EqualityExpression" ast
+		name = findProd "Name" ast
+		identifier = findProd "IDENTIFIER" ast
 
---	LeftHandSide:
---		Name
---		FieldAccess
---		ArrayAccess
-buildLHS :: AST -> Expression
-buildLHS ast = case nextnm of
-		"Name" -> buildName nextast
-		"FieldAccess" -> buildFieldAcc nextast
-		"ArrayAccess" -> buildArrayAcc nextast
-	where
-		(AST nm prod) = ast
-		nextast = concat prod
-		(AST nextnm nextprod) = nextast
+		primary = findProd "Primary" ast
+		priarray = findProd "PrimaryNoNewArray" ast
 
+		relational = findProd "RelationalExpression" ast
+		additive = findProd "AdditiveExpression" ast
+		reftype = findProd "ReferenceType" ast
 
-Name:
-	SimpleName
-	QualifiedName
-buildName :: AST -> Expression
-buildName ast = case nextnm of
-		"SimpleName" -> buildSimpleName
-		"QualifiedName" -> buildQualName
-	where
-		(AST nm prod) = ast
-		nextast = concat prod
-		(AST nextnm nextprod) = nextast
-
-
---	SimpleName:
---		IDENTIFIER
-buildSimpleName :: AST -> Expression
-buildSimpleName ast = buildID ((concat prod) !! 0)
-	where 
-		(AST nm prod) = ast
-
-
-buildQualName :: AST -> Expression
-buildQualName ast = Attribute nextnm id
-	where
-		(ASTT nm prod) = ast
-		nextnm = buildName (prod !! 0)
-		id = buildID (prod !! 2)
-
-
---	FieldAccess:
--- 		Primary . IDENTIFIER
-buildFieldAcc :: AST -> Expression
-buildFieldAcc ast = Attribute pri id
-	where
-		(ASTT nm prod) = ast
-		nextnm = buildPrimary (prod !! 0)
-		id = buildID (prod !! 2)
-
-
---	ArrayAccess:
---		Name [ Expression ]
---		PrimaryNoNewArray [ Expression ]
-buildArrayAcc :: AST -> Expression
-buildFieldAcc ast = 
-
---	Primary:
---		PrimaryNoNewArray
---		ArrayCreationExpression
-buildPrimary :: AST -> Expression
 
 --------------------------------------------------------
 
 buildOperator :: AST -> String
-buildOperator ast = case ast of 
-	ASTT nm cont -> lexeme (fst cont)
-	_           -> error "Operator"
-
+buildOperator ast = lexeme (fst (content ast))
 
 buildID :: AST -> Expression
-buildID ast = ID id
-	where
-		(ASTT nm cont) = ast
-		(tk, _) = cont
-		id = lexeme tk
+buildID ast = ID (lexeme (fst (content ast)))
+
+
+findProd :: String -> AST -> [AST]
+findProd nm ast = filter (\ast -> (name ast) == nm) (production ast)
 
