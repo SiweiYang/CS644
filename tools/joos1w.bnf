@@ -294,7 +294,7 @@ FieldAccess:
 
 MethodInvocation:
   Name ( |ArgumentList| )
-  Primary . IDENTIFIER ( |ArgumentList| )
+  FieldAccess ( |ArgumentList| )
 
 ArrayAccess:
   Name [ Expression ]
