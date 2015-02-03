@@ -21,24 +21,25 @@ import Parser
 
 
 -------------------------------------- Control Structures
-data Statement = LocalVar {localVar :: TypedVar, localValue :: Maybe AST}
-               | If { ifExpression :: AST, ifBlock :: StatementBlock, elseBlock :: Maybe StatementBlock}
-               | While { whileExpression :: AST, whileBlock :: StatementBlock}
-               | For { forInit :: Maybe AST, forExpression :: Maybe AST, forStatement :: Maybe Statement, forBlock :: StatementBlock}
+data Statement = LocalVar {localVar :: TypedVar, localValue :: Maybe Expression}
+               | If { ifExpression :: Expression, ifBlock :: StatementBlock, elseBlock :: Maybe StatementBlock}
+               | While { whileExpression :: Expression, whileBlock :: StatementBlock}
+               | For { forInit :: Maybe Statement, forExpression :: Maybe Expression, forStatement :: Maybe Statement, forBlock :: StatementBlock}
                | Block StatementBlock
                | Expr Expression
-               | Return (Maybe AST)
+               | Return (Maybe Expression)
                | Empty
                deriving (Show)
 
 buildStatement :: AST -> Statement
 buildStatement ast = case name ast of
-                        "LocalVariableDeclarationStatement" -> LocalVar (TV tp nm) val
-                        "IfThenStatement"                   -> If ex (buildBlock st1) Nothing
-                        "IfThenElseStatement"               -> If ex (buildBlock st1) (Just (buildBlock st2))
-                        "IfThenElseStatementNoShortIf"      -> If ex (buildBlock st1) (Just (buildBlock st2))
-                        "WhileStatement"                    -> While ex (buildBlock st1)
-                        "WhileStatementNoShortIf"           -> While ex (buildBlock st1)
+                        "LocalVariableDeclarationStatement" -> buildStatement dec
+                        "LocalVariableDeclaration"          -> LocalVar (TV tp nm) val
+                        "IfThenStatement"                   -> If builtexp (buildBlock st1) Nothing
+                        "IfThenElseStatement"               -> If builtexp (buildBlock st1) (Just (buildBlock st2))
+                        "IfThenElseStatementNoShortIf"      -> If builtexp (buildBlock st1) (Just (buildBlock st2))
+                        "WhileStatement"                    -> While builtexp (buildBlock st1)
+                        "WhileStatementNoShortIf"           -> While builtexp (buildBlock st1)
                         "ForStatement"                      -> For fia exp sea (buildBlock st1)
                         "ForStatementNoShortIf"             -> For fia exp sea (buildBlock st1)
                         "Block"                             -> Block (buildBlock ast)
@@ -46,16 +47,16 @@ buildStatement ast = case name ast of
                         "ExpressionStatement"               -> Expr (buildExp ast)
                         "ReturnStatement"                   -> Return exp
                         "StatementExpression"               -> Expr (buildExp ast)
+                        "ForInit"                           -> buildStatement singleton
     where
         prods = production ast
+        [singleton] = prods
         
         [dec] = filter (\ast -> name ast == "LocalVariableDeclaration") prods
-        tp = buildType (head (filter (\ast -> name ast == "Type") (production dec)))
-        nm = listToLexeme (filter (\ast -> name ast == "IDENTIFIER") (production dec))
-        assign = filter (\ast -> name ast == "OptionalAssignment") (production dec)
-        val = case assign of
-                [ass]       -> Just (head (production ass))
-                []          -> Nothing
+        tp = buildType (head (filter (\ast -> name ast == "Type") (production ast)))
+        nm = listToLexeme (filter (\ast -> name ast == "IDENTIFIER") (production ast))
+        assign = filter (\ast -> name ast == "OptionalAssignment") (production ast)
+        val = if (null assign) then Nothing else Just (buildExp (head assign))
         
         stmts = reverse (filter (\ast -> name ast == "StatementNoShortIf" || name ast == "Statement") prods)
         st1 = stmts !! 0
@@ -63,7 +64,7 @@ buildStatement ast = case name ast of
         
         fi = filter (\ast -> name ast == "ForInit") prods
         fia = case fi of
-                [fie]   -> Just fie
+                [fie]   -> Just (buildStatement fie)
                 []      -> Nothing
         se = filter (\ast -> name ast == "StatementExpression") prods
         sea = case se of
@@ -72,8 +73,9 @@ buildStatement ast = case name ast of
         
         e = filter (\ast -> name ast == "Expression") prods
         [ex] = e
+        builtexp = buildExp ex
         exp = case e of
-                [ex]    -> Just ex
+                [ex]    -> Just builtexp
                 []      -> Nothing
 
 
@@ -415,6 +417,7 @@ buildExp ast = case (name ast) of
                                             if (check "Expression" ast) then (CastB (buildExp expr) (buildExp unarynotpm))
                                             else (CastC (buildName nm) (buildExp dims) (buildExp unarynotpm))
                                         )
+                    "OptionalAssignment" -> buildExp expr
                     "Literal" -> Value (literalToType singleton) (tk 0)
                     "KEYWORD_THIS" -> This
 
@@ -464,10 +467,10 @@ check :: String -> AST -> Bool
 check nm ast = not (null (findProd nm ast))
 
 expandSingle :: AST -> AST
-expandSingle (ASTT n c) = (ASTT n c)
-expandSingle ast = expandSingle a
+expandSingle (ASTT nm cont) = (ASTT nm cont)
+expandSingle (AST nm prod) = expandSingle a
     where
-        [a] = production ast
+        a = prod !! 0
 
 literalToType :: AST -> Type
 literalToType ast = case (name ast) of

@@ -9,11 +9,6 @@ import AST
 import System.Directory
 
 --------------------------------------------------------------------
-testSingleFile :: IO (String, String)
-testSingleFile = do
-    let file = "../assignment_testcases/a1/J1_IntRange_MinNegativeInt.java"
-    content <- readFile file
-    return (content, file)
 
 testVFiles :: IO [(String, String)]
 testVFiles = do
@@ -37,6 +32,7 @@ getModifiersNode a = (production $ (production $ (units $ fst a) !! 1) !! 0) !! 
 getClassBodyNode a = (production $ (production $ (units $ fst a) !! 1) !! 0) !! 0
 getClassBodyDecNode a = (production $ (production $ getClassBodyNode a) !! 1) !! 0
 
+{-
 testAST = do
     a <- testDFA
     let cu = buildAST $ units (fst a)
@@ -44,6 +40,30 @@ testAST = do
     let flds = fields $ definition cu
     let mtds = methods $ definition cu
     return (definition cu)
+-}
+
+-------------------------------------------------------------
+
+testSingleFile :: IO (String, String)
+testSingleFile = do
+    let file = "../assignment_testcases/a1/J1_negativeintcast3.java"
+    content <- readFile file
+    return (content, file)
+
+
+testAST :: IO ()
+testAST = do
+    dfa <- readLR1
+    singlefile <- testSingleFile
+    tokenByFile <- scannerRunner 0 0 singlefile
+    let tokenByFileFiltered = filter (\(tk, fn) -> not (elem (tokenType tk) [Comment, WhiteSpace])) tokenByFile
+    let astByFile = (file (snd (head tokenByFileFiltered)), map tokenToAST tokenByFileFiltered)
+    let resultByFile = (\(fn, ast) -> (fn, run (dfa, ast ++ [AST "EOF" []]))) astByFile
+    let astByFile = (\(fn, a) -> (fn, buildAST $ units (fst a))) resultByFile
+    putStrLn (show astByFile)
+    --return astByFile
+    --putStrLn "Sdfsdf"
+
 
 main :: IO ()
 main = do
