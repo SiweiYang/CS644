@@ -329,7 +329,7 @@ data Expression = Unary { op :: String, expr :: Expression }
                 | Null
                 deriving (Show)
 
-data Type = TypeByte | TypeShort | TypeInt | TypeChar | TypeBoolean | TypeString | TypeNull
+data Type = TypeByte | TypeShort | TypeInt | TypeChar | TypeBoolean | TypeString | TypeNull | TypeVoid
           | Object Name
           | Array Type
           deriving (Show)
@@ -365,6 +365,7 @@ buildType ast = case (name ast) of
                     "KEYWORD_INT" -> TypeInt
                     "KEYWORD_CHAR" -> TypeChar
                     "KEYWORD_BOOLEAN" -> TypeBoolean
+                    "KEYWORD_VOID" -> TypeVoid
                     "ClassOrInterfaceType" -> Object (buildName singleton)
                     "ArrayType" -> Array (if (check "PrimitiveType" ast) then (buildType pritype) else (Object (buildName nm)))
     where
@@ -392,7 +393,7 @@ buildExp ast = case (name ast) of
                     "DimExprs" -> if (check "DimExprs" ast) then (Dimension (buildExp dimexprs) (buildExp dimexpr)) else (Dimension Null (buildExp dimexpr))
                     "EqualityExpression" -> if (check "EqualityExpression" ast) then (Binary (tk 1) (buildExp equal) (buildExp relational)) else (buildExp relational)
                     "Expression" -> buildExp singleton
-                    "FieldAccess" -> Attribute (buildExp primary) (buildToken IDENTIFIER)
+                    "FieldAccess" -> Attribute (buildExp primary) (buildToken identifier)
                     "LeftHandSide" -> if (check "Name" ast) then (ID (buildName nm)) else (buildExp singleton)
                     "MethodInvocation" -> FunctionCall
                                           (if (check "Name" ast) then (ID (buildName nm)) else (buildExp fd))

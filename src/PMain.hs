@@ -51,14 +51,14 @@ main = do
     files <- testVFiles
     tokenByFiles <- mapM (scannerRunner 0 0) files
     let tokenByFilesFiltered = map (filter (\(tk, fn) -> not (elem (tokenType tk) [Comment, WhiteSpace]))) tokenByFiles
-    let astByFiles = map (map tokenToAST) tokenByFilesFiltered
-    let resultByFiles = map (\ast -> run (dfa, ast ++ [AST "EOF" []])) astByFiles
-    let astByFiles = map (\a -> buildAST $ units (fst a)) resultByFiles
+    let astByFiles = map (\x -> (file (snd (head x)), map tokenToAST x)) tokenByFilesFiltered
+    let resultByFiles = map (\(fn, ast) -> (fn, run (dfa, ast ++ [AST "EOF" []]))) astByFiles
+    let astByFiles = map (\(fn, a) -> (fn, buildAST $ units (fst a))) resultByFiles
     putStrLn (show astByFiles)
     
-    let res = zip (map snd resultByFiles) (map snd files)
-    let pass = filter (\(r, f) -> length r == 0) res
+    --let res = zip (map snd resultByFiles) (map snd files)
+    --let pass = filter (\(r, f) -> length r == 0) res
     
-    putStrLn ("test passed: " ++ (show (length pass)) ++ "/" ++ (show (length res)))
-    putStrLn (show (filter (\(r, f) -> length r > 0) res))
+    --putStrLn ("test passed: " ++ (show (length pass)) ++ "/" ++ (show (length res)))
+    --putStrLn (show (filter (\(r, f) -> length r > 0) res))
 	--putStrLn (foldl (\acc x -> acc ++ show x ++ "\n") "" listC)
