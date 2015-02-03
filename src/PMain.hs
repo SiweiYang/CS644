@@ -46,7 +46,7 @@ testAST = do
 
 testSingleFile :: IO (String, String)
 testSingleFile = do
-    let file = "../assignment_testcases/a1/J1_negativeintcast3.java"
+    let file = "../assignment_testcases/a1/J1_siwei.java"
     content <- readFile file
     return (content, file)
 
@@ -78,7 +78,6 @@ main = do
     
     --let res = zip (map snd resultByFiles) (map snd files)
     --let pass = filter (\(r, f) -> length r == 0) res
-    
     --putStrLn ("test passed: " ++ (show (length pass)) ++ "/" ++ (show (length res)))
     --putStrLn (show (filter (\(r, f) -> length r > 0) res))
 	--putStrLn (foldl (\acc x -> acc ++ show x ++ "\n") "" listC)

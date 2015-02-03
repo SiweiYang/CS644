@@ -191,7 +191,7 @@ LocalVariableDeclarationStatement:
   LocalVariableDeclaration ;
 
 LocalVariableDeclaration:
-  Type IDENTIFIER |OptionalAssignment|
+  Type IDENTIFIER OptionalAssignment
 
 Statement:
   StatementWithoutTrailingSubstatement

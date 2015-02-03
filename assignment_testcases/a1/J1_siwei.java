@@ -6,15 +6,15 @@ import b.c.d.*;
 public static protected class J1_siwei extends wtf.dfsfd.qw implements a.d.esdf.sw.s, b, c {
     private int a;
     static cha.abc.erf[] b;
-    public J1_siwei(int a, sdfe lol) {this (567);}
+    public J1_siwei(int a, sdfe lol) {this (123, 456, 789);}
 
     static {
-        int d;
+        int d = 1;
     }
 
     public static int test(int a, lol b, sdf.ewr.dv c, char[] d) {
         a.ddsb();
-        int f;
+        int f = 1;
         int dd = a.ddsb();
         int f = a.b().c;
 	int i = 1*100+2*10+3;
