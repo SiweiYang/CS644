@@ -376,6 +376,8 @@ buildType ast = case (name ast) of
 
 buildExp :: AST -> Expression
 buildExp ast = case (name ast) of
+                    "ExpressionStatement" -> buildExp statexpr
+                    "StatementExpression" -> buildExp singleton
                     "AdditiveExpression" -> if (check "AdditiveExpression" ast) then (Binary (tk 1) (buildExp additive) (buildExp multiplicative)) else (buildExp multiplicative)
                     "ArgumentList" -> Arguments (if (check "ArgumentList" ast) then (buildExp args) else Null) (buildExp expr)
                     "ArrayAccess" -> ArrayAccess (if (check "PrimaryNoNewArray" ast) then (buildExp priarray) else (ID (buildName nm))) (if (check "Expression" ast) then (buildExp expr) else Null)
@@ -390,8 +392,8 @@ buildExp ast = case (name ast) of
                     "DimExprs" -> if (check "DimExprs" ast) then (Dimension (buildExp dimexprs) (buildExp dimexpr)) else (Dimension Null (buildExp dimexpr))
                     "EqualityExpression" -> if (check "EqualityExpression" ast) then (Binary (tk 1) (buildExp equal) (buildExp relational)) else (buildExp relational)
                     "Expression" -> buildExp singleton
-                    "FieldAccess" -> Attribute (buildExp primary) (buildToken identifier)
-                    "LeftHandSide" -> buildExp singleton
+                    "FieldAccess" -> Attribute (buildExp primary) (buildToken IDENTIFIER)
+                    "LeftHandSide" -> if (check "Name" ast) then (ID (buildName nm)) else (buildExp singleton)
                     "MethodInvocation" -> FunctionCall
                                           (if (check "Name" ast) then (ID (buildName nm)) else (buildExp fd))
                                           (if (check "ArgumentList" ast) then (buildExp args) else Null)
@@ -418,6 +420,7 @@ buildExp ast = case (name ast) of
     where
         [singleton] = production ast
 
+        [statexpr] = findProd "StatementExpression" ast
         [lhs] = findProd "LeftHandSide" ast
         [expr] = findProd "Expression" ast
         [nm] = findProd "Name" ast
@@ -451,6 +454,7 @@ buildExp ast = case (name ast) of
 
 buildToken :: AST -> String
 buildToken ast = lexeme (fst (content ast))
+--buildToken ast = name ast
 
 findProd :: String -> AST -> [AST]
 findProd nm ast = filter (\ast -> (name ast) == nm) (production ast)
@@ -471,3 +475,6 @@ literalToType ast = case (name ast) of
                           "LITERAL_CHAR" -> TypeChar
                           "LITERAL_STRING" -> TypeString
                           "LITERAL_NULL" -> TypeNull
+
+
+-- InterfaceType
