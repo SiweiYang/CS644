@@ -31,13 +31,14 @@ main = do
   let tokenByFilesStillValid = filter (not . any (\token -> (tokenType $ fst token) == FAILURE) . fst) tokenByFilesFiltered
 
   if (length tokenByFilesStillValid) == 1 then do
-    putStrLn "Lexically Valid"
+    putStrLn "Scanning complete.."
   else do
     let badToken = find (\token -> (tokenType $ fst token) == FAILURE) (fst (head tokenByFilesFiltered))
     let badLocation = snd (fromJust badToken)
     let error = (file badLocation) ++ "\nLine:" ++ (show $ ln badLocation) ++ "\nColumn:" ++ (show $ col badLocation) ++ "\nContents:" ++ (lexeme . fst $ fromJust badToken)
     putStrLn $ "Lexical error!"
-    putStrLn $ error
+    putStrLn $ "Unexpected sequence: " ++ (show $ fromJust badToken)
+    exitWith (ExitFailure 42)
 
   let astByFiles = map (\(tokens, file) -> (map tokenToAST tokens, file)) tokenByFilesStillValid
 
@@ -46,6 +47,15 @@ main = do
   let resultByFiles = map (\(ast, file) -> (run (dfa, ast ++ [AST "EOF" []]), file)) astByFiles
 
   let validParsed = filter (\x -> (length . snd $ fst x)==0) resultByFiles
+
+  if (length validParsed) == 1 then do
+    putStrLn "Parsing complete.."
+  else do
+    let errorToken = (last . snd . fst $ head resultByFiles)
+    putStrLn "Parse error!"
+    putStrLn $ "Unexpected token following: " ++ (show (content . head . units . fst . fst $ head resultByFiles))
+    exitWith (ExitFailure 42)
+
 
   -- AST GENERATION
   let fileAsts = map (\x -> ((buildAST . units . fst $ fst x), snd x)) validParsed
