@@ -4,6 +4,7 @@ import Data.List
 import Data.Maybe
 import System.Environment
 import System.Exit
+import System.IO
 
 import AST
 import Lexical
@@ -31,13 +32,13 @@ main = do
   let tokenByFilesStillValid = filter (not . any (\token -> (tokenType $ fst token) == FAILURE) . fst) tokenByFilesFiltered
 
   if (length tokenByFilesStillValid) == 1 then do
-    putStrLn "Scanning complete.."
+    hPutStrLn stderr "Scanning complete.."
   else do
     let badToken = find (\token -> (tokenType $ fst token) == FAILURE) (fst (head tokenByFilesFiltered))
     let badLocation = snd (fromJust badToken)
     let error = (file badLocation) ++ "\nLine:" ++ (show $ ln badLocation) ++ "\nColumn:" ++ (show $ col badLocation) ++ "\nContents:" ++ (lexeme . fst $ fromJust badToken)
-    putStrLn $ "Lexical error!"
-    putStrLn $ "Unexpected sequence: " ++ (show $ fromJust badToken)
+    hPutStrLn stderr $ "Lexical error!"
+    hPutStrLn stderr $ "Unexpected sequence: " ++ (show $ fromJust badToken)
     exitWith (ExitFailure 42)
 
   let astByFiles = map (\(tokens, file) -> (map tokenToAST tokens, file)) tokenByFilesStillValid
@@ -49,11 +50,11 @@ main = do
   let validParsed = filter (\x -> (length . snd $ fst x)==0) resultByFiles
 
   if (length validParsed) == 1 then do
-    putStrLn "Parsing complete.."
+    hPutStrLn stderr "Parsing complete.."
   else do
     let errorToken = (last . snd . fst $ head resultByFiles)
-    putStrLn "Parse error!"
-    putStrLn $ "Unexpected token following: " ++ (show (content . head . units . fst . fst $ head resultByFiles))
+    hPutStrLn stderr "Parse error!"
+    hPutStrLn stderr $ "Unexpected token following: " ++ (show (content . head . units . fst . fst $ head resultByFiles))
     exitWith (ExitFailure 42)
 
 
@@ -61,8 +62,14 @@ main = do
   let fileAsts = map (\x -> ((buildAST . units . fst $ fst x), snd x)) validParsed
 
   -- WEEDING
-  let unweeded = filter (\x -> (weed (snd x) (fst x)) == Nothing) fileAsts
+  let weedResults = map (\x -> weed (snd x) (fst x)) fileAsts
+  let weeded = filter isJust weedResults
 
-  if (length unweeded) == 1
-    then exitSuccess
-    else exitWith (ExitFailure 42)
+  if (length weeded) == 0 then do
+    hPutStrLn stderr "Weeding complete..."
+    hPutStrLn stderr "Input is valid!"
+    exitSuccess
+  else do
+    hPutStrLn stderr "Weeding error!"
+    hPutStrLn stderr $ fromJust (head weeded)
+    exitWith (ExitFailure 42)
