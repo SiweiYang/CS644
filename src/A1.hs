@@ -1,5 +1,7 @@
 module Main where
 
+import Data.List
+import Data.Maybe
 import System.Environment
 import System.Exit
 
@@ -25,7 +27,17 @@ main = do
   -- LEXER
   tokenByFiles <- mapM (scannerRunner 0 0) files
   let tokenByFilesFiltered = zip (map (filter (\(tk, fn) -> not (elem (tokenType tk) [Comment, WhiteSpace]))) tokenByFiles) (map snd files)
+
   let tokenByFilesStillValid = filter (not . any (\token -> (tokenType $ fst token) == FAILURE) . fst) tokenByFilesFiltered
+
+  if (length tokenByFilesStillValid) == 1 then do
+    putStrLn "Lexically Valid"
+  else do
+    let badToken = find (\token -> (tokenType $ fst token) == FAILURE) (fst (head tokenByFilesFiltered))
+    let badLocation = snd (fromJust badToken)
+    let error = (file badLocation) ++ "\nLine:" ++ (show $ ln badLocation) ++ "\nColumn:" ++ (show $ col badLocation) ++ "\nContents:" ++ (lexeme . fst $ fromJust badToken)
+    putStrLn $ "Lexical error!"
+    putStrLn $ error
 
   let astByFiles = map (\(tokens, file) -> (map tokenToAST tokens, file)) tokenByFilesStillValid
 
