@@ -2,14 +2,7 @@ module Lexical where
 
 import Data.Maybe
 
----------------------------------------- SplitOneOf-----------------------------------------------------------------------------
-splitOneOf :: (Eq a) => [a] -> [a] -> [[a]]
-splitOneOf del (c:r) = h:(splitOneOf del (if t == [] then t else tail t))
-    where
-        pred = (\x -> elem x del)
-        l = c:r
-        (h, t) = break pred l
-splitOneOf _ [] = []
+import Util
 
 ---------------------------------------- Data Types that describe a Token-----------------------------------------------------------------------------
 data TokenType = Keyword | Operator | Separator | Identifier | Comment | WhiteSpace | BoolLit | OctalLit | DecimalLit | HexLit | CharLit | StringLit | NullLit | NotYetSupported | FAILURE deriving (Show, Eq)
@@ -52,7 +45,7 @@ class RE a where
     (|>) :: String -> a -> Maybe Token
     lift :: (String -> Maybe Token) -> a
     build :: (String -> Maybe (String, String)) -> a
-    
+
 
 class (RE a) => Combinator a where
     -- the ordinal combinator that takes the maximal token and break tie by ordering

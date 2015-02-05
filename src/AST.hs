@@ -32,7 +32,10 @@ data Statement = LocalVar {localVar :: TypedVar, localValue :: Expression}
                deriving (Show)
 
 buildStatement :: AST -> Statement
-buildStatement ast = case name ast of
+buildStatement = buildStatement' 0
+
+buildStatement' :: Int -> AST -> Statement
+buildStatement' currentDepth ast = case name ast of
                         "LocalVariableDeclarationStatement" -> buildStatement dec
                         "LocalVariableDeclaration"          -> LocalVar (TV tp nm) val
                         "IfThenStatement"                   -> If builtexp (buildBlock st1) Nothing
@@ -44,24 +47,26 @@ buildStatement ast = case name ast of
                         "ForStatementNoShortIf"             -> For fia exp sea (buildBlock st1)
                         "Block"                             -> Block (buildBlock ast)
                         "EmptyStatement"                    -> Empty
-                        "ExpressionStatement"               -> Expr (buildExp ast)
+                        "ExpressionStatement"               -> Expr (buildNewExp ast)
                         "ReturnStatement"                   -> Return exp
-                        "StatementExpression"               -> Expr (buildExp ast)
+                        "StatementExpression"               -> Expr (buildNewExp ast)
                         "ForInit"                           -> buildStatement singleton
     where
+        buildStatement = buildStatement' (currentDepth + 1)
+        buildNewExp = buildExp (currentDepth + 1)
         prods = production ast
         [singleton] = prods
-        
+
         [dec] = filter (\ast -> name ast == "LocalVariableDeclaration") prods
         tp = buildType (head (filter (\ast -> name ast == "Type") (production ast)))
         nm = listToLexeme (filter (\ast -> name ast == "IDENTIFIER") (production ast))
         [assign] = filter (\ast -> name ast == "OptionalAssignment") (production ast)
-        val = buildExp assign
-        
+        val = buildNewExp assign
+
         stmts = reverse (filter (\ast -> name ast == "StatementNoShortIf" || name ast == "Statement") prods)
         st1 = stmts !! 0
         st2 = stmts !! 1
-        
+
         fi = filter (\ast -> name ast == "ForInit") prods
         fia = case fi of
                 [fie]   -> Just (buildStatement fie)
@@ -70,10 +75,10 @@ buildStatement ast = case name ast of
         sea = case se of
                 [see]   -> Just (buildStatement see)
                 []      -> Nothing
-        
+
         e = filter (\ast -> name ast == "Expression") prods
         [ex] = e
-        builtexp = buildExp ex
+        builtexp = buildNewExp ex
         exp = case e of
                 [ex]    -> Just builtexp
                 []      -> Nothing
@@ -115,31 +120,31 @@ buildAST prods = Comp (if length pk > 0 then Just pkg else Nothing) (if length i
         ------------------ specific for class
         m = filter (\ast -> name ast == "Modifiers") (production t)
         md = if length m > 0 then reverse (toList (head m)) else []
-        
+
         [nm] = filter (\ast -> name ast == "IDENTIFIER") (production t)
-        
+
         ex = filter (\ast -> name ast == "Super") (production t)
         ext = if length ex > 0 then Just (nameToPackage (head (production (head ex)))) else Nothing
-        
+
         ipl = filter (\ast -> name ast == "Interfaces") (production t)
         ifcs = map nameToPackage (concat (map (flatten "InterfaceType" ) ipl))
-        
-        
-        
+
+
+
         cb = filter (\ast -> name ast == "ClassBody") (production t)
         cbds = expand (flatten "ClassBodyDeclaration" (head cb))
-        
+
         stcs = filter (\ast -> name ast == "StaticInitializer") cbds
-        
+
         cons = filter (\ast -> name ast == "ConstructorDeclaration") cbds
-        
+
         mems = expand (filter (\ast -> name ast == "ClassMemberDeclaration") cbds)
         flds = filter (\ast -> name ast == "FieldDeclaration") mems
         mtds = filter (\ast -> name ast == "MethodDeclaration") mems
         ------------------ specific for interface
         exipl = filter (\ast -> name ast == "ExtendsInterfaces") (production t)
         exifcs = map nameToPackage (concat (map (flatten "InterfaceType" ) exipl))
-        
+
         [ib] = filter (\ast -> name ast == "InterfaceBody") (production t)
         ifcmtds = flatten "InterfaceMemberDeclaration" ib
 
@@ -150,12 +155,12 @@ buildField ast = FLD md (TV tp nm) ex
         prods = production ast
         m = filter (\ast -> name ast == "Modifiers") prods
         md = if length m > 0 then reverse (toList (head m)) else []
-        
+
         tp = buildType (head (filter (\ast -> name ast == "Type") prods))
         nm = listToLexeme (filter (\ast -> name ast == "IDENTIFIER") prods)
-        
+
         e = filter (\ast -> name ast == "OptionalAssignment") prods
-        ex = (if length e > 0 then (Just (buildExp (head (production (head e))))) else Nothing)
+        ex = (if length e > 0 then (Just (buildExp 0 (head (production (head e))))) else Nothing)
 
 data Method = MTD { methodModifiers :: [String], methodVar :: TypedVar, methodParameters :: [TypedVar], methodDefinition :: Maybe StatementBlock} deriving (Show)
 buildMethod :: AST -> Method
@@ -166,16 +171,16 @@ buildMethod ast = MTD md (TV tp nm) (map buildTypedVar params) sb
         md = case m of
             [a] -> reverse (toList a)
             []  -> []
-        
+
         [t] = filter (\ast -> name ast == "Type" || name ast == "KEYWORD_VOID") prods
         tp = buildType t
-        
+
         [dec] = filter (\ast -> name ast == "MethodDeclarator") prods
         decprods = production dec
-        
+
         nm = toLexeme (last decprods)
         params = reverse $ concat (map (flatten "FormalParameter") (filter (\ast -> name ast == "FormalParameterList") decprods))
-        
+
         mb = filter (\ast -> name ast == "MethodBody") (production ast)
         [def] = mb
         [blk] = production def
@@ -193,17 +198,17 @@ buildConstructor ast = Cons md nm (map buildTypedVar params) coninvo sb
         md = case m of
             [a] -> reverse (toList a)
             []  -> []
-        
+
         [dec] = filter (\ast -> name ast == "ConstructorDeclarator") prods
         decprods = production dec
-        
+
         nm = toLexeme (last decprods)
         params = concat (map (flatten "FormalParameter") (filter (\ast -> name ast == "FormalParameterList") decprods))
-        
+
         [def] = filter (\ast -> name ast == "ConstructorBody") prods
         ci = filter (\ast -> name ast == "ExplicitConstructorInvocation") (production def)
         coninvo = case ci of
-            [invo]  -> Just (buildExp invo)
+            [invo]  -> Just (buildExp 0 invo)
             []      -> Nothing
         bss = filter (\ast -> name ast == "BlockStatements") (production def)
         sb = case bss of
@@ -235,7 +240,7 @@ buildType ast = case (nast, name arr) of
         nast = flattenL ["ArrayType", "ClassOrInterfaceType", "PrimitiveType"] ast
         [arr] = nast
 -}
-        
+
 
 toLexeme :: AST -> String
 toLexeme ast = case ast of
@@ -312,20 +317,20 @@ importsToPackages ast = case length prods of
 --ConstructorDeclaration
 
 
-data Expression = Unary { op :: String, expr :: Expression }
-                | Binary { op :: String, exprL :: Expression, exprR :: Expression }
-                | Attribute { struct :: Expression, mem :: String }
-                | ArrayAccess { array :: Expression, index :: Expression } 
-                | NewArray { arraytype :: Type, dimexprs :: Expression, dims :: Expression}
-                | Dimension { left :: Expression, index :: Expression }
-                | NewObject { classtype :: Type, arguments :: Arguments }
-                | FunctionCall { func :: Expression, arguments :: Arguments }
-                | CastA { casttype :: Type, dims :: Expression, expr :: Expression }
-                | CastB { castexpr :: Expression, expr :: Expression }
-                | CastC { castname :: Name, dims :: Expression, expr :: Expression }
-                | InstanceOf { reftype :: Type, expr :: Expression }
-                | ID { identifier :: Name }
-                | Value { valuetype :: Type, value :: String }
+data Expression = Unary { op :: String, expr :: Expression, depth :: Int}
+                | Binary { op :: String, exprL :: Expression, exprR :: Expression, depth :: Int }
+                | Attribute { struct :: Expression, mem :: String, depth :: Int }
+                | ArrayAccess { array :: Expression, index :: Expression, depth :: Int }
+                | NewArray { arraytype :: Type, dimexprs :: Expression, dims :: Expression, depth :: Int }
+                | Dimension { left :: Expression, index :: Expression, depth :: Int }
+                | NewObject { classtype :: Type, arguments :: Arguments, depth :: Int }
+                | FunctionCall { func :: Expression, arguments :: Arguments, depth :: Int }
+                | CastA { casttype :: Type, dims :: Expression, expr :: Expression, depth :: Int }
+                | CastB { castexpr :: Expression, expr :: Expression, depth :: Int }
+                | CastC { castname :: Name, dims :: Expression, expr :: Expression, depth :: Int }
+                | InstanceOf { reftype :: Type, expr :: Expression, depth :: Int }
+                | ID { identifier :: Name, depth :: Int }
+                | Value { valuetype :: Type, value :: String, depth :: Int }
                 | This
                 | Null
                 deriving (Show)
@@ -342,8 +347,8 @@ data Name = Simple String
 type Arguments = [Expression]
 
 ------------------------------------------------------
-buildArgs :: AST -> Arguments
-buildArgs ast = map buildExp lst
+buildArgs :: Int -> AST -> Arguments
+buildArgs currentDepth ast = map (buildExp currentDepth) lst
     where
         lst = reverse $ flatten "Expression" ast
 
@@ -366,7 +371,7 @@ buildType ast = case (name ast) of
                     "PrimitiveType" -> buildType singleton
                     "ReferenceType" -> buildType singleton
                     "ClassType" -> buildType singleton
-                    "InterfaceType" -> buildType singleton 
+                    "InterfaceType" -> buildType singleton
                     "KEYWORD_BYTE" -> TypeByte
                     "KEYWORD_SHORT" -> TypeShort
                     "KEYWORD_INT" -> TypeInt
@@ -382,51 +387,54 @@ buildType ast = case (name ast) of
 
 ------------------------------------------------------
 
-buildExp :: AST -> Expression
-buildExp ast = case (name ast) of
-                    "ExpressionStatement" -> buildExp statexpr
-                    "StatementExpression" -> buildExp singleton
-                    "AdditiveExpression" -> if (check "AdditiveExpression" ast) then (Binary (tk "AdditiveOperator" ast) (buildExp additive) (buildExp multiplicative)) else (buildExp multiplicative)
-                    "ArrayAccess" -> ArrayAccess (if (check "PrimaryNoNewArray" ast) then (buildExp priarray) else (ID (buildName nm))) (if (check "Expression" ast) then (buildExp expr) else Null)
-                    "ArrayCreationExpression" -> NewArray (buildType (if (check "PrimitiveType" ast) then pritype else classiftype)) (buildExp dimexprs) (if (check "Dims" ast) then (buildExp dims) else Null)
-                    "Assignment" -> Binary "=" (buildExp lhs) (buildExp expr)
-                    "ConditionalExpression" -> buildExp singleton
-                    "ConditionalAndExpression" -> if (check "ConditionalAndExpression" ast) then (Binary (tk "AndOperator" ast) (buildExp condand) (buildExp equal)) else (buildExp equal)
-                    "ConditionalOrExpression" -> if (check "ConditionalOrExpression" ast) then (Binary (tk "OrOperator" ast) (buildExp condor) (buildExp condand)) else (buildExp condand)
-                    "ClassInstanceCreationExpression" -> NewObject (buildType classtype) (if (check "ArgumentList" ast) then (buildArgs args) else [])
-                    "Dims" -> if (check "Dims" ast) then (Dimension (buildExp dims) Null) else (Dimension Null Null)
-                    "DimExpr" -> buildExp expr
-                    "DimExprs" -> if (check "DimExprs" ast) then (Dimension (buildExp dimexprs) (buildExp dimexpr)) else (Dimension Null (buildExp dimexpr))
-                    "EqualityExpression" -> if (check "EqualityExpression" ast) then (Binary "==" (buildExp equal) (buildExp relational)) else (buildExp relational)
-                    "Expression" -> buildExp singleton
-                    "FieldAccess" -> Attribute (buildExp primary) (buildToken identifier)
-                    "LeftHandSide" -> if (check "Name" ast) then (ID (buildName nm)) else (buildExp singleton)
+buildExp :: Int -> AST -> Expression
+buildExp currentDepth ast = case (name ast) of
+                    "ExpressionStatement" -> buildNewExp statexpr
+                    "StatementExpression" -> buildNewExp singleton
+                    "AdditiveExpression" -> if (check "AdditiveExpression" ast) then (Binary (tk "AdditiveOperator" ast) (buildNewExp additive) (buildNewExp multiplicative) currentDepth) else (buildNewExp multiplicative)
+                    "ArrayAccess" -> ArrayAccess (if (check "PrimaryNoNewArray" ast) then (buildNewExp priarray) else (ID (buildName nm) currentDepth)) (if (check "Expression" ast) then (buildNewExp expr) else Null) currentDepth
+                    "ArrayCreationExpression" -> NewArray (buildType (if (check "PrimitiveType" ast) then pritype else classiftype)) (buildNewExp dimexprs) (if (check "Dims" ast) then (buildNewExp dims) else Null) currentDepth
+                    "Assignment" -> Binary "=" (buildNewExp lhs) (buildNewExp expr) currentDepth
+                    "ConditionalExpression" -> buildNewExp singleton
+                    "ConditionalAndExpression" -> if (check "ConditionalAndExpression" ast) then (Binary (tk "AndOperator" ast) (buildNewExp condand) (buildNewExp equal) currentDepth) else (buildNewExp equal)
+                    "ConditionalOrExpression" -> if (check "ConditionalOrExpression" ast) then (Binary (tk "OrOperator" ast) (buildNewExp condor) (buildNewExp condand) currentDepth) else (buildNewExp condand)
+                    "ClassInstanceCreationExpression" -> NewObject (buildType classtype) (if (check "ArgumentList" ast) then (buildNewArgs args) else []) currentDepth
+                    "Dims" -> if (check "Dims" ast) then (Dimension (buildNewExp dims) Null currentDepth) else (Dimension Null Null currentDepth)
+                    "DimExpr" -> buildNewExp expr
+                    "DimExprs" -> if (check "DimExprs" ast) then (Dimension (buildNewExp dimexprs) (buildNewExp dimexpr) currentDepth) else (Dimension Null (buildNewExp dimexpr) currentDepth)
+                    "EqualityExpression" -> if (check "EqualityExpression" ast) then (Binary "==" (buildNewExp equal) (buildNewExp relational) currentDepth) else (buildNewExp relational)
+                    "Expression" -> buildNewExp singleton
+                    "FieldAccess" -> Attribute (buildNewExp primary) (buildToken identifier) currentDepth
+                    "LeftHandSide" -> if (check "Name" ast) then (ID (buildName nm) currentDepth) else (buildNewExp singleton)
                     "MethodInvocation" -> FunctionCall
-                                          (if (check "Name" ast) then (ID (buildName nm)) else (buildExp fd))
-                                          (if (check "ArgumentList" ast) then (buildArgs args) else [])
-                    "MultiplicativeExpression" -> if (check "MultiplicativeExpression" ast) then (Binary (tk "MultiplicativeOperator" ast) (buildExp multiplicative) (buildExp unary)) else (buildExp unary)
-                    "Primary" -> buildExp singleton
-                    "PrimaryNoNewArray" -> if (check "Expression" ast) then (buildExp expr) else (buildExp singleton)
+                                          (if (check "Name" ast) then (ID (buildName nm) currentDepth) else (buildNewExp fd))
+                                          (if (check "ArgumentList" ast) then (buildNewArgs args) else [])
+                                          currentDepth
+                    "MultiplicativeExpression" -> if (check "MultiplicativeExpression" ast) then (Binary (tk "MultiplicativeOperator" ast) (buildNewExp multiplicative) (buildNewExp unary) currentDepth) else (buildNewExp unary)
+                    "Primary" -> buildNewExp singleton
+                    "PrimaryNoNewArray" -> if (check "Expression" ast) then (buildNewExp expr) else (buildNewExp singleton)
                     "RelationalExpression" -> if (check "ReferenceType" ast)
-                                              then (InstanceOf (buildType referencetype) (buildExp relational)) else (
+                                              then (InstanceOf (buildType referencetype) (buildNewExp relational) currentDepth) else (
                                                     if (check "RelationalExpression" ast)
-                                                    then (Binary (tk "CompareOperator" ast) (buildExp relational) (buildExp additive))
-                                                    else (buildExp additive)
+                                                    then (Binary (tk "CompareOperator" ast) (buildNewExp relational) (buildNewExp additive) currentDepth)
+                                                    else (buildNewExp additive)
                                               )
-                    "UnaryExpression" -> if (check "UnaryExpression" ast) then (Unary "-" (buildExp unary)) else (buildExp unarynotpm)
-                    "UnaryExpressionNotPlusMinus" -> if (check "UnaryExpression" ast) then (Unary "!" (buildExp unary)) else (buildExp singleton)
-                    "PostfixExpression" -> if (check "Name" ast) then (ID (buildName nm)) else (buildExp primary)
+                    "UnaryExpression" -> if (check "UnaryExpression" ast) then (Unary "-" (buildNewExp unary) currentDepth) else (buildNewExp unarynotpm)
+                    "UnaryExpressionNotPlusMinus" -> if (check "UnaryExpression" ast) then (Unary "!" (buildNewExp unary) currentDepth) else (buildNewExp singleton)
+                    "PostfixExpression" -> if (check "Name" ast) then (ID (buildName nm) currentDepth) else (buildNewExp primary)
                     "CastExpression" -> if (check "UnaryExpression" ast)
-                                        then (CastA (buildType pritype) (if (check "Dims" ast) then (buildExp dims) else Null) (buildExp unary)) else (
-                                            if (check "Expression" ast) then (CastB (buildExp expr) (buildExp unarynotpm))
-                                            else (CastC (buildName nm) (buildExp dims) (buildExp unarynotpm))
+                                        then (CastA (buildType pritype) (if (check "Dims" ast) then (buildNewExp dims) else Null) (buildNewExp unary) currentDepth) else (
+                                            if (check "Expression" ast) then (CastB (buildNewExp expr) (buildNewExp unarynotpm) currentDepth)
+                                            else (CastC (buildName nm) (buildNewExp dims) (buildNewExp unarynotpm) currentDepth)
                                         )
-                    "OptionalAssignment" -> buildExp expr
-                    "ExplicitConstructorInvocation" -> FunctionCall This (if (check "ArgumentList" ast) then (buildArgs args) else [])
-                    "Literal" -> Value (literalToType singleton) (buildToken (expandSingle singleton))
+                    "OptionalAssignment" -> buildNewExp expr
+                    "ExplicitConstructorInvocation" -> FunctionCall This (if (check "ArgumentList" ast) then (buildNewArgs  args) else []) currentDepth
+                    "Literal" -> Value (literalToType singleton) (buildToken (expandSingle singleton)) currentDepth
                     "KEYWORD_THIS" -> This
 
     where
+        buildNewExp = buildExp (currentDepth + 1)
+        buildNewArgs = buildArgs (currentDepth + 1)
         [singleton] = production ast
 
         [statexpr] = findProd "StatementExpression" ast
