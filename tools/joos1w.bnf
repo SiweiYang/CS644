@@ -13,10 +13,7 @@ Type:
   ReferenceType
 
 PrimitiveType:
-  IntegralType
   KEYWORD_BOOLEAN
-
-IntegralType:
   KEYWORD_BYTE
   KEYWORD_SHORT
   KEYWORD_INT
@@ -194,7 +191,7 @@ LocalVariableDeclarationStatement:
   LocalVariableDeclaration ;
 
 LocalVariableDeclaration:
-  Type IDENTIFIER |OptionalAssignment|
+  Type IDENTIFIER OptionalAssignment
 
 Statement:
   StatementWithoutTrailingSubstatement
@@ -294,7 +291,7 @@ FieldAccess:
 
 MethodInvocation:
   Name ( |ArgumentList| )
-  Primary . IDENTIFIER ( |ArgumentList| )
+  FieldAccess ( |ArgumentList| )
 
 ArrayAccess:
   Name [ Expression ]

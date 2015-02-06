@@ -1,4 +1,7 @@
+src/res/joos1w.lr1
+
 dist
+RD_VOID
 cabal-dev
 *.o
 *.hi

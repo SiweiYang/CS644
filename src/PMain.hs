@@ -9,11 +9,6 @@ import AST
 import System.Directory
 
 --------------------------------------------------------------------
-testSingleFile :: IO (String, String)
-testSingleFile = do
-    let file = "../assignment_testcases/a1/J1_IntRange_MinNegativeInt.java"
-    content <- readFile file
-    return (content, file)
 
 testVFiles :: IO [(String, String)]
 testVFiles = do
@@ -37,6 +32,7 @@ getModifiersNode a = (production $ (production $ (units $ fst a) !! 1) !! 0) !! 
 getClassBodyNode a = (production $ (production $ (units $ fst a) !! 1) !! 0) !! 0
 getClassBodyDecNode a = (production $ (production $ getClassBodyNode a) !! 1) !! 0
 
+{-
 testAST = do
     a <- testDFA
     let cu = buildAST $ units (fst a)
@@ -44,6 +40,30 @@ testAST = do
     let flds = fields $ definition cu
     let mtds = methods $ definition cu
     return (definition cu)
+-}
+
+-------------------------------------------------------------
+
+testSingleFile :: IO (String, String)
+testSingleFile = do
+    let file = "../assignment_testcases/a1/J1_siwei.java"
+    content <- readFile file
+    return (content, file)
+
+
+testAST :: IO ()
+testAST = do
+    dfa <- readLR1
+    singlefile <- testSingleFile
+    tokenByFile <- scannerRunner 0 0 singlefile
+    let tokenByFileFiltered = filter (\(tk, fn) -> not (elem (tokenType tk) [Comment, WhiteSpace])) tokenByFile
+    let astByFile = (file (snd (head tokenByFileFiltered)), map tokenToAST tokenByFileFiltered)
+    let resultByFile = (\(fn, ast) -> (fn, run (dfa, ast ++ [AST "EOF" []]))) astByFile
+    let astByFile = (\(fn, a) -> (fn, buildAST $ units (fst a))) resultByFile
+    putStrLn (show astByFile)
+    --return astByFile
+    --putStrLn "Sdfsdf"
+
 
 main :: IO ()
 main = do
@@ -51,14 +71,13 @@ main = do
     files <- testVFiles
     tokenByFiles <- mapM (scannerRunner 0 0) files
     let tokenByFilesFiltered = map (filter (\(tk, fn) -> not (elem (tokenType tk) [Comment, WhiteSpace]))) tokenByFiles
-    let astByFiles = map (map tokenToAST) tokenByFilesFiltered
-    let resultByFiles = map (\ast -> run (dfa, ast ++ [AST "EOF" []])) astByFiles
-    let astByFiles = map (\a -> buildAST $ units (fst a)) resultByFiles
+    let astByFiles = map (\x -> (file (snd (head x)), map tokenToAST x)) tokenByFilesFiltered
+    let resultByFiles = map (\(fn, ast) -> (fn, run (dfa, ast ++ [AST "EOF" []]))) astByFiles
+    let astByFiles = map (\(fn, a) -> (fn, buildAST $ units (fst a))) resultByFiles
     putStrLn (show astByFiles)
     
-    let res = zip (map snd resultByFiles) (map snd files)
-    let pass = filter (\(r, f) -> length r == 0) res
-    
-    putStrLn ("test passed: " ++ (show (length pass)) ++ "/" ++ (show (length res)))
-    putStrLn (show (filter (\(r, f) -> length r > 0) res))
+    --let res = zip (map snd resultByFiles) (map snd files)
+    --let pass = filter (\(r, f) -> length r == 0) res
+    --putStrLn ("test passed: " ++ (show (length pass)) ++ "/" ++ (show (length res)))
+    --putStrLn (show (filter (\(r, f) -> length r > 0) res))
 	--putStrLn (foldl (\acc x -> acc ++ show x ++ "\n") "" listC)
