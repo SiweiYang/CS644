@@ -15,6 +15,7 @@ public static protected class J1_siwei extends wtf.dfsfd.qw implements a.d.esdf.
         int f = a.b().c;
 	int i = 1*100+2*10+3;
         for (int a = 1; a < b; a()) a.b();
+
 	return i;
     }
 
