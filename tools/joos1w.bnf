@@ -103,7 +103,6 @@ ClassBodyDeclarations:
 
 ClassBodyDeclaration:
   ClassMemberDeclaration
-  StaticInitializer
   ConstructorDeclaration
 
 ClassMemberDeclaration:
@@ -120,8 +119,8 @@ MethodDeclaration:
   MethodHeader MethodBody
 
 MethodHeader:
-  |Modifiers| Type MethodDeclarator |Throws|
-  |Modifiers| KEYWORD_VOID MethodDeclarator |Throws|
+  |Modifiers| Type MethodDeclarator
+  |Modifiers| KEYWORD_VOID MethodDeclarator
 
 MethodDeclarator:
   IDENTIFIER ( |FormalParameterList| )
@@ -133,9 +132,6 @@ FormalParameterList:
 FormalParameter:
   Type IDENTIFIER
 
-Throws:
-  KEYWORD_THROWS ClassTypeList
-
 ClassTypeList:
   ClassType
   ClassTypeList , ClassType
@@ -144,11 +140,8 @@ MethodBody:
   Block
   ;
 
-StaticInitializer:
-  KEYWORD_STATIC Block
-
 ConstructorDeclaration:
-  |Modifiers| ConstructorDeclarator |Throws| ConstructorBody
+  |Modifiers| ConstructorDeclarator ConstructorBody
 
 ConstructorDeclarator:
   SimpleName ( |FormalParameterList| )
@@ -277,14 +270,12 @@ ArrayCreationExpression:
 
 DimExprs:
   DimExpr
-  DimExprs DimExpr
 
 DimExpr:
   [ Expression ]
 
 Dims:
   [ ]
-  Dims [ ]
 
 FieldAccess:
   Primary . IDENTIFIER

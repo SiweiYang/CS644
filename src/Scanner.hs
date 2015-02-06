@@ -1,5 +1,6 @@
 module Scanner where
 import Lexical
+import Util
 
 import Data.Char
 import Data.List
