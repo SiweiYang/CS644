@@ -47,11 +47,12 @@ testAST = do
 testSingleFile :: IO (String, String)
 testSingleFile = do
     let file = "../assignment_testcases/a1/J1_siwei.java"
+    --let file = "../assignment_testcases/a1/J1_protected.java"
     content <- readFile file
     return (content, file)
 
 
-testAST :: IO ()
+--testAST :: IO ()
 testAST = do
     dfa <- readLR1
     singlefile <- testSingleFile
@@ -59,9 +60,9 @@ testAST = do
     let tokenByFileFiltered = filter (\(tk, fn) -> not (elem (tokenType tk) [Comment, WhiteSpace])) tokenByFile
     let astByFile = (file (snd (head tokenByFileFiltered)), map tokenToAST tokenByFileFiltered)
     let resultByFile = (\(fn, ast) -> (fn, run (dfa, ast ++ [AST "EOF" []]))) astByFile
-    let astByFile = (\(fn, a) -> (fn, buildAST $ units (fst a))) resultByFile
-    putStrLn (show astByFile)
-    --return astByFile
+    let astByFile = (\(fn, a) -> (fn, buildAST $ units (fst a), snd a)) resultByFile
+    --putStrLn (show astByFile)
+    return astByFile
     --putStrLn "Sdfsdf"
 
 

@@ -8,10 +8,6 @@ public static protected class J1_siwei extends wtf.dfsfd.qw implements a.d.esdf.
     static cha.abc.erf[] b;
     public J1_siwei(int a, sdfe lol) {this (123, 456, 789);}
 
-    protected static {
-        int d = 1;
-    }
-
     public static int test(int a, lol b, sdf.ewr.dv c, char[] d) {
         a.ddsb();
         int f = 1;

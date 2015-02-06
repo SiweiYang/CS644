@@ -1,24 +1,31 @@
 module AST where
 
 import Data.Maybe
+import Data.List
 
+import Util
 import Lexical
 import Parser
-------------------------------------- Value Types
--- operator including =, +, -, *, /, %, &, &&, |, ||
--- operator special case := cast where we treat as binary
 
--- data Expression = Unary String Expression | Binary String Expression Expression | Value Primary
+data ASTInfo = AI { fn :: String
+                    , lnF, colF :: Int
+                    , lnT, colT :: Int
+                    } deriving (Show)
 
-
--- for . access, need to unify qualified name and field access
--- a.b() is parsed in weird way, or maybe not
--- just simplify to factors, where () is a factor as well
--- instantiation and array treat separately
--- note multi-dimensional array not supported
-
--- data Primary = Pri [String] | Cre | Arr
-
+extractASTInfo :: AST -> ASTInfo
+extractASTInfo (ASTT n (tk, ti)) = AI (file ti) lnf colf lnt colt
+    where
+        parts = splitOneOf "\n" (lexeme tk)
+        lnf = (ln ti)
+        colf = (col ti)
+        lnt = if length parts > 1 then lnf + (length parts) - 1 else lnf
+        colt = if length parts > 1 then length (last parts) else colf + (length (lexeme tk))
+        
+extractASTInfo ast = AI fn lnf colf lnt colt 
+    where
+        prods = production ast
+        AI fn lnf colf _ _ = extractASTInfo (last prods)
+        AI _ _ _ lnt colt = extractASTInfo (head prods)
 
 -------------------------------------- Control Structures
 data Statement = LocalVar {localVar :: TypedVar, localValue :: Expression}
@@ -37,7 +44,7 @@ buildStatement = buildStatement' 0
 buildStatement' :: Int -> AST -> Statement
 buildStatement' currentDepth ast = case name ast of
                         "LocalVariableDeclarationStatement" -> buildStatement dec
-                        "LocalVariableDeclaration"          -> LocalVar (TV tp nm) val
+                        "LocalVariableDeclaration"          -> LocalVar (TV tp nm (extractASTInfo ast)) val
                         "IfThenStatement"                   -> If builtexp (buildBlock st1) Nothing
                         "IfThenElseStatement"               -> If builtexp (buildBlock st1) (Just (buildBlock st2))
                         "IfThenElseStatementNoShortIf"      -> If builtexp (buildBlock st1) (Just (buildBlock st2))
@@ -86,101 +93,169 @@ buildStatement' currentDepth ast = case name ast of
 
 
 -------------------------------------- Class Hierachy
-data CompilationUnit = Comp { package :: Maybe [String], imports :: [[String]], definition :: TypeDec} deriving (Show)
+indent :: Int -> String -> String
+indent i str = intercalate "\n" nlns
+    where
+        lns = splitOneOf "\n" str
+        ind = take i (repeat ' ')
+        nlns = map (ind ++) lns
+data CompilationUnit = Comp { package :: Maybe [String],
+                              imports :: [[String]],
+                              definition :: TypeDec,
+                              cui :: CompilationUnitInfo
+                              }
+data CompilationUnitInfo = CompI { packageInfo :: Maybe ASTInfo,
+                                   importsInfo :: [ASTInfo]
+                                   } deriving (Show)
+
+instance Show CompilationUnit where
+    show (Comp pkg imps def cui) =
+                                    "{\n" ++
+                                    (indent 2 body) ++ "\n" ++
+                                    "}\n"
+        where
+            body =  (if isNothing pkg then "" else ("package: " ++ (intercalate "." (fromJust pkg)) ++ "\n")) ++
+                    "implements: " ++ (intercalate ", " (map (intercalate ".") imps)) ++ "\n" ++
+                    (show def)
+--                    ++ "\n" ++ (show cui)
+
 data TypeDec = CLS { modifiers :: [String],
                      className :: String,
                      extends :: Maybe [String],
                      implements :: [[String]],
-                     staticInit :: [StatementBlock],
                      constructors :: [Constructor],
                      fields :: [Field],
-                     methods :: [Method]}
+                     methods :: [Method],
+                     clsi :: TDInfo}
              | ITF { modifiers :: [String],
                      interfaceName :: String,
                      implements :: [[String]],
-                     methods :: [Method]}
-             deriving (Show)
+                     methods :: [Method],
+                     itfi :: TDInfo}
+
+data TDInfo = CLSI { modifiersInfo :: [ASTInfo],
+                      classNameInfo :: ASTInfo,
+                      extendsInfo :: Maybe ASTInfo,
+                      implementsInfo :: [ASTInfo]
+                    }
+            | ITFI { modifiersInfo :: [ASTInfo],
+                      interfaceNameInfo :: ASTInfo,
+                      implementsInfo :: [ASTInfo]
+                    } deriving (Show)
+instance Show TypeDec where
+    show (CLS mds nm ext imps cons flds mtds clsi) =
+                                    "Class " ++ nm ++ "{\n" ++
+                                    (indent 2 body) ++ "\n" ++
+                                    "}"
+--                                    ++ "\n" ++ (show clsi)
+        where
+            body =  "modifiers: " ++ (intercalate ", " mds) ++ "\n" ++
+                    (if isNothing ext then "" else ("extends: " ++ (intercalate "." (fromJust ext)) ++ "\n")) ++
+                    "implements: " ++ (intercalate ", " (map (intercalate ".") imps)) ++ "\n" ++
+                    "constructors:\n" ++
+                    (indent 2 (intercalate "\n" (map show cons))) ++ "\n" ++
+                    "fields:\n" ++
+                    (indent 2 (intercalate "\n" (map show flds))) ++ "\n" ++
+                    "methods:\n" ++
+                    (indent 2 (intercalate "\n" (map show mtds)))
+    show (ITF mds nm imps mtds itfi) =
+                                    "Interface " ++ nm ++ "{\n" ++
+                                    (indent 2 body) ++ "\n" ++
+                                    "}"
+--                                    ++ "\n" ++ (show itfi)
+        where
+            body =  "modifiers: " ++ (intercalate ", " mds) ++ "\n" ++
+                    "implements: " ++ (intercalate ", " (map (intercalate ".") imps)) ++ "\n" ++
+                    "methods:\n" ++
+                    (indent 2 (intercalate "\n" (map show mtds)))
 
 unitName (CLS _ nm _ _ _ _ _ _) = nm
-unitName (ITF _ nm _ _) = nm
+unitName (ITF _ nm _ _ _) = nm
 
 
 buildAST :: [AST] -> CompilationUnit
-buildAST prods = Comp (if length pk > 0 then Just pkg else Nothing) (if length im > 0 then imp else []) td
+buildAST prods = Comp (if length pk > 0 then Just (nameToPackage pkgn) else Nothing) (if length im > 0 then map importToPackage ims else []) td (CompI (if length pk > 0 then Just (extractASTInfo pkg) else Nothing) (if length im > 0 then map extractASTInfo ims else []))
     where
         pk = filter (\ast -> name ast == "PackageDeclaration") prods
-        pkg = nameToPackage ((production (head pk)) !! 1)
+        [pkg] = pk
+        pkgn =  (production pkg) !! 1
+        
         im = filter (\ast -> name ast == "ImportDeclarations") prods
-        imp = importsToPackages (head im)
+        ims = reverse (flatten "ImportDeclaration" (head im))
+        
         t = head (production (head (filter (\ast -> name ast == "TypeDeclaration") prods)))
         td = case name t of
-                "ClassDeclaration" -> CLS md (toLexeme nm) ext ifcs (map buildBlock stcs) (map buildConstructor cons) (map buildField flds) (map buildMethod mtds)
+                "ClassDeclaration" -> CLS (map toLexeme ms) (toLexeme nm) ext (map nameToPackage ipls) (map buildConstructor cons) (map buildField flds) (map buildMethod mtds) (CLSI (map extractASTInfo ms) (extractASTInfo nm) exti (map extractASTInfo ipls))
                 ---------------------- Interface to be done
-                "InterfaceDeclaration" -> ITF md (toLexeme nm) exifcs (map buildMethod ifcmtds)
+                "InterfaceDeclaration" -> ITF (map toLexeme ms) (toLexeme nm) (map nameToPackage exipls) (map buildMethod ifcmtds) (ITFI (map extractASTInfo ms) (extractASTInfo nm) (map extractASTInfo exipls))
         ------------------ specific for class
         m = filter (\ast -> name ast == "Modifiers") (production t)
-        md = if length m > 0 then reverse (toList (head m)) else []
-
+        ms = reverse (flatten "ModifierKeyword" (head m))
+        
         [nm] = filter (\ast -> name ast == "IDENTIFIER") (production t)
-
+        
         ex = filter (\ast -> name ast == "Super") (production t)
         ext = if length ex > 0 then Just (nameToPackage (head (production (head ex)))) else Nothing
-
+        exti = if length ex > 0 then Just (extractASTInfo (head (production (head ex)))) else Nothing
+        
         ipl = filter (\ast -> name ast == "Interfaces") (production t)
-        ifcs = map nameToPackage (concat (map (flatten "InterfaceType" ) ipl))
-
-
-
+        ipls = reverse (concat (map (flatten "InterfaceType") ipl))
+        
         cb = filter (\ast -> name ast == "ClassBody") (production t)
         cbds = expand (flatten "ClassBodyDeclaration" (head cb))
-
-        stcs = filter (\ast -> name ast == "StaticInitializer") cbds
-
-        cons = filter (\ast -> name ast == "ConstructorDeclaration") cbds
-
+        
+        cons = reverse (filter (\ast -> name ast == "ConstructorDeclaration") cbds)
+        
         mems = expand (filter (\ast -> name ast == "ClassMemberDeclaration") cbds)
-        flds = filter (\ast -> name ast == "FieldDeclaration") mems
-        mtds = filter (\ast -> name ast == "MethodDeclaration") mems
+        flds = reverse (filter (\ast -> name ast == "FieldDeclaration") mems)
+        mtds = reverse (filter (\ast -> name ast == "MethodDeclaration") mems)
         ------------------ specific for interface
         exipl = filter (\ast -> name ast == "ExtendsInterfaces") (production t)
-        exifcs = map nameToPackage (concat (map (flatten "InterfaceType" ) exipl))
-
+        exipls = reverse (concat (map (flatten "InterfaceType" ) exipl))
+        
         [ib] = filter (\ast -> name ast == "InterfaceBody") (production t)
-        ifcmtds = flatten "InterfaceMemberDeclaration" ib
+        ifcmtds = reverse (flatten "InterfaceMemberDeclaration" ib)
 
-data Field = FLD { fieldModifiers :: [String], fieldVar :: TypedVar, fieldValue :: Maybe Expression} deriving (Show)
+data FieldInfo = FLDI {fieldModifiersInfo :: [ASTInfo], fieldValueInfo :: Maybe ASTInfo} deriving (Show)
+data Field = FLD { fieldModifiers :: [String], fieldVar :: TypedVar, fieldValue :: Maybe Expression, fldi :: FieldInfo} deriving (Show)
 buildField :: AST -> Field
-buildField ast = FLD md (TV tp nm) ex
+buildField ast = FLD (map toLexeme ms) (TV tp nm (extractASTInfo ast)) ex (FLDI (map extractASTInfo ms) exi)
     where
         prods = production ast
         m = filter (\ast -> name ast == "Modifiers") prods
-        md = if length m > 0 then reverse (toList (head m)) else []
-
-        tp = buildType (head (filter (\ast -> name ast == "Type") prods))
-        nm = listToLexeme (filter (\ast -> name ast == "IDENTIFIER") prods)
-
+        ms = case m of
+            [a] -> reverse (flatten "ModifierKeyword" (head m))
+            []  -> []
+        
+        [t] = filter (\ast -> name ast == "Type") prods
+        tp = buildType t
+        [n] = filter (\ast -> name ast == "IDENTIFIER") prods
+        nm = toLexeme n
+        
         e = filter (\ast -> name ast == "OptionalAssignment") prods
         ex = (if length e > 0 then (Just (buildExp 0 (head (production (head e))))) else Nothing)
+        exi = (if length e > 0 then (Just (extractASTInfo (head (production (head e))))) else Nothing)
 
-data Method = MTD { methodModifiers :: [String], methodVar :: TypedVar, methodParameters :: [TypedVar], methodDefinition :: Maybe StatementBlock} deriving (Show)
+data MethodInfo = MTDI {methodModifiersInfo :: [ASTInfo]} deriving (Show)
+data Method = MTD { methodModifiers :: [String], methodVar :: TypedVar, methodParameters :: [TypedVar], methodDefinition :: Maybe StatementBlock, mtdi :: MethodInfo} deriving (Show)
 buildMethod :: AST -> Method
-buildMethod ast = MTD md (TV tp nm) (map buildTypedVar params) sb
+buildMethod ast = MTD (map toLexeme ms) (TV tp nm (extractASTInfo ast)) (map buildTypedVar params) sb (MTDI (map extractASTInfo ms))
     where
         prods = production (last (production ast))
         m = filter (\ast -> name ast == "Modifiers") prods
-        md = case m of
-            [a] -> reverse (toList a)
+        ms = case m of
+            [a] -> reverse (flatten "ModifierKeyword" (head m))
             []  -> []
-
+        
         [t] = filter (\ast -> name ast == "Type" || name ast == "KEYWORD_VOID") prods
         tp = buildType t
-
+        
         [dec] = filter (\ast -> name ast == "MethodDeclarator") prods
         decprods = production dec
-
+        
         nm = toLexeme (last decprods)
         params = reverse $ concat (map (flatten "FormalParameter") (filter (\ast -> name ast == "FormalParameterList") decprods))
-
+        
         mb = filter (\ast -> name ast == "MethodBody") (production ast)
         [def] = mb
         [blk] = production def
@@ -189,41 +264,46 @@ buildMethod ast = MTD md (TV tp nm) (map buildTypedVar params) sb
                 (_, False)  -> Nothing
                 _           -> Just (buildBlock blk)
 
-data Constructor = Cons { constructorModifiers :: [String], constructorName :: String, constructorParameters :: [TypedVar], constructorInvocation :: Maybe Expression, constructorDefinition :: Maybe StatementBlock} deriving (Show)
+data ConstructorInfo = ConsI {constructorModifiersInfo :: [ASTInfo], constructorNameInfo :: ASTInfo, constructorInvocationInfo :: Maybe ASTInfo} deriving (Show)
+data Constructor = Cons { constructorModifiers :: [String], constructorName :: String, constructorParameters :: [TypedVar], constructorInvocation :: Maybe Expression, constructorDefinition :: Maybe StatementBlock, consi :: ConstructorInfo} deriving (Show)
 buildConstructor :: AST -> Constructor
-buildConstructor ast = Cons md nm (map buildTypedVar params) coninvo sb
+buildConstructor ast = Cons (map toLexeme ms) nm (map buildTypedVar params) coninvo sb (ConsI (map extractASTInfo ms) (extractASTInfo n) coninvoi)
     where
         prods = production ast
         m = filter (\ast -> name ast == "Modifiers") prods
-        md = case m of
-            [a] -> reverse (toList a)
+        ms = case m of
+            [a] -> reverse (flatten "ModifierKeyword" (head m))
             []  -> []
-
+        
         [dec] = filter (\ast -> name ast == "ConstructorDeclarator") prods
         decprods = production dec
-
-        nm = toLexeme (last decprods)
+        
+        n = last decprods
+        nm = toLexeme n
         params = concat (map (flatten "FormalParameter") (filter (\ast -> name ast == "FormalParameterList") decprods))
-
+        
         [def] = filter (\ast -> name ast == "ConstructorBody") prods
         ci = filter (\ast -> name ast == "ExplicitConstructorInvocation") (production def)
         coninvo = case ci of
             [invo]  -> Just (buildExp 0 invo)
+            []      -> Nothing
+        coninvoi = case ci of
+            [invo]  -> Just (extractASTInfo invo)
             []      -> Nothing
         bss = filter (\ast -> name ast == "BlockStatements") (production def)
         sb = case bss of
             [bs]    -> Just (buildBlock bs)
             []      -> Nothing
 
-data StatementBlock = SB { statements :: [Statement]} deriving (Show)
+data StatementBlock = SB { statements :: [Statement], statementsInfo :: ASTInfo} deriving (Show)
 buildBlock :: AST -> StatementBlock
-buildBlock ast = SB (map buildStatement stmts)
+buildBlock ast = SB (map buildStatement stmts) (extractASTInfo ast)
     where
         stmts = concat (map (flattenL ["LocalVariableDeclarationStatement", "IfThenStatement", "IfThenElseStatement", "WhileStatement", "ForStatement", "Block", "EmptyStatement", "ExpressionStatement", "ReturnStatement"]) (production ast))
 
-data TypedVar = TV {typeName :: Type, varName :: String} deriving (Show)
+data TypedVar = TV {typeName :: Type, varName :: String, varInfo :: ASTInfo} deriving (Show)
 buildTypedVar :: AST -> TypedVar
-buildTypedVar ast = TV tp nm
+buildTypedVar ast = TV tp nm (extractASTInfo ast)
     where
         prods = production ast
         nm = toLexeme (head prods)
@@ -240,7 +320,6 @@ buildType ast = case (nast, name arr) of
         nast = flattenL ["ArrayType", "ClassOrInterfaceType", "PrimitiveType"] ast
         [arr] = nast
 -}
-
 
 toLexeme :: AST -> String
 toLexeme ast = case ast of
@@ -302,15 +381,6 @@ importToPackage ast = case length prods of
         id = (head prods)
         na = prods !! 3
         st = prods !! 1
-importsToPackages :: AST -> [[String]]
-importsToPackages ast = case length prods of
-                        1   -> [importToPackage id]
-                        2   -> (importsToPackages re) ++ (importsToPackages id)
-    where
-        prods = production ast
-        id = (head prods)
-        re = (head (drop 1 prods))
-
 
 --ClassMemberDeclaration
 --StaticInitializer
@@ -492,5 +562,3 @@ literalToType ast = case (name ast) of
                           "LITERAL_STRING" -> TypeString
                           "LITERAL_NULL" -> TypeNull
 
-
--- InterfaceType
