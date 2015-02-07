@@ -15,15 +15,15 @@ weed :: String -> CompilationUnit -> WeedError
 weed filename unit = weedTypeDec filename $ definition unit
 
 weedTypeDec :: String -> TypeDec -> WeedError
-weedTypeDec filename (CLS modifiers name _ _ init constructors fields methods)
-  | all (`elem` modifiers) ["abstract", "final"] = Just "Cannot have a class that is abstract AND final"
-  | (nub modifiers) /= modifiers = Just "Class modifiers cannot be repeated"
-  | "private" `elem` modifiers = Just "Classes cannot be private"
-  | not (any (`elem` modifiers) ["public", "protected"]) = Just "Class must have acces modifier"
+weedTypeDec filename (CLS modifiers name _ _ constructors fields methods info)
+  | all (`elem` modifiers) ["abstract", "final"] = Just $ "Cannot have a class that is abstract AND final" ++ show info
+  | (nub modifiers) /= modifiers = Just $ "Class modifiers cannot be repeated" ++ show info
+  | "private" `elem` modifiers = Just $ "Classes cannot be private" ++ show info
+  | not (any (`elem` modifiers) ["public", "protected"]) = Just $ "Class must have acces modifier" ++ show info
   | methodError /= Nothing = methodError
   | fieldError /= Nothing = fieldError
   | constructorError /= Nothing = constructorError
-  | name /= correctName = Just $ "Expected class to be named '" ++ correctName ++ "' but saw '" ++ name ++ "'"
+  | name /= correctName = Just $ "Expected class to be named '" ++ correctName ++ "' but saw '" ++ name ++ "'" ++ show info
   | otherwise = Nothing
   where methodError = weedClassMethods methods
         fieldError = weedFields fields
@@ -31,17 +31,17 @@ weedTypeDec filename (CLS modifiers name _ _ init constructors fields methods)
         fileName = last $ splitOneOf "/" filename
         fileNameSplit = splitOneOf "." fileName
         correctName = foldl (++) "" (take ((length fileNameSplit) - 1) fileNameSplit)
-weedTypeDec filename (ITF modifiers name _ methods)
-  | "private" `elem` modifiers = Just "Interfaces cannot be private"
-  | (nub modifiers) /= modifiers = Just "Interface modifiers cannot be repeated"
+weedTypeDec filename (ITF modifiers name _ methods info)
+  | "private" `elem` modifiers = Just $ "Interfaces cannot be private" ++ show info
+  | (nub modifiers) /= modifiers = Just $ "Interface modifiers cannot be repeated" ++ show info
   | methodError /= Nothing = methodError
-  | name /= correctName = Just $ "Expected class to be named '" ++ correctName ++ "' but saw '" ++ name ++ "'"
+  | name /= correctName = Just $ "Expected class to be named '" ++ correctName ++ "' but saw '" ++ name ++ "'" ++ show info
   | otherwise = Nothing
   where methodError = weedInterfaceMethods methods
         correctName = head $ splitOneOf "." (last (splitOneOf "/" filename))
 
 weedConstructor :: Constructor -> WeedError
-weedConstructor (Cons modifiers name params invocation definition)
+weedConstructor (Cons modifiers name params invocation definition info)
   | isJust definitionError = definitionError
   | isJust invocationError = invocationError
   | otherwise = Nothing
@@ -55,20 +55,20 @@ weedClassMethods :: [Method] -> WeedError
 weedClassMethods methods = msum $ map weedClassMethod methods
 
 weedClassMethod :: Method -> WeedError
-weedClassMethod (MTD modifiers var params definition)
-  | (nub modifiers) /= modifiers = Just "Method modifiers cannot be repeated"
-  | length (filter (`elem` modifiers) ["public", "protected"]) /= 1 = Just "One and only one access modifier is allowed"
-  | all (`elem` modifiers) ["static", "final"] = Just "A static method cannot be final"
-  | ("native" `elem` modifiers) && not ("static" `elem` modifiers) = Just "Native methods must be static"
-  | "private" `elem` modifiers = Just "Methods cannot be private"
-  | "abstract" `elem` modifiers && "static" `elem` modifiers = Just "Abstract methods cannot be static"
-  | "abstract" `elem` modifiers && "final" `elem` modifiers = Just "Abstract methods cannot be final"
-  | "abstract" `elem` modifiers && "native" `elem` modifiers = Just "Abstract methods cannot be native"
-  | "abstract" `elem` modifiers && "strictfp" `elem` modifiers = Just "Abstract methods cannot be strictfp"
-  | "abstract" `elem` modifiers && "synchronized" `elem` modifiers = Just "Abstract methods cannot be synchronized"
-  | "native" `elem` modifiers && "strictfp" `elem` modifiers = Just "Native methods cannot be strictfp"
-  | any (`elem` modifiers) ["abstract", "native"] && isJust definition = Just "Abstract/Native methods cannot have a body"
-  | not (any (`elem` modifiers) ["abstract", "native"]) && isNothing definition = Just "Non-abstract non-native methods must have a body"
+weedClassMethod (MTD modifiers var params definition info)
+  | (nub modifiers) /= modifiers = Just $ "Method modifiers cannot be repeated" ++ show info
+  | length (filter (`elem` modifiers) ["public", "protected"]) /= 1 = Just $ "One and only one access modifier is allowed" ++ show info
+  | all (`elem` modifiers) ["static", "final"] = Just $ "A static method cannot be final" ++ show info
+  | ("native" `elem` modifiers) && not ("static" `elem` modifiers) = Just $ "Native methods must be static" ++ show info
+  | "private" `elem` modifiers = Just $ "Methods cannot be private" ++ show info
+  | "abstract" `elem` modifiers && "static" `elem` modifiers = Just $ "Abstract methods cannot be static" ++ show info
+  | "abstract" `elem` modifiers && "final" `elem` modifiers = Just $ "Abstract methods cannot be final" ++ show info
+  | "abstract" `elem` modifiers && "native" `elem` modifiers = Just $ "Abstract methods cannot be native" ++ show info
+  | "abstract" `elem` modifiers && "strictfp" `elem` modifiers = Just $ "Abstract methods cannot be strictfp" ++ show info
+  | "abstract" `elem` modifiers && "synchronized" `elem` modifiers = Just $ "Abstract methods cannot be synchronized" ++ show info
+  | "native" `elem` modifiers && "strictfp" `elem` modifiers = Just $ "Native methods cannot be strictfp" ++ show info
+  | any (`elem` modifiers) ["abstract", "native"] && isJust definition = Just $ "Abstract/Native methods cannot have a body" ++ show info
+  | not (any (`elem` modifiers) ["abstract", "native"]) && isNothing definition = Just $ "Non-abstract non-native methods must have a body" ++ show info
   | isJust bodyError = bodyError
   | otherwise = Nothing
   where bodyError = weedStatementBlock definition
@@ -77,15 +77,15 @@ weedInterfaceMethods :: [Method] -> WeedError
 weedInterfaceMethods methods = msum $ map weedInterfaceMethod methods
 
 weedInterfaceMethod :: Method -> WeedError
-weedInterfaceMethod (MTD modifiers var params definition)
-  | (nub modifiers) /= modifiers = Just "Method modifiers cannot be repeated"
-  | not (all (`elem` ["public", "abstract"]) modifiers) = Just "Interface methods can only have modifiers 'public' and 'abstract'"
-  | isJust definition = Just "Interface methods cannot have a body"
+weedInterfaceMethod (MTD modifiers var params definition info)
+  | (nub modifiers) /= modifiers = Just $ "Method modifiers cannot be repeated" ++ show info
+  | not (all (`elem` ["public", "abstract"]) modifiers) = Just $ "Interface methods can only have modifiers 'public' and 'abstract'" ++ show info
+  | isJust definition = Just $ "Interface methods cannot have a body" ++ show info
   | otherwise = Nothing
 
 weedStatementBlock :: Maybe StatementBlock -> WeedError
 weedStatementBlock Nothing = Nothing
-weedStatementBlock (Just block) = msum $ map weedStatement (statements block)
+weedStatementBlock (Just block) = fmap (++ (show (statementsInfo block))) (msum $ map weedStatement (statements block))
 
 weedStatement :: Statement -> WeedError
 weedStatement (LocalVar var value) = weedExpression value
@@ -146,9 +146,9 @@ weedFields :: [Field] -> WeedError
 weedFields fields = msum $ map weedField fields
 
 weedField :: Field -> WeedError
-weedField (FLD modifiers var val)
-  | (nub modifiers) /= modifiers = Just "Field modifiers cannot be repeated"
-  | "private" `elem` modifiers = Just "Class fields cannot be private"
-  | not (any (`elem` modifiers) ["public", "protected"]) = Just "Class field must have access modifier"
-  | "final" `elem` modifiers && isNothing val = Just "Final fields must have values"
+weedField (FLD modifiers var val info)
+  | (nub modifiers) /= modifiers = Just $ "Field modifiers cannot be repeated" ++ show info
+  | "private" `elem` modifiers = Just $ "Class fields cannot be private" ++ show info
+  | not (any (`elem` modifiers) ["public", "protected"]) = Just $ "Class field must have access modifier" ++ show info
+  | "final" `elem` modifiers && isNothing val = Just $ "Final fields must have values" ++ show info
   | otherwise = Nothing
