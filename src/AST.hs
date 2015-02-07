@@ -190,7 +190,9 @@ buildAST prods = Comp (if length pk > 0 then Just (nameToPackage pkgn) else Noth
                 "InterfaceDeclaration" -> ITF (map toLexeme ms) (toLexeme nm) (map nameToPackage exipls) (map buildMethod ifcmtds) (ITFI (map extractASTInfo ms) (extractASTInfo nm) (map extractASTInfo exipls))
         ------------------ specific for class
         m = filter (\ast -> name ast == "Modifiers") (production t)
-        ms = reverse (flatten "ModifierKeyword" (head m))
+        ms = case m of
+          [] -> []
+          m -> reverse (flatten "ModifierKeyword" (head m))
         
         [nm] = filter (\ast -> name ast == "IDENTIFIER") (production t)
         
