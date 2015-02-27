@@ -93,12 +93,6 @@ buildStatement' currentDepth ast = case name ast of
 
 
 -------------------------------------- Class Hierachy
-indent :: Int -> String -> String
-indent i str = intercalate "\n" nlns
-    where
-        lns = splitOneOf "\n" str
-        ind = take i (repeat ' ')
-        nlns = map (ind ++) lns
 data CompilationUnit = Comp { package :: Maybe [String],
                               imports :: [[String]],
                               definition :: TypeDec,
@@ -192,7 +186,7 @@ buildAST prods = Comp (if length pk > 0 then Just (nameToPackage pkgn) else Noth
         m = filter (\ast -> name ast == "Modifiers") (production t)
         ms = case m of
           [] -> []
-          m -> reverse (flatten "ModifierKeyword" (head m))
+          _ -> reverse (flatten "ModifierKeyword" (head m))
         
         [nm] = filter (\ast -> name ast == "IDENTIFIER") (production t)
         
