@@ -6,9 +6,17 @@ import AST
 data Kind = Class | Interface | Method | Field | Statement | Var Expression | Exp Expression | Ret Expression | WhileBlock Expression | IfBlock Expression | ForBlock deriving (Show)
 
 data Symbol = SYM {
+    symbolModifiers :: [String],
     localName :: String,
     localType :: Type
+}           | CL {
+    symbolModifiers :: [String],
+    localName :: String
+}           | IT {
+    symbolModifiers :: [String],
+    localName :: String
 }           | FUNC {
+    symbolModifiers :: [String],
     localName :: String,
     parameterTypes :: [Type],
     localType :: Type
@@ -21,10 +29,10 @@ data SemanticUnit = Root | SU {
     inheritFrom :: SemanticUnit
 } deriving (Show)
 
-buildSymbolFromConstructor (Cons constructorModifiers constructorName constructorParameters constructorInvocation constructorDefinition consi) = FUNC constructorName (map typeName constructorParameters) (Object (Simple constructorName))
-buildSymbolFromField (FLD fieldModifiers fieldVar fieldValue fldi) = buildSymbolFromParameter fieldVar
-buildSymbolFromMethod (MTD methodModifiers (TV tp nm ai) methodParameters methodDefinition mtdi) = FUNC nm (map typeName methodParameters) tp
-buildSymbolFromParameter (TV tp nm ai) = SYM nm tp
+buildSymbolFromConstructor (Cons constructorModifiers constructorName constructorParameters constructorInvocation constructorDefinition consi) = FUNC constructorModifiers constructorName (map typeName constructorParameters) (Object (Simple constructorName))
+buildSymbolFromField (FLD fieldModifiers (TV tp nm ai) fieldValue fldi) = SYM fieldModifiers nm tp
+buildSymbolFromMethod (MTD methodModifiers (TV tp nm ai) methodParameters methodDefinition mtdi) = FUNC methodModifiers nm (map typeName methodParameters) tp
+buildSymbolFromParameter (TV tp nm ai) = SYM [] nm tp
 
 data Environment = ENVE | ENV {
     semantic :: SemanticUnit,
