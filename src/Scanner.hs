@@ -108,7 +108,6 @@ scanBlockComment _ = Nothing
 scanIdentifier :: String -> Maybe (String, String)
 scanIdentifier string
   | not (leadingChar `elem` javaLetters) = Nothing
-  | lex `elem` invalidIdentifiers = Nothing
   | otherwise = Just ("IDENTIFIER", (leadingChar : rest))
   where leadingChar = head string
         rest = takeWhile (`elem` javaLettersAndDigits) (tail string)
