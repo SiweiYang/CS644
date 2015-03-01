@@ -1,9 +1,11 @@
 module Environment where
 
+import Control.Monad
+import Data.List
 import Data.Maybe
 import AST
 
-data Kind = Class | Interface | Method | Field | Statement | Var Expression | Exp Expression | Ret Expression | WhileBlock Expression | IfBlock Expression | ForBlock deriving (Show)
+data Kind = Class | Interface | Method | Field | Statement | Var Expression | Exp Expression | Ret Expression | WhileBlock Expression | IfBlock Expression | ForBlock deriving (Eq, Show)
 
 data Symbol = SYM {
     symbolModifiers :: [String],
@@ -49,7 +51,8 @@ buildEnvironment (Comp pkg imps def cui) = case def of
 buildEnvironmentFromClass cname (CLS mds nm ext imps cons flds mtds clsi) = ENV su (flds' ++ mtds')
     where
         cname' = (cname ++ [nm])
-        syms = (map buildSymbolFromConstructor cons) ++ (map buildSymbolFromField flds) ++ (map buildSymbolFromMethod mtds)
+        classSymbol = CL mds nm
+        syms = (map buildSymbolFromConstructor cons) ++ (map buildSymbolFromField flds) ++ (map buildSymbolFromMethod mtds) ++ [classSymbol]
         su = (SU cname' Class syms Root)
         flds' = map (buildEnvironmentFromField su) flds
         mtds' = map (buildEnvironmentFromMethod su) mtds
@@ -117,7 +120,7 @@ buildEnvironmentFromStatements parent ((For mistmt mexpr msstmt sb):remain) = EN
         e2 = case msstmt of
             Just a -> bld (a:[])
             _ -> ENVE
-        
+
 
 buildEnvironmentFromStatements parent ((If expr isb mesb):remain) = ENV su [e0, e1, buildEnvironmentFromStatements parent remain]
     where
@@ -128,4 +131,32 @@ buildEnvironmentFromStatements parent ((If expr isb mesb):remain) = ENV su [e0, 
         e1 = case mesb of
             Just tsb -> bld (statements tsb)
             _ -> ENVE
-        
+
+
+findUnitInEnv :: [String] -> Kind -> Environment -> Maybe SemanticUnit
+findUnitInEnv _ _ ENVE = Nothing
+findUnitInEnv name searchKind (ENV Root children) =
+  msum $ map (findUnitInEnv name searchKind) children
+findUnitInEnv name searchKind (ENV unit children)
+  | last (scope unit) == last name && (kind unit) == searchKind = Just unit
+  | otherwise = msum $ map (findUnitInEnv name searchKind) children
+
+getClassSymbol :: SemanticUnit -> String -> Maybe Symbol
+getClassSymbol Root _ = Nothing
+getClassSymbol (SU _ _ table parent) name =
+  let isClass targetName (CL _ name) = targetName == name
+      isClass _ _ = False
+  in
+    case find (isClass name) table of
+      Just symbol -> Just symbol
+      Nothing -> getClassSymbol parent name
+
+getInterfaceSymbol :: SemanticUnit -> String -> Maybe Symbol
+getInterfaceSymbol Root _ = Nothing
+getInterfaceSymbol (SU _ _ table parent) name =
+  let isInterface targetName (IT _ name) = targetName == name
+      isInterface _ _ = False
+  in
+    case find (isInterface name) table of
+      Just symbol -> Just symbol
+      Nothing -> getInterfaceSymbol parent name

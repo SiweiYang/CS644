@@ -399,16 +399,16 @@ data Expression = Unary { op :: String, expr :: Expression, depth :: Int}
                 | Value { valuetype :: Type, value :: String, depth :: Int }
                 | This
                 | Null
-                deriving (Show)
+                deriving (Eq, Show)
 
 data Type = TypeByte | TypeShort | TypeInt | TypeChar | TypeBoolean | TypeString | TypeNull | TypeVoid
           | Object Name
           | Array Type
-          deriving (Show)
+          deriving (Eq, Show)
 
 data Name = Simple String
           | Qualified Name String
-          deriving (Show)
+          deriving (Eq, Show)
 
 type Arguments = [Expression]
 

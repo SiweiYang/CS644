@@ -86,10 +86,10 @@ main = do
   else do
     hPutStrLn stderr "Environment: ✓"
 
-  hPutStrLn stderr (show . semantic . fst $ (head validEnvironments))
+  let globalEnvironment = ENV Root (map fst validEnvironments)
 
   -- HIERARCHY CHECKING
-  let hierarchyResults = checkHierarchies (map fst fileAsts) (map fst validEnvironments)
+  let hierarchyResults = checkHierarchies (map fst fileAsts) globalEnvironment
 
   if isJust hierarchyResults then do
     hPutStrLn stderr "Hierarchy error!"
