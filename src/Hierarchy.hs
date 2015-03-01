@@ -23,15 +23,19 @@ checkHierarchy unit env
 
 checkImplementTargets :: TypeDec -> Environment -> HierarchyError
 checkImplementTargets (CLS _ name _ implements _ _ _ _) env =
-  fmap (++(" in class " ++ name)) (msum $ map (\name -> checkImplementTarget name env) implements)
+  fmap (++(" in class " ++ name)) (msum $ map (\name -> checkInterface name env) implements)
 checkImplementTargets _ _ = Nothing
 
--- Looks up the interface in the environment
-checkImplementTarget :: [String] -> Environment -> HierarchyError
-checkImplementTarget name env =
+checkInterface :: [String] -> Environment -> HierarchyError
+checkInterface name env =
   case findUnitInEnv name Interface env of
     Nothing -> Just $ "interface " ++ last name ++ " does not exist"
-    Just (SU _ Class _ _) -> Just $ "Cannot implement class " ++ last name
+    Just _ -> Nothing
+
+checkClass :: [String] -> Environment -> HierarchyError
+checkClass name env =
+  case findUnitInEnv name Class env of
+    Nothing -> Just $ "interface " ++ last name ++ " does not exist"
     Just _ -> Nothing
 
 checkExtendTarget :: TypeDec -> Environment -> HierarchyError
@@ -49,5 +53,7 @@ checkExtendTarget (CLS _ name extends _ _ _ _ _) env =
            Nothing
   else
     Nothing
-checkExtendTarget _ _ = Nothing
+checkExtendTarget (ITF _ name extends _ _) env
+  | name `elem` (map last extends) = Just $ "Interface " ++ name ++ " extends itself"
+  | otherwise = fmap (++(" in interface " ++ name)) (msum $ map (\name -> checkInterface name env) extends)
 
