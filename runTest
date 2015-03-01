@@ -2,6 +2,14 @@
 
 make
 
+function joosc_run {
+  ./joosc `find $1 -printf "%p\n"| grep "\.java$"` assignment_testcases/stdlib2/*.java
+  if [ $? -ne 0 ]; then
+    echo $1
+  fi
+}
+export -f joosc_run
+
 function run_test {
   ./joosc $1 assignment_testcases/stdlib2/*.java 2>/dev/null
   if [ $? -ne 0 ]; then
@@ -11,7 +19,7 @@ function run_test {
 export -f run_test
 
 function run_test_dir {
-  ./joosc $1*.java assignment_testcases/stdlib2/*.java 2>/dev/null
+  ./joosc `find $1 -printf "%p\n"| grep "\.java$"` assignment_testcases/stdlib2/*.java 2>/dev/null
   if [ $? -ne 0 ]; then
     echo $1
   fi
@@ -27,7 +35,7 @@ function run_bad_test {
 export -f run_bad_test
 
 function run_bad_test_dir {
-  ./joosc $1*.java assignment_testcases/stdlib2/*.java 2>/dev/null
+  ./joosc `find $1 -printf "%p\n"| grep "\.java$"` assignment_testcases/stdlib2/*.java 2>/dev/null
   if [ $? -ne 42 ]; then
     echo $1
   fi
