@@ -5,6 +5,7 @@ import Scanner
 import Parser
 
 import AST
+import Environment
 
 import System.Directory
 
@@ -47,7 +48,7 @@ testAST = do
 testSingleFile :: IO (String, String)
 testSingleFile = do
     let file = "../assignment_testcases/a1/J1_siwei.java"
-    --let file = "../assignment_testcases/a1/J1_protected.java"
+    --let file = "../assignment_testcases/a1/Je_1_PackagePrivate_Class.java"
     content <- readFile file
     return (content, file)
 
@@ -61,8 +62,9 @@ testAST = do
     let astByFile = (file (snd (head tokenByFileFiltered)), map tokenToAST tokenByFileFiltered)
     let resultByFile = (\(fn, ast) -> (fn, run (dfa, ast ++ [AST "EOF" []]))) astByFile
     let astByFile = (\(fn, a) -> (fn, buildAST $ units (fst a), snd a)) resultByFile
+    let (_, cu, _) = astByFile
     --putStrLn (show astByFile)
-    return astByFile
+    return cu
     --putStrLn "Sdfsdf"
 
 

@@ -67,7 +67,7 @@ run (dfa, (ast:rst)) = if isNothing lku
         s = head ss
         lku = lookup (s, tk) rules
         Just (changeState, num) = lku
-        
+
         prod = prods !! num
         units = snd prod
         nast = AST (fst prod) (take (length units) u)
