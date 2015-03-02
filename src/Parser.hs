@@ -84,7 +84,7 @@ buildTransition str = error (show str)
 
 readLR1 :: IO DFA
 readLR1 = do
-    contentStr <- readFile "./res/joos1w.lr1"
+    contentStr <- readFile "../res/joos1w.lr1"
     let content = lines contentStr
     let numOfTerminal = read (head content) :: Int
     let terminalList = take numOfTerminal (drop 1 content)

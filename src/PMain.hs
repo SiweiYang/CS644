@@ -6,6 +6,7 @@ import Parser
 
 import AST
 import Environment
+import TypeDatabase
 
 import System.Directory
 
@@ -15,6 +16,13 @@ testVFiles :: IO [(String, String)]
 testVFiles = do
     f <- getDirectoryContents "../assignment_testcases/a1"
     let files = ["../assignment_testcases/a1/" ++ file | file <- f, file /= ".", file /= "..", take 2 file /= "Je", take 1 file /= "."]
+    contents <- mapM readFile files
+    return (zip contents files)
+
+testLibFiles :: IO [(String, String)]
+testLibFiles = do
+    f <- getDirectoryContents "../assignment_testcases/stdlib2"
+    let files = ["../assignment_testcases/stdlib2/" ++ file | file <- f, file /= ".", file /= ".."]
     contents <- mapM readFile files
     return (zip contents files)
 
@@ -67,6 +75,25 @@ testAST = do
     return cu
     --putStrLn "Sdfsdf"
 
+testENV = do
+    cu <- testAST
+    return (buildEnvironment cu)
+
+testTD = do
+    dfa <- readLR1
+    files <- testLibFiles
+    tokenByFiles <- mapM (scannerRunner 0 0) files
+    let tokenByFilesFiltered = map (filter (\(tk, fn) -> not (elem (tokenType tk) [Comment, WhiteSpace]))) tokenByFiles
+    let astByFiles = map (\x -> (file (snd (head x)), map tokenToAST x)) tokenByFilesFiltered
+    let resultByFiles = map (\(fn, ast) -> (fn, run (dfa, ast ++ [AST "EOF" []]))) astByFiles
+    let astByFiles = map (\(fn, a) -> (fn, buildAST $ units (fst a))) resultByFiles
+    let envByFiles = map (\(fn, a) -> (fn, buildEnvironment a)) astByFiles
+    let envs = map snd envByFiles
+    
+    return (buildTypeEntryFromEnvironments (TN (PKG []) []) envs)
+    --return envs
+    --env <- testENV
+    --return (buildTypeEntry (TN (PKG []) []) env)
 
 main :: IO ()
 main = do
