@@ -10,8 +10,8 @@ import Util
 
 type HierarchyError = Maybe String
 
-checkHierarchies :: [CompilationUnit] -> Environment -> HierarchyError
-checkHierarchies units env = msum $ map (\unit -> checkHierarchy unit env) units
+checkHierarchies :: [CompilationUnit] -> [Environment] -> HierarchyError
+checkHierarchies units envs = msum $ map (\(unit, env) -> checkHierarchy unit env) (zip units envs)
 
 checkHierarchy :: CompilationUnit -> Environment -> HierarchyError
 checkHierarchy unit env

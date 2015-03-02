@@ -22,14 +22,14 @@ data Symbol = SYM {
     localName :: String,
     parameterTypes :: [Type],
     localType :: Type
-} deriving (Show)
+} deriving (Eq, Show)
 
 data SemanticUnit = Root | SU {
     scope :: [String],
     kind :: Kind,
     symbolTable :: [Symbol],
     inheritFrom :: SemanticUnit
-} deriving (Show)
+} deriving (Eq, Show)
 
 buildSymbolFromConstructor (Cons constructorModifiers constructorName constructorParameters constructorInvocation constructorDefinition consi) = FUNC constructorModifiers constructorName (map typeName constructorParameters) (Object (Simple constructorName))
 buildSymbolFromField (FLD fieldModifiers (TV tp nm ai) fieldValue fldi) = SYM fieldModifiers nm tp
@@ -39,7 +39,7 @@ buildSymbolFromParameter (TV tp nm ai) = SYM [] nm tp
 data Environment = ENVE | ENV {
     semantic :: SemanticUnit,
     children :: [Environment]
-} deriving (Show)
+} deriving (Eq, Show)
 
 buildEnvironment :: CompilationUnit -> Environment
 buildEnvironment (Comp pkg imps def cui) = case def of
@@ -132,6 +132,34 @@ buildEnvironmentFromStatements parent ((If expr isb mesb):remain) = ENV su [e0, 
             Just tsb -> bld (statements tsb)
             _ -> ENVE
 
+getLocalEnvironment :: CompilationUnit -> [Environment] -> Environment
+getLocalEnvironment unit envs =
+  let packageName = case package unit of { Just pkgName -> pkgName; _ -> [unitName $ definition unit] }
+      packageEnvironments = filter (environmentIsInPackage packageName) envs
+      javaEnvironments = filter (environmentIsInPackage ["java", "lang"]) envs
+      (wildcardNames, directNames) = partition (elem "*") (imports unit)
+      directEnvironments = filter (environmentHasScope directNames) envs
+      wildcardNamesNoStar = map init wildcardNames
+      wildCardEnvironments = concat $ map (\name -> filter (environmentIsInPackage name) envs) wildcardNamesNoStar
+      accessibleEnvironments = packageEnvironments ++ directEnvironments ++ wildCardEnvironments ++ javaEnvironments
+      aliasedEnvironments = map getImportedEnvironment accessibleEnvironments
+  in
+    ENV Root $ nub $ aliasedEnvironments ++ envs
+
+getImportedEnvironment :: Environment -> Environment
+getImportedEnvironment (ENV (SU scope kind st parent) children) = (ENV (SU [(last scope)] kind st parent) children)
+getImportedEnvironment env = env
+
+environmentHasScope :: [[String]] -> Environment -> Bool
+environmentHasScope pkgNames (ENV (SU scope _ _ _) _) = scope `elem` pkgNames
+environmentHasScope _ _ = False
+
+environmentIsInPackage :: [String] -> Environment -> Bool
+environmentIsInPackage pkgName (ENV (SU scope _ _ _) _)
+  | take pkgLength scope == pkgName = True
+  | otherwise = False
+  where pkgLength = length pkgName
+environmentIsInPackage _ _ = False
 
 findUnitInEnv :: [String] -> Kind -> Environment -> Maybe SemanticUnit
 findUnitInEnv _ _ ENVE = Nothing
