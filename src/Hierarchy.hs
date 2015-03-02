@@ -6,54 +6,32 @@ import Data.List
 
 import AST
 import Environment
+import TypeDatabase
 import Util
 
 type HierarchyError = Maybe String
 
-checkHierarchies :: [CompilationUnit] -> [Environment] -> HierarchyError
-checkHierarchies units envs = msum $ map (\(unit, env) -> checkHierarchy unit env) (zip units envs)
+checkHierarchies :: [CompilationUnit] -> TypeNode -> HierarchyError
+checkHierarchies units typeDB = msum $ map (\unit -> checkHierarchy unit typeDB) units
 
-checkHierarchy :: CompilationUnit -> Environment -> HierarchyError
-checkHierarchy unit env
-  | isJust extendError = extendError
+checkHierarchy :: CompilationUnit -> TypeNode -> HierarchyError
+checkHierarchy unit typeDB
   | isJust implementError = implementError
   | otherwise = Nothing
-  where extendError = checkExtendTarget (definition unit) env
-        implementError = checkImplementTargets (definition unit) env
+  where implementError = checkImplementTargets unit typeDB
 
-checkImplementTargets :: TypeDec -> Environment -> HierarchyError
-checkImplementTargets (CLS _ name _ implements _ _ _ _) env =
-  fmap (++(" in class " ++ name)) (msum $ map (\name -> checkInterface name env) implements)
-checkImplementTargets _ _ = Nothing
+checkImplementTargets :: CompilationUnit -> TypeNode -> HierarchyError
+checkImplementTargets unit typeDB =
+  fmap (++(" in class " ++ name)) (msum $ map (\name -> checkInterface name (visibleImports unit) typeDB) implementedInterfaces)
+  where
+  	implementedInterfaces = implements (definition unit)
+  	name = case (definition unit) of
+  		(CLS _ clsName _ _ _ _ _ _) -> clsName
+  		(ITF _ itfName _ _ _) -> itfName
 
-checkInterface :: [String] -> Environment -> HierarchyError
-checkInterface name env =
-  case findUnitInEnv name Interface env of
+-- Looks up the interface name, and sees if it exists
+checkInterface :: [String] -> [[String]] -> TypeNode -> HierarchyError
+checkInterface name imports typeDB =
+  case traverseTypeEntryWithImports typeDB imports name of
     Nothing -> Just $ "interface " ++ last name ++ " does not exist"
     Just _ -> Nothing
-
-checkClass :: [String] -> Environment -> HierarchyError
-checkClass name env =
-  case findUnitInEnv name Class env of
-    Nothing -> Just $ "interface " ++ last name ++ " does not exist"
-    Just _ -> Nothing
-
-checkExtendTarget :: TypeDec -> Environment -> HierarchyError
-checkExtendTarget (CLS _ name extends _ _ _ _ _) env =
-  if isJust extends then
-    case findUnitInEnv (fromJust extends) Class env of
-      Nothing -> Just $ name ++ " tried to extend " ++ (last $ fromJust extends) ++ " which does not exist"
-      Just (SU _ Interface _ _) -> Just $ name ++ " cannot extend interface " ++ (last $ fromJust extends)
-      Just unit -> case getClassSymbol unit (last $ fromJust extends) of
-        Nothing -> Just "Couldn't find the symbol for a class, uh-oh!"
-        Just symbol ->
-          if "final" `elem` (symbolModifiers symbol) then
-            Just $ name ++ " cannot extend final class " ++ (last $ fromJust extends)
-          else
-           Nothing
-  else
-    Nothing
-checkExtendTarget (ITF _ name extends _ _) env
-  | name `elem` (map last extends) = Just $ "Interface " ++ name ++ " extends itself"
-  | otherwise = fmap (++(" in interface " ++ name)) (msum $ map (\name -> checkInterface name env) extends)
-

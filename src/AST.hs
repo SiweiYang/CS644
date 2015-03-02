@@ -166,6 +166,14 @@ instance Show TypeDec where
 unitName (CLS _ nm _ _ _ _ _ _) = nm
 unitName (ITF _ nm _ _ _) = nm
 
+visibleImports :: CompilationUnit -> [[String]]
+visibleImports unit =
+    let ownPackage = case package unit of
+            Just pkgName -> [pkgName ++ ["*"]]
+            Nothing -> []
+        importedPackages = imports unit
+        javaLang = [["java","lang","*"]]
+    in ownPackage ++ importedPackages ++ javaLang
 
 buildAST :: [AST] -> CompilationUnit
 buildAST prods = Comp (if length pk > 0 then Just (nameToPackage pkgn) else Nothing) (if length im > 0 then map importToPackage ims else []) td (CompI (if length pk > 0 then Just (extractASTInfo pkg) else Nothing) (if length im > 0 then map extractASTInfo ims else []))
@@ -361,7 +369,7 @@ nameToPackage ast = case ast of
                         ASTT n c  -> [toLexeme ast]
                         _         -> if length prods == 1
                                         then nameToPackage id
-                                        else (nameToPackage id) ++ (nameToPackage re)
+                                        else (nameToPackage re) ++ (nameToPackage id)
     where
         prods = production ast
         id = (head prods)

@@ -74,23 +74,23 @@ buildEnvironmentWithPackage [] parent def = ENV su env
         env = case def of
                 (CLS mds nm ext imps cons flds mtds clsi)   -> [buildEnvironmentFromClass su (CLS mds nm ext imps cons flds mtds clsi)]
                 (ITF mds nm imps mtds itfi)                 -> [buildEnvironmentFromInterface su (ITF mds nm imps mtds itfi)]
-
+{-
 buildEnvironmentWithPackage [nm] parent def = ENV su env
     where
-        cname' = ((scope parent) ++ [nm])
+        cname' = ((scope parent) ++ ["hello"] ++ [nm])
         su = case def of
                 (CLS mds nm ext imps cons flds mtds clsi)   -> SU cname' Package [CL mds nm] parent
                 (ITF mds nm imps mtds itfi)                 -> SU cname' Package [IT mds nm] parent
         env = case def of
                 (CLS mds nm ext imps cons flds mtds clsi)   -> [buildEnvironmentFromClass su (CLS mds nm ext imps cons flds mtds clsi)]
                 (ITF mds nm imps mtds itfi)                 -> [buildEnvironmentFromInterface su (ITF mds nm imps mtds itfi)]
-
+-}
 buildEnvironmentWithPackage cname parent def = ENV su env
     where
-        nm = last cname
+        nm = head cname
         cname' = ((scope parent) ++ [nm])
         su = SU cname' Package [] parent
-        env = [buildEnvironmentWithPackage (init cname) su def]
+        env = [buildEnvironmentWithPackage (tail cname) su def]
 
 buildEnvironmentFromClass parent (CLS mds nm ext imps cons flds mtds clsi) = env
     where

@@ -12,6 +12,7 @@ import Hierarchy
 import Lexical
 import Parser
 import Scanner
+import TypeDatabase
 import Weeder
 
 main :: IO ()
@@ -86,18 +87,17 @@ main = do
   else do
     hPutStrLn stderr "Environment: ✓"
 
-  let globalEnvironment = ENV (Root []) (map fst validEnvironments)
-  hPutStrLn stderr $ show globalEnvironment
-  let localEnvironments = map (\unit -> getLocalEnvironment unit (map fst validEnvironments)) (map fst fileAsts)
+  let globalEnvironment = buildTypeEntryFromEnvironments (TN (PKG []) []) (map fst validEnvironments)
 
-  if any (==ENVE) localEnvironments then do
-    hPutStrLn stderr "Imported invalid package"
+  if isNothing globalEnvironment then do
+    hPutStrLn stderr "Environment building error!"
     exitWith (ExitFailure 42)
   else do
-    hPutStrLn stderr "Imports: ✓"
+    hPutStrLn stderr $ show globalEnvironment
+    hPutStrLn stderr "Type DB: ✓"
 
   -- HIERARCHY CHECKING
-  let hierarchyResults = checkHierarchies (map fst fileAsts) localEnvironments
+  let hierarchyResults = checkHierarchies (map fst fileAsts) (fromJust globalEnvironment)
 
   if isJust hierarchyResults then do
     hPutStrLn stderr "Hierarchy error!"
