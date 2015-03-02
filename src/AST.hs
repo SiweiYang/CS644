@@ -361,7 +361,7 @@ nameToPackage ast = case ast of
                         ASTT n c  -> [toLexeme ast]
                         _         -> if length prods == 1
                                         then nameToPackage id
-                                        else (nameToPackage re) ++ (nameToPackage id)
+                                        else (nameToPackage id) ++ (nameToPackage re)
     where
         prods = production ast
         id = (head prods)

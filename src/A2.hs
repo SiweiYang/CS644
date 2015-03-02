@@ -86,6 +86,8 @@ main = do
   else do
     hPutStrLn stderr "Environment: ✓"
 
+  let globalEnvironment = ENV (Root []) (map fst validEnvironments)
+  hPutStrLn stderr $ show globalEnvironment
   let localEnvironments = map (\unit -> getLocalEnvironment unit (map fst validEnvironments)) (map fst fileAsts)
 
   if any (==ENVE) localEnvironments then do

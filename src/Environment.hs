@@ -3,14 +3,18 @@ module Environment where
 import Control.Monad
 import Data.List
 import Data.Maybe
-import AST
 
-data Kind = Class | Interface | Method | Field | Statement | Var Expression | Exp Expression | Ret Expression | WhileBlock Expression | IfBlock Expression | ForBlock deriving (Eq, Show)
+import AST
+import Util
+
+data Kind = Package | Class | Interface | Method | Field | Statement | Var Expression | Exp Expression | Ret Expression | WhileBlock Expression | IfBlock Expression | ForBlock deriving (Eq, Show)
 
 data Symbol = SYM {
     symbolModifiers :: [String],
     localName :: String,
     localType :: Type
+}           | PKG {
+    localName :: String
 }           | CL {
     symbolModifiers :: [String],
     localName :: String
@@ -24,12 +28,18 @@ data Symbol = SYM {
     localType :: Type
 } deriving (Eq, Show)
 
-data SemanticUnit = Root | SU {
+data SemanticUnit = Root {
+    scope :: [String]
+}                   | SU {
     scope :: [String],
     kind :: Kind,
     symbolTable :: [Symbol],
     inheritFrom :: SemanticUnit
-} deriving (Eq, Show)
+} deriving (Eq)
+
+instance Show SemanticUnit where
+  show (SU scope kind table from) = (show kind) ++ ": " ++ (show scope) ++ "\n"
+  show (Root scope) = "ROOT: " ++ (show scope) ++ "\n"
 
 buildSymbolFromConstructor (Cons constructorModifiers constructorName constructorParameters constructorInvocation constructorDefinition consi) = FUNC constructorModifiers constructorName (map typeName constructorParameters) (Object (Simple constructorName))
 buildSymbolFromField (FLD fieldModifiers (TV tp nm ai) fieldValue fldi) = SYM fieldModifiers nm tp
@@ -39,29 +49,63 @@ buildSymbolFromParameter (TV tp nm ai) = SYM [] nm tp
 data Environment = ENVE | ENV {
     semantic :: SemanticUnit,
     children :: [Environment]
-} deriving (Eq, Show)
+} deriving (Eq)
+
+instance Show Environment where
+  show (ENVE) = "[Empty]\n"
+  show (ENV unit kids) = "{\n" ++
+                         "  " ++ show (unit) ++ "\n" ++
+                         (indent 2 (intercalate "\n" lns)) ++ "\n" ++
+                         "}\n"
+    where lns = map show kids
 
 buildEnvironment :: CompilationUnit -> Environment
-buildEnvironment (Comp pkg imps def cui) = case def of
-                                            (CLS mds nm ext imps cons flds mtds clsi)   -> buildEnvironmentFromClass cname (CLS mds nm ext imps cons flds mtds clsi)
-                                            (ITF mds nm imps mtds itfi)                 -> buildEnvironmentFromInterface cname (ITF mds nm imps mtds itfi)
+buildEnvironment (Comp pkg imps def cui) = buildEnvironmentWithPackage cname (Root []) def
     where
         cname = if isNothing pkg then [] else fromJust pkg
 
-buildEnvironmentFromClass cname (CLS mds nm ext imps cons flds mtds clsi) = ENV su (flds' ++ mtds')
+buildEnvironmentWithPackage [] parent def = ENV su env
     where
-        cname' = (cname ++ [nm])
-        classSymbol = CL mds nm
-        syms = (map buildSymbolFromConstructor cons) ++ (map buildSymbolFromField flds) ++ (map buildSymbolFromMethod mtds) ++ [classSymbol]
-        su = (SU cname' Class syms Root)
+        cname' = []]
+        su = case def of
+                (CLS mds nm ext imps cons flds mtds clsi)   -> SU cname' Package [CL mds nm] parent
+                (ITF mds nm imps mtds itfi)                 -> SU cname' Package [IT mds nm] parent
+        env = case def of
+                (CLS mds nm ext imps cons flds mtds clsi)   -> [buildEnvironmentFromClass su (CLS mds nm ext imps cons flds mtds clsi)]
+                (ITF mds nm imps mtds itfi)                 -> [buildEnvironmentFromInterface su (ITF mds nm imps mtds itfi)]
+
+buildEnvironmentWithPackage [nm] parent def = ENV su env
+    where
+        cname' = ((scope parent) ++ [nm])
+        su = case def of
+                (CLS mds nm ext imps cons flds mtds clsi)   -> SU cname' Package [CL mds nm] parent
+                (ITF mds nm imps mtds itfi)                 -> SU cname' Package [IT mds nm] parent
+        env = case def of
+                (CLS mds nm ext imps cons flds mtds clsi)   -> [buildEnvironmentFromClass su (CLS mds nm ext imps cons flds mtds clsi)]
+                (ITF mds nm imps mtds itfi)                 -> [buildEnvironmentFromInterface su (ITF mds nm imps mtds itfi)]
+
+buildEnvironmentWithPackage cname parent def = ENV su env
+    where
+        nm = last cname
+        cname' = ((scope parent) ++ [nm])
+        su = SU cname' Package [] parent
+        env = [buildEnvironmentWithPackage (init cname) su def]
+
+buildEnvironmentFromClass parent (CLS mds nm ext imps cons flds mtds clsi) = ENV (SU [] Package [CL mds nm] parent) [env]
+    where
+        cname' = ((scope parent) ++ [nm])
+        syms = (map buildSymbolFromConstructor cons) ++ (map buildSymbolFromField flds) ++ (map buildSymbolFromMethod mtds)
+        su = (SU cname' Class syms parent)
         flds' = map (buildEnvironmentFromField su) flds
         mtds' = map (buildEnvironmentFromMethod su) mtds
-buildEnvironmentFromInterface cname (ITF mds nm imps mtds itfi) = ENV su (mtds')
+        env = ENV su (flds' ++ mtds')
+buildEnvironmentFromInterface parent (ITF mds nm imps mtds itfi) = ENV (SU [] Package [IT mds nm] parent) [env]
     where
-        cname' = (cname ++ [nm])
+        cname' = ((scope parent) ++ [nm])
         syms = (map buildSymbolFromMethod mtds)
-        su = (SU cname' Interface syms Root)
+        su = (SU cname' Interface syms parent)
         mtds' = map (buildEnvironmentFromMethod su) mtds
+        env = ENV su (mtds')
 
 buildEnvironmentFromField :: SemanticUnit -> Field -> Environment
 buildEnvironmentFromField parent (FLD fieldModifiers fieldVar fieldValue fldi) = ENV (SU cname' Field [] parent) []
@@ -136,7 +180,7 @@ getLocalEnvironment :: CompilationUnit -> [Environment] -> Environment
 getLocalEnvironment unit envs
   | length directEnvironments /= length (nub directNames) = ENVE
   | any (\group -> length group == 0) wildCardEnvironments = ENVE
-  | otherwise = ENV Root $ nub $ aliasedEnvironments ++ envs
+  | otherwise = ENV (Root []) $ nub $ aliasedEnvironments ++ envs
   where packageName = case package unit of { Just pkgName -> pkgName; _ -> [unitName $ definition unit] }
         packageEnvironments = filter (environmentIsInPackage packageName) envs
         javaEnvironments = filter (environmentIsInPackage ["java", "lang"]) envs
@@ -164,14 +208,14 @@ environmentIsInPackage _ _ = False
 
 findUnitInEnv :: [String] -> Kind -> Environment -> Maybe SemanticUnit
 findUnitInEnv _ _ ENVE = Nothing
-findUnitInEnv name searchKind (ENV Root children) =
+findUnitInEnv name searchKind (ENV (Root _) children) =
   msum $ map (findUnitInEnv name searchKind) children
 findUnitInEnv name searchKind (ENV unit children)
   | last (scope unit) == last name && (kind unit) == searchKind = Just unit
   | otherwise = msum $ map (findUnitInEnv name searchKind) children
 
 getClassSymbol :: SemanticUnit -> String -> Maybe Symbol
-getClassSymbol Root _ = Nothing
+getClassSymbol (Root _)_ = Nothing
 getClassSymbol (SU _ _ table parent) name =
   let isClass targetName (CL _ name) = targetName == name
       isClass _ _ = False
@@ -181,7 +225,7 @@ getClassSymbol (SU _ _ table parent) name =
       Nothing -> getClassSymbol parent name
 
 getInterfaceSymbol :: SemanticUnit -> String -> Maybe Symbol
-getInterfaceSymbol Root _ = Nothing
+getInterfaceSymbol (Root _) _ = Nothing
 getInterfaceSymbol (SU _ _ table parent) name =
   let isInterface targetName (IT _ name) = targetName == name
       isInterface _ _ = False
