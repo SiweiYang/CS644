@@ -11,6 +11,11 @@ data TypeNode = TN {
     subNodes :: [TypeNode]
 }
 
+isConcreteNode tn = case symbol tn of
+                            CL _ _ -> True
+                            IT _ _ -> True
+                            _ -> False
+
 instance Show TypeNode where
     show (TN sym nodes) =   "{\n" ++
                             "  " ++ (show sym) ++ "\n" ++
@@ -18,6 +23,26 @@ instance Show TypeNode where
                             "}\n"
         where
             lns = map show nodes
+
+traverseTypeEntry :: TypeNode -> [String] -> Maybe TypeNode
+traverseTypeEntry tn [] = case symbol tn of
+                            CL _ _ -> Just (TN (PKG []) [tn])
+                            IT _ _ -> Just (TN (PKG []) [tn])
+                            _ -> Nothing
+traverseTypeEntry (TN sym nodes) ["*"] = Just (TN (PKG []) (filter isConcreteNode nodes))
+traverseTypeEntry (TN sym nodes) (nm:remain) = case [node | node <- nodes, (localName . symbol) node == nm] of
+                                                [] -> Nothing
+                                                [node] -> traverseTypeEntry node remain
+
+traverseTypeEntryWithImports :: TypeNode -> [[String]] -> [String] -> Maybe [String]
+traverseTypeEntryWithImports tn imps query = case dropWhile (isNothing .fst) results of
+                                                [] -> Nothing
+                                                (Just (TN sym [node]), imp):remain -> Just ((init imp) ++ query)
+    where
+        entries = map (traverseTypeEntry tn) imps
+        entries' = map (\(mnode, imp) -> (fromJust mnode, imp)) (filter (isJust . fst) (zip entries imps))
+        results = map (\(node, imp) -> (traverseTypeEntry node query, imp)) ((tn, ["*"]):entries')
+
 buildTypeEntryFromSymbol sym = TN sym []
 
 buildTypeEntryFromEnvironments tn [] = Just tn
