@@ -88,6 +88,12 @@ main = do
 
   let localEnvironments = map (\unit -> getLocalEnvironment unit (map fst validEnvironments)) (map fst fileAsts)
 
+  if any (==ENVE) localEnvironments then do
+    hPutStrLn stderr "Imported invalid package"
+    exitWith (ExitFailure 42)
+  else do
+    hPutStrLn stderr "Imports: ✓"
+
   -- HIERARCHY CHECKING
   let hierarchyResults = checkHierarchies (map fst fileAsts) localEnvironments
 

@@ -133,18 +133,19 @@ buildEnvironmentFromStatements parent ((If expr isb mesb):remain) = ENV su [e0, 
             _ -> ENVE
 
 getLocalEnvironment :: CompilationUnit -> [Environment] -> Environment
-getLocalEnvironment unit envs =
-  let packageName = case package unit of { Just pkgName -> pkgName; _ -> [unitName $ definition unit] }
-      packageEnvironments = filter (environmentIsInPackage packageName) envs
-      javaEnvironments = filter (environmentIsInPackage ["java", "lang"]) envs
-      (wildcardNames, directNames) = partition (elem "*") (imports unit)
-      directEnvironments = filter (environmentHasScope directNames) envs
-      wildcardNamesNoStar = map init wildcardNames
-      wildCardEnvironments = concat $ map (\name -> filter (environmentIsInPackage name) envs) wildcardNamesNoStar
-      accessibleEnvironments = packageEnvironments ++ directEnvironments ++ wildCardEnvironments ++ javaEnvironments
-      aliasedEnvironments = map getImportedEnvironment accessibleEnvironments
-  in
-    ENV Root $ nub $ aliasedEnvironments ++ envs
+getLocalEnvironment unit envs
+  | length directEnvironments /= length (nub directNames) = ENVE
+  | any (\group -> length group == 0) wildCardEnvironments = ENVE
+  | otherwise = ENV Root $ nub $ aliasedEnvironments ++ envs
+  where packageName = case package unit of { Just pkgName -> pkgName; _ -> [unitName $ definition unit] }
+        packageEnvironments = filter (environmentIsInPackage packageName) envs
+        javaEnvironments = filter (environmentIsInPackage ["java", "lang"]) envs
+        (wildcardNames, directNames) = partition (elem "*") (imports unit)
+        directEnvironments = filter (environmentHasScope directNames) envs
+        wildcardNamesNoStar = map init wildcardNames
+        wildCardEnvironments = map (\name -> filter (environmentIsInPackage name) envs) wildcardNamesNoStar
+        accessibleEnvironments = packageEnvironments ++ directEnvironments ++ (concat wildCardEnvironments) ++ javaEnvironments
+        aliasedEnvironments = map getImportedEnvironment accessibleEnvironments
 
 getImportedEnvironment :: Environment -> Environment
 getImportedEnvironment (ENV (SU scope kind st parent) children) = (ENV (SU [(last scope)] kind st parent) children)
