@@ -41,6 +41,7 @@ instance Show SemanticUnit where
   show (SU scope kind table from) = (show kind) ++ ": " ++ (show scope) ++ "\n"
   show (Root scope) = "ROOT: " ++ (show scope) ++ "\n"
 
+
 buildSymbolFromConstructor (Cons constructorModifiers constructorName constructorParameters constructorInvocation constructorDefinition consi) = FUNC constructorModifiers constructorName (map typeName constructorParameters) (Object (Simple constructorName))
 buildSymbolFromField (FLD fieldModifiers (TV tp nm ai) fieldValue fldi) = SYM fieldModifiers nm tp
 buildSymbolFromMethod (MTD methodModifiers (TV tp nm ai) methodParameters methodDefinition mtdi) = FUNC methodModifiers nm (map typeName methodParameters) tp
@@ -66,7 +67,7 @@ buildEnvironment (Comp pkg imps def cui) = buildEnvironmentWithPackage cname (Ro
 
 buildEnvironmentWithPackage [] parent def = ENV su env
     where
-        cname' = []]
+        cname' = [[]]
         su = case def of
                 (CLS mds nm ext imps cons flds mtds clsi)   -> SU cname' Package [CL mds nm] parent
                 (ITF mds nm imps mtds itfi)                 -> SU cname' Package [IT mds nm] parent
@@ -91,7 +92,7 @@ buildEnvironmentWithPackage cname parent def = ENV su env
         su = SU cname' Package [] parent
         env = [buildEnvironmentWithPackage (init cname) su def]
 
-buildEnvironmentFromClass parent (CLS mds nm ext imps cons flds mtds clsi) = ENV (SU [] Package [CL mds nm] parent) [env]
+buildEnvironmentFromClass parent (CLS mds nm ext imps cons flds mtds clsi) = env
     where
         cname' = ((scope parent) ++ [nm])
         syms = (map buildSymbolFromConstructor cons) ++ (map buildSymbolFromField flds) ++ (map buildSymbolFromMethod mtds)
@@ -99,7 +100,7 @@ buildEnvironmentFromClass parent (CLS mds nm ext imps cons flds mtds clsi) = ENV
         flds' = map (buildEnvironmentFromField su) flds
         mtds' = map (buildEnvironmentFromMethod su) mtds
         env = ENV su (flds' ++ mtds')
-buildEnvironmentFromInterface parent (ITF mds nm imps mtds itfi) = ENV (SU [] Package [IT mds nm] parent) [env]
+buildEnvironmentFromInterface parent (ITF mds nm imps mtds itfi) = env
     where
         cname' = ((scope parent) ++ [nm])
         syms = (map buildSymbolFromMethod mtds)
