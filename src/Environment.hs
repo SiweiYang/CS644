@@ -65,22 +65,25 @@ buildEnvironment (Comp pkg imps def cui) = case pkg of
                                             Nothing -> buildEnvironmentWithPackage ["unnamed package"] (Root []) def
                                             Just cname -> buildEnvironmentWithPackage cname (Root []) def
 
-buildEnvironmentWithPackage [] parent def = ENV su env
+buildEnvironmentWithPackage [] parent def = env
     where
         cname' = [[]]
         su = case def of
                 (CLS mds nm ext imps cons flds mtds clsi)   -> SU cname' Package [CL mds nm] parent
                 (ITF mds nm imps mtds itfi)                 -> SU cname' Package [IT mds nm] parent
         env = case def of
-                (CLS mds nm ext imps cons flds mtds clsi)   -> [buildEnvironmentFromClass su (CLS mds nm ext imps cons flds mtds clsi)]
-                (ITF mds nm imps mtds itfi)                 -> [buildEnvironmentFromInterface su (ITF mds nm imps mtds itfi)]
+                (CLS mds nm ext imps cons flds mtds clsi)   -> buildEnvironmentFromClass parent (CLS mds nm ext imps cons flds mtds clsi)
+                (ITF mds nm imps mtds itfi)                 -> buildEnvironmentFromInterface parent (ITF mds nm imps mtds itfi)
 
-buildEnvironmentWithPackage cname parent def = ENV su env
+buildEnvironmentWithPackage (name:remain) parent def = ENV su env
     where
-        nm = head cname
-        cname' = ((scope parent) ++ [nm])
-        su = SU cname' Package [] parent
-        env = [buildEnvironmentWithPackage (tail cname) su def]
+        cname' = ((scope parent) ++ [name])
+        su = case remain of
+                [] -> case def of
+                          (CLS mds nm ext imps cons flds mtds clsi)   -> SU cname' Package [CL mds nm] parent
+                          (ITF mds nm imps mtds itfi)                 -> SU cname' Package [IT mds nm] parent
+                _ -> SU cname' Package [] parent
+        env = [buildEnvironmentWithPackage remain su def]
 
 buildEnvironmentFromClass parent (CLS mds nm ext imps cons flds mtds clsi) = env
     where
