@@ -38,7 +38,7 @@ data SemanticUnit = Root {
 } deriving (Eq)
 
 instance Show SemanticUnit where
-  show (SU scope kind table from) = (show kind) ++ ": " ++ (show scope) ++ "\n"
+  show (SU scope kind table from) = (show kind) ++ ": " ++ (show scope) ++ "\n" ++ (show table) ++ "\n"
   show (Root scope) = "ROOT: " ++ (show scope) ++ "\n"
 
 
