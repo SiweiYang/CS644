@@ -44,7 +44,28 @@ export -f run_bad_test_dir
 
 echo "Running tests..."
 echo "Failures:"
-parallel run_test ::: assignment_testcases/a2/J[!e]*.java
-parallel run_test_dir ::: `ls -d assignment_testcases/a2/J[!e]*/`
-parallel run_bad_test ::: assignment_testcases/a2/Je*.java
-parallel run_bad_test_dir ::: `ls -d assignment_testcases/a2/Je*/`
+
+which parallel > /dev/null
+
+if [ $? -ne 0 ]; then
+  for file in $( echo assignment_testcases/a2/J[!e]*.java ); do
+    run_test ${file}
+  done
+
+  for dir in $( ls -d assignment_testcases/a2/J[!e]*/ ); do
+    run_test_dir $dir
+  done
+
+  for file in $( echo assignment_testcases/a2/Je*.java ); do
+    run_bad_test $file
+  done
+
+  for dir in $( ls -d assignment_testcases/a2/Je*/ ); do
+    run_bad_test_dir $dir
+  done
+else
+  parallel run_test ::: assignment_testcases/a2/J[!e]*.java
+  parallel run_test_dir ::: `ls -d assignment_testcases/a2/J[!e]*/`
+  parallel run_bad_test ::: assignment_testcases/a2/Je*.java
+  parallel run_bad_test_dir ::: `ls -d assignment_testcases/a2/Je*/`
+fi
