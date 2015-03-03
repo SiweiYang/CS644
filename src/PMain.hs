@@ -108,10 +108,14 @@ testTD = do
     let resultByFiles = map (\(fn, ast) -> (fn, run (dfa, ast ++ [AST "EOF" []]))) astByFiles
     let astByFiles = map (\(fn, a) -> (fn, buildAST $ units (fst a))) resultByFiles
     let envByFiles = map (\(fn, a) -> (fn, buildEnvironment a)) astByFiles
+    let imps = map (visibleImports . snd) astByFiles
     let envs = map snd envByFiles
+    let Just db = (buildTypeEntryFromEnvironments (TN (PKG []) []) envs)
+    let renvs = map (\(env, imp) -> refineEnvironmentWithType (traverseTypeEntryWithImports db imp) (Root []) env) (zip envs imps)
     
-    return (buildTypeEntryFromEnvironments (TN (PKG []) []) envs)
-    --return envs
+    return (db, (zip envs imps))
+    --return renvs
+    --return db 
     --env <- testENV
     --return (buildTypeEntry (TN (PKG []) []) env)
 

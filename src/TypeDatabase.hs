@@ -78,14 +78,19 @@ buildTypeEntry tn env = buildEntry tn env (elem "static")
 buildInstanceEntry :: TypeNode -> Environment -> Maybe TypeNode
 buildInstanceEntry tn env = buildEntry tn env (\mds -> True)
 
+--watch out what is current node
 buildEntry :: TypeNode -> Environment -> ([String] -> Bool) -> Maybe TypeNode
 buildEntry tn ENVE cond = Just tn
 buildEntry (TN sym nodes) env cond = case (sym, nodes, kind su) of
-                            (PKG _, _, Package)  -> if isJust tarNode' then Just (TN sym nodes') else Nothing
-                            (PKG _, [], Class)  -> buildEntry' sym' env cond
-                            (PKG _, _, Class)  -> Nothing
-                            (PKG _, [], Interface)  -> buildEntry' sym' env cond
-                            (PKG _, _, Interface)  -> Nothing
+                            (PKG _, _, Package)  -> if isJust mtarNode' then Just (TN sym ((fromJust mtarNode'):remainNodes)) else Nothing
+                            --(PKG _, [], Class)  -> buildEntry' sym' env cond
+                            (PKG _, _, Class)  -> case (conflict, isJust mtarNode) of
+                                                    ([], True) -> Just (TN sym ((fromJust mtarNode):remainNodes))
+                                                    _ -> Nothing
+                            --(PKG _, [], Interface)  -> buildEntry' sym' env cond
+                            (PKG _, _, Interface)  -> case (conflict, isJust mtarNode) of
+                                                        ([], True) -> Just (TN sym ((fromJust mtarNode):remainNodes))
+                                                        _ -> Nothing
                             _ -> Nothing
     where
         ENV su c = env
@@ -93,7 +98,10 @@ buildEntry (TN sym nodes) env cond = case (sym, nodes, kind su) of
                 [c'] -> c'
                 _ -> error (show c)
         parent = inheritFrom su
-        [sym'] = symbolTable parent
+        sym' = case symbolTable parent of
+                [s] -> s
+                a -> error (show (a, su))
+        --[sym'] = symbolTable parent
         
         cname = (scope . semantic)  env
         nm = case cname of
@@ -101,11 +109,13 @@ buildEntry (TN sym nodes) env cond = case (sym, nodes, kind su) of
             _ -> last cname
         --nm = (last . scope . semantic)  env
         remainNodes = [node | node <- nodes, (localName . symbol) node /= nm]
-        tarNode = case [node | node <- nodes, (localName . symbol) node == nm] of
-            []            -> TN (PKG nm) []
-            [target]      -> target
-        tarNode' = buildTypeEntry tarNode ch
-        nodes' = (fromJust tarNode'):remainNodes
+        conflict = [node | node <- nodes, (localName . symbol) node == nm]
+        
+        mtarNode = buildEntry' sym' env cond
+        mtarNode' = case conflict of
+                      [] -> buildEntry (TN (PKG nm) []) ch cond
+                      [tar] -> buildEntry tar ch cond
+                      _ -> Nothing
 
 buildEntry' :: Symbol -> Environment -> ([String] -> Bool) -> Maybe TypeNode
 buildEntry' sym ENVE cond = Nothing
@@ -119,29 +129,29 @@ buildEntry' sym env cond = case kind su of
         funcs = [(FUNC mds ln params lt) | (FUNC mds ln params lt) <- syms]
         sflds = [(SYM mds ln lt) | (SYM mds ln lt) <- syms, cond mds]
 
-refineTypeWithType :: ([String] -> Maybe [String]) -> Type -> Maybe Type
+refineTypeWithType :: ([String] -> [[String]]) -> Type -> Maybe Type
 refineTypeWithType querier (Array t) = case refineTypeWithType querier t of
                                         Nothing -> Nothing
                                         Just t' -> Just (Array t')
 refineTypeWithType querier (Object (Name nm)) = case querier nm of
-                                                    Nothing -> Nothing
-                                                    Just nm' -> Just (Object (Name nm'))
+                                                    [] -> Nothing
+                                                    nm':_ -> Just (Object (Name nm'))
 refineTypeWithType querier t = Just t
 
-refineSymbolWithType :: ([String] -> Maybe [String]) -> Symbol -> Maybe Symbol
+refineSymbolWithType :: ([String] -> [[String]]) -> Symbol -> Maybe Symbol
 refineSymbolWithType querier (SYM mds ln lt) = case refineTypeWithType querier lt of
                                                 Nothing -> Nothing
                                                 Just lt' -> Just (SYM mds ln lt')
 refineSymbolWithType querier (FUNC mds ln params lt) = case (dropWhile isJust params', lt') of
-                                                        ([], _) -> Nothing
                                                         (_, Nothing) -> Nothing
-                                                        _ -> Just (FUNC mds ln (map fromJust params') (fromJust lt'))
+                                                        ([], _) -> Just (FUNC mds ln (map fromJust params') (fromJust lt'))
+                                                        _ -> Nothing
     where
         params' = map (refineTypeWithType querier) params
         lt' = refineTypeWithType querier lt
 refineSymbolWithType querier sym = Just sym
 
-refineEnvironmentWithType :: ([String] -> Maybe [String]) -> SemanticUnit -> Environment -> Maybe Environment
+refineEnvironmentWithType :: ([String] -> [[String]]) -> SemanticUnit -> Environment -> Maybe Environment
 refineEnvironmentWithType querier _ ENVE = Just ENVE
 refineEnvironmentWithType querier parent (ENV su ch) = case (dropWhile isJust syms', dropWhile isJust ch') of
                                                         ([], []) -> Just (ENV su' (map fromJust ch'))
