@@ -42,7 +42,7 @@ traverseTypeEntry (TN sym nodes) (nm:remain) = case [node | node <- nodes, (loca
                                                 [node] -> traverseTypeEntry node remain
 
 traverseTypeEntryWithImports :: TypeNode -> [[String]] -> [String] -> [[String]]
-traverseTypeEntryWithImports tn imps query = [cname | (Just node, cname) <- results]
+traverseTypeEntryWithImports tn imps query = nub [cname | (Just node, cname) <- results]
     where
         entries = map (traverseTypeEntry tn) imps
         entries' = map (\(mnode, imp) -> (fromJust mnode, imp)) (filter (isJust . fst) (zip entries imps))
@@ -55,11 +55,10 @@ traverseInstanceEntry root nodes cname = [node | Just node <- mnodes']
 
 traverseInstanceEntry' :: TypeNode -> TypeNode -> [String] -> Maybe TypeNode
 traverseInstanceEntry' root (TN (SYM mds ln lt) _) cname = traverseInstanceEntry' root root ((typeToName lt) ++ cname)
-traverseInstanceEntry' root cur cname = case [node | node <- subNodes cur, (localName . symbol) node == nm] of
+traverseInstanceEntry' root cur [] = Just cur
+traverseInstanceEntry' root cur (nm:cname) = case [node | node <- subNodes cur, (localName . symbol) node == nm] of
                                         []            -> Nothing
-                                        [target]      -> Just target
-    where
-        nm = head cname
+                                        [target]      -> traverseInstanceEntry' root target cname
 
 buildTypeEntryFromSymbol sym = TN sym []
 
@@ -69,6 +68,12 @@ buildTypeEntryFromEnvironments tn (env:envs) = case mtn of
                                                 Just tn' -> buildTypeEntryFromEnvironments tn' envs
     where
         mtn = buildTypeEntry tn env
+buildInstanceEntryFromEnvironments tn [] = Just tn
+buildInstanceEntryFromEnvironments tn (env:envs) = case mtn of
+                                                Nothing -> Nothing
+                                                Just tn' -> buildInstanceEntryFromEnvironments tn' envs
+    where
+        mtn = buildInstanceEntry tn env
 
 buildTypeEntry :: TypeNode -> Environment -> Maybe TypeNode
 buildTypeEntry tn env = buildEntry tn env (elem "static")
@@ -79,16 +84,10 @@ buildInstanceEntry tn env = buildEntry tn env (\mds -> True)
 --watch out what is current node
 buildEntry :: TypeNode -> Environment -> ([String] -> Bool) -> Maybe TypeNode
 buildEntry tn ENVE cond = Just tn
-buildEntry (TN sym nodes) env cond = case (sym, nodes, kind su) of
-                            (PKG _, _, Package)  -> if isJust mtarNode' then Just (TN sym ((fromJust mtarNode'):remainNodes)) else Nothing
-                            --(PKG _, [], Class)  -> buildEntry' sym' env cond
-                            (PKG _, _, Class)  -> case (conflict, isJust mtarNode) of
-                                                    ([], True) -> Just (TN sym ((fromJust mtarNode):remainNodes))
-                                                    _ -> Nothing
-                            --(PKG _, [], Interface)  -> buildEntry' sym' env cond
-                            (PKG _, _, Interface)  -> case (conflict, isJust mtarNode) of
-                                                        ([], True) -> Just (TN sym ((fromJust mtarNode):remainNodes))
-                                                        _ -> Nothing
+buildEntry (TN sym nodes) env cond = case (sym, kind su) of
+                            (PKG _, Package)  -> if isJust mpNode' then Just (TN sym ((fromJust mpNode'):remainNodes)) else Nothing
+                            (PKG _, Class)  -> mcNode'
+                            (PKG _, Interface)  -> mcNode'
                             _ -> Nothing
     where
         ENV su c = env
@@ -109,8 +108,12 @@ buildEntry (TN sym nodes) env cond = case (sym, nodes, kind su) of
         remainNodes = [node | node <- nodes, (localName . symbol) node /= nm]
         conflict = [node | node <- nodes, (localName . symbol) node == nm]
         
-        mtarNode = buildEntry' sym' env cond
-        mtarNode' = case conflict of
+        mcNode = buildEntry' sym' env cond
+        mcNode' = case (conflict, isJust mcNode) of
+                    ([], True) -> Just (TN sym ((fromJust mcNode):remainNodes))
+                    _ -> Nothing
+        
+        mpNode' = case conflict of
                       [] -> buildEntry (TN (PKG nm) []) ch cond
                       [tar] -> buildEntry tar ch cond
                       _ -> Nothing
@@ -128,25 +131,26 @@ buildEntry' sym env cond = case kind su of
         sflds = [(SYM mds ln lt) | (SYM mds ln lt) <- syms, cond mds]
 
 refineTypeWithType :: ([String] -> [[String]]) -> Type -> Maybe Type
+refineTypeWithType querier (Object (Name nm)) = case querier nm of
+                                                    [] -> Nothing
+                                                    [nm'] -> Just (Object (Name nm'))
+                                                    r -> error (show (nm, r))
 refineTypeWithType querier (Array t) = case refineTypeWithType querier t of
                                         Nothing -> Nothing
                                         Just t' -> Just (Array t')
-refineTypeWithType querier (Object (Name nm)) = case querier nm of
-                                                    [] -> Nothing
-                                                    nm':_ -> Just (Object (Name nm'))
 refineTypeWithType querier t = Just t
 
 refineSymbolWithType :: ([String] -> [[String]]) -> Symbol -> Maybe Symbol
 refineSymbolWithType querier (SYM mds ln lt) = case refineTypeWithType querier lt of
                                                 Nothing -> Nothing
                                                 Just lt' -> Just (SYM mds ln lt')
-refineSymbolWithType querier (FUNC mds ln params lt) = case (dropWhile isJust params', lt') of
+refineSymbolWithType querier (FUNC mds ln params lt) = case (dropWhile isJust params', mlt') of
                                                         (_, Nothing) -> Nothing
-                                                        ([], _) -> Just (FUNC mds ln (map fromJust params') (fromJust lt'))
+                                                        ([], Just lt') -> Just (FUNC mds ln (map fromJust params') lt')
                                                         _ -> Nothing
     where
         params' = map (refineTypeWithType querier) params
-        lt' = refineTypeWithType querier lt
+        mlt' = refineTypeWithType querier lt
 refineSymbolWithType querier sym = Just sym
 
 refineEnvironmentWithType :: ([String] -> [[String]]) -> SemanticUnit -> Environment -> Maybe Environment
@@ -157,6 +161,5 @@ refineEnvironmentWithType querier parent (ENV su ch) = case (dropWhile isJust sy
     where
         (SU cname k syms _) = su
         syms' = map (refineSymbolWithType querier) syms
-        su' = (SU cname k (map fromJust syms') parent)
-        
+        su' = (SU cname k (map fromJust syms') parent)        
         ch' = map (refineEnvironmentWithType querier su') ch

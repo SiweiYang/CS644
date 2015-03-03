@@ -1,5 +1,6 @@
 module Main where 
 
+import Data.Maybe
 import Data.Map hiding (map, filter)
 
 import Lexical
@@ -112,11 +113,19 @@ testTD = do
     let envs = map snd envByFiles
     let Just db = (buildTypeEntryFromEnvironments (TN (PKG []) []) envs)
     let renvs = map (\(env, imp) -> refineEnvironmentWithType (traverseTypeEntryWithImports db imp) (Root []) env) (zip envs imps)
+    let Just idb = (buildInstanceEntryFromEnvironments (TN (PKG []) []) (map fromJust renvs))
     
-    return (db, traverseTypeEntryWithImports db [["java", "lang", "*"]])
-    --return renvs
-    --return db 
-    --env <- testENV
+    --return (idb, traverseTypeEntryWithImports db [["java", "lang", "*"]])
+    return (idb, traverseInstanceEntry' idb idb)
+    --(db, q) <- testTD
+    --change the Integer class to have a Integer field named next
+    --q ["java", "lang", "Integer", "next", "next", "next", "next", "next"]
+    
+    
+    --return (imps, renvs)
+    --(imps, renvs) <- testTD
+    --renv !! 6
+    
     --return (buildTypeEntry (TN (PKG []) []) env)
 
 main :: IO ()
