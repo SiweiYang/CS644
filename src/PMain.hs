@@ -113,7 +113,7 @@ testTD = do
     let Just db = (buildTypeEntryFromEnvironments (TN (PKG []) []) envs)
     let renvs = map (\(env, imp) -> refineEnvironmentWithType (traverseTypeEntryWithImports db imp) (Root []) env) (zip envs imps)
     
-    return (db, (zip envs imps))
+    return (db, traverseTypeEntryWithImports db [["java", "lang", "*"]])
     --return renvs
     --return db 
     --env <- testENV
