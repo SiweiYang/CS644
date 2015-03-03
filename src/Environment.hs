@@ -62,7 +62,7 @@ instance Show Environment where
 
 buildEnvironment :: CompilationUnit -> Environment
 buildEnvironment (Comp pkg imps def cui) = case pkg of
-                                            Nothing -> buildEnvironmentWithPackage [[]] (Root []) def
+                                            Nothing -> buildEnvironmentWithPackage ["unnamed package"] (Root []) def
                                             Just cname -> buildEnvironmentWithPackage cname (Root []) def
 
 buildEnvironmentWithPackage [] parent def = ENV su env
@@ -166,61 +166,3 @@ buildEnvironmentFromStatements parent ((If expr isb mesb):remain) = ENV su [e0, 
         e1 = case mesb of
             Just tsb -> bld (statements tsb)
             _ -> ENVE
-
-getLocalEnvironment :: CompilationUnit -> [Environment] -> Environment
-getLocalEnvironment unit envs
-  | length directEnvironments /= length (nub directNames) = ENVE
-  | any (\group -> length group == 0) wildCardEnvironments = ENVE
-  | otherwise = ENV (Root []) $ nub $ aliasedEnvironments ++ envs
-  where packageName = case package unit of { Just pkgName -> pkgName; _ -> [unitName $ definition unit] }
-        packageEnvironments = filter (environmentIsInPackage packageName) envs
-        javaEnvironments = filter (environmentIsInPackage ["java", "lang"]) envs
-        (wildcardNames, directNames) = partition (elem "*") (imports unit)
-        directEnvironments = filter (environmentHasScope directNames) envs
-        wildcardNamesNoStar = map init wildcardNames
-        wildCardEnvironments = map (\name -> filter (environmentIsInPackage name) envs) wildcardNamesNoStar
-        accessibleEnvironments = packageEnvironments ++ directEnvironments ++ (concat wildCardEnvironments) ++ javaEnvironments
-        aliasedEnvironments = map getImportedEnvironment accessibleEnvironments
-
-getImportedEnvironment :: Environment -> Environment
-getImportedEnvironment (ENV (SU scope kind st parent) children) = (ENV (SU [(last scope)] kind st parent) children)
-getImportedEnvironment env = env
-
-environmentHasScope :: [[String]] -> Environment -> Bool
-environmentHasScope pkgNames (ENV (SU scope _ _ _) _) = scope `elem` pkgNames
-environmentHasScope _ _ = False
-
-environmentIsInPackage :: [String] -> Environment -> Bool
-environmentIsInPackage pkgName (ENV (SU scope _ _ _) _)
-  | take pkgLength scope == pkgName = True
-  | otherwise = False
-  where pkgLength = length pkgName
-environmentIsInPackage _ _ = False
-
-findUnitInEnv :: [String] -> Kind -> Environment -> Maybe SemanticUnit
-findUnitInEnv _ _ ENVE = Nothing
-findUnitInEnv name searchKind (ENV (Root _) children) =
-  msum $ map (findUnitInEnv name searchKind) children
-findUnitInEnv name searchKind (ENV unit children)
-  | last (scope unit) == last name && (kind unit) == searchKind = Just unit
-  | otherwise = msum $ map (findUnitInEnv name searchKind) children
-
-getClassSymbol :: SemanticUnit -> String -> Maybe Symbol
-getClassSymbol (Root _)_ = Nothing
-getClassSymbol (SU _ _ table parent) name =
-  let isClass targetName (CL _ name) = targetName == name
-      isClass _ _ = False
-  in
-    case find (isClass name) table of
-      Just symbol -> Just symbol
-      Nothing -> getClassSymbol parent name
-
-getInterfaceSymbol :: SemanticUnit -> String -> Maybe Symbol
-getInterfaceSymbol (Root _) _ = Nothing
-getInterfaceSymbol (SU _ _ table parent) name =
-  let isInterface targetName (IT _ name) = targetName == name
-      isInterface _ _ = False
-  in
-    case find (isInterface name) table of
-      Just symbol -> Just symbol
-      Nothing -> getInterfaceSymbol parent name
