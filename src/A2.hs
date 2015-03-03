@@ -8,9 +8,11 @@ import System.IO
 
 import AST
 import Environment
+import Hierarchy
 import Lexical
 import Parser
 import Scanner
+import TypeDatabase
 import Weeder
 
 main :: IO ()
@@ -34,7 +36,7 @@ main = do
   let (tokenByFilesInvalid, tokenByFilesValid) = partition (any (\token -> (tokenType $ fst token) == FAILURE) . fst) tokenByFilesFiltered
 
   if null tokenByFilesInvalid then do
-    hPutStrLn stderr "Scanning complete.."
+    hPutStrLn stderr "Scanning OK"
   else do
     let badToken = find (\token -> (tokenType $ fst token) == FAILURE) (fst (head tokenByFilesInvalid))
     let badLocation = snd (fromJust badToken)
@@ -52,7 +54,7 @@ main = do
   let (validParsed, invalidParsed) = partition (\x -> (length . snd $ fst x)==0) resultByFiles
 
   if null invalidParsed then do
-    hPutStrLn stderr "Parsing complete.."
+    hPutStrLn stderr "Parsing OK"
   else do
     let errorToken = (last . snd . fst $ head invalidParsed)
     hPutStrLn stderr "Parse error!"
@@ -68,7 +70,7 @@ main = do
   let weeded = filter isJust weedResults
 
   if (length weeded) == 0 then do
-    hPutStrLn stderr "Weeding complete.."
+    hPutStrLn stderr "Weeding: OK"
   else do
     hPutStrLn stderr "Weeding error!"
     hPutStrLn stderr $ fromJust (head weeded)
@@ -83,6 +85,25 @@ main = do
     hPutStrLn stderr $ "Environment error in file" ++ (snd $ head invalidEnvironments)
     exitWith (ExitFailure 42)
   else do
-    hPutStrLn stderr "Environment complete.."
-    hPutStrLn stderr "Input is valid!"
+    hPutStrLn stderr "Environment: OK"
+
+  let globalEnvironment = buildTypeEntryFromEnvironments (TN (PKG []) []) (map fst validEnvironments)
+
+  if isNothing globalEnvironment then do
+    hPutStrLn stderr "Environment building error!"
+    exitWith (ExitFailure 42)
+  else do
+    hPutStrLn stderr $ show globalEnvironment
+    hPutStrLn stderr "Type DB: OK"
+
+  -- HIERARCHY CHECKING
+  let hierarchyResults = checkHierarchies (map fst fileAsts) (fromJust globalEnvironment)
+
+  if isJust hierarchyResults then do
+    hPutStrLn stderr "Hierarchy error!"
+    hPutStrLn stderr $ fromJust hierarchyResults
+    exitWith (ExitFailure 42)
+  else do
+    hPutStrLn stderr "Hierarchy: OK"
     exitSuccess
+

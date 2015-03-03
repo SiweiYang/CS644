@@ -4,12 +4,19 @@ import Data.Maybe
 import Data.List
 
 import Util
+import AST
 import Environment
 
 data TypeNode = TN {
     symbol :: Symbol,
     subNodes :: [TypeNode]
 }
+
+isVisibleClassNode tn = case symbol tn of
+                            PKG _ -> True
+                            CL _ _ -> True
+                            IT _ _ -> True
+                            _ -> False
 
 isConcreteNode tn = case symbol tn of
                             CL _ _ -> True
@@ -22,7 +29,7 @@ instance Show TypeNode where
                             (indent 2 (intercalate "\n" lns)) ++ "\n" ++
                             "}\n"
         where
-            lns = map show nodes
+            lns = map show (filter isVisibleClassNode nodes)
 
 traverseTypeEntry :: TypeNode -> [String] -> Maybe TypeNode
 traverseTypeEntry tn [] = case symbol tn of
@@ -93,3 +100,37 @@ buildTypeEntry' sym env = case kind su of
         syms = symbolTable su
         funcs = [(FUNC mds ln params lt) | (FUNC mds ln params lt) <- syms]
         sflds = [(SYM mds ln lt) | (SYM mds ln lt) <- syms, elem "static" mds]
+
+refineTypeWithType :: ([String] -> Maybe [String]) -> Type -> Maybe Type
+refineTypeWithType querier (Array t) = case refineTypeWithType querier t of
+                                        Nothing -> Nothing
+                                        Just t' -> Just (Array t')
+refineTypeWithType querier (Object (Name nm)) = case querier nm of
+                                                    Nothing -> Nothing
+                                                    Just nm' -> Just (Object (Name nm'))
+refineTypeWithType querier t = Just t
+
+refineSymbolWithType :: ([String] -> Maybe [String]) -> Symbol -> Maybe Symbol
+refineSymbolWithType querier (SYM mds ln lt) = case refineTypeWithType querier lt of
+                                                Nothing -> Nothing
+                                                Just lt' -> Just (SYM mds ln lt')
+refineSymbolWithType querier (FUNC mds ln params lt) = case (dropWhile isJust params', lt') of
+                                                        ([], _) -> Nothing
+                                                        (_, Nothing) -> Nothing
+                                                        _ -> Just (FUNC mds ln (map fromJust params') (fromJust lt'))
+    where
+        params' = map (refineTypeWithType querier) params
+        lt' = refineTypeWithType querier lt
+refineSymbolWithType querier sym = Just sym
+
+refineEnvironmentWithType :: ([String] -> Maybe [String]) -> SemanticUnit -> Environment -> Maybe Environment
+refineEnvironmentWithType querier _ ENVE = Just ENVE
+refineEnvironmentWithType querier parent (ENV su ch) = case (dropWhile isJust syms', dropWhile isJust ch') of
+                                                        ([], []) -> Just (ENV su' (map fromJust ch'))
+                                                        _ -> Nothing
+    where
+        (SU cname k syms _) = su
+        syms' = map (refineSymbolWithType querier) syms
+        su' = (SU cname k (map fromJust syms') parent)
+        
+        ch' = map (refineEnvironmentWithType querier su') ch
