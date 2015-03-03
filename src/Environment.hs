@@ -62,7 +62,7 @@ instance Show Environment where
 
 buildEnvironment :: CompilationUnit -> Environment
 buildEnvironment (Comp pkg imps def cui) = case pkg of
-                                            Nothing -> buildEnvironmentWithPackage [] (Root []) def
+                                            Nothing -> buildEnvironmentWithPackage ["unnamed package"] (Root []) def
                                             Just cname -> buildEnvironmentWithPackage cname (Root []) def
 
 buildEnvironmentWithPackage [] parent def = ENV su env
