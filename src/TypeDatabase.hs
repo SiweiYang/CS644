@@ -55,8 +55,8 @@ traverseInstanceEntry root nodes cname = [node | Just node <- mnodes']
         mnodes' = map (\cur -> traverseInstanceEntry' root cur cname) nodes
 
 traverseInstanceEntry' :: TypeNode -> TypeNode -> [String] -> Maybe TypeNode
-traverseInstanceEntry' root (TN (SYM mds ln lt) _) cname = traverseInstanceEntry' root root ((typeToName lt) ++ cname)
 traverseInstanceEntry' root cur [] = Just cur
+traverseInstanceEntry' root (TN (SYM mds ln lt) _) (nm:cname) = traverseInstanceEntry' root root ((typeToName lt) ++ (nm:cname))
 traverseInstanceEntry' root cur (nm:cname) = case [node | node <- subNodes cur, (localName . symbol) node == nm] of
                                         []            -> Nothing
                                         [target]      -> traverseInstanceEntry' root target cname
@@ -71,12 +71,6 @@ buildTypeEntryFromEnvironments tn (env:envs) = case mtn of
                                                 Just tn' -> buildTypeEntryFromEnvironments tn' envs
     where
         mtn = buildTypeEntry tn env
-buildInstanceEntryFromEnvironments tn [] = Just tn
-buildInstanceEntryFromEnvironments tn (env:envs) = case mtn of
-                                                Nothing -> Nothing
-                                                Just tn' -> buildInstanceEntryFromEnvironments tn' envs
-    where
-        mtn = buildInstanceEntry tn env
 
 buildInstanceEntryFromEnvironments :: TypeNode -> [Environment] -> Maybe TypeNode
 buildInstanceEntryFromEnvironments tn [] = Just tn
