@@ -413,6 +413,16 @@ data Type = TypeByte | TypeShort | TypeInt | TypeChar | TypeBoolean | TypeString
           | Object Name
           | Array Type
           deriving (Eq, Show)
+typeToName TypeByte = ["Byte"]
+typeToName TypeShort = ["Short"]
+typeToName TypeInt = ["Int"]
+typeToName TypeChar = ["Char"]
+typeToName TypeBoolean = ["Boolean"]
+typeToName TypeString = ["String"]
+typeToName TypeNull = ["Null"]
+typeToName TypeVoid = ["Void"]
+typeToName (Object (Name nm)) = nm
+typeToName (Array tp) = ["Array"]
 
 data Name = Name [String]
           deriving (Eq, Show)

@@ -33,5 +33,5 @@ checkImplementTargets unit typeDB =
 checkInterface :: [String] -> [[String]] -> TypeNode -> HierarchyError
 checkInterface name imports typeDB =
   case traverseTypeEntryWithImports typeDB imports name of
-    Nothing -> Just $ "interface " ++ last name ++ " does not exist"
-    Just _ -> Nothing
+    [] -> Just $ "interface " ++ last name ++ " does not exist"
+    _ -> Nothing
