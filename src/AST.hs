@@ -20,8 +20,8 @@ extractASTInfo (ASTT n (tk, ti)) = AI (file ti) lnf colf lnt colt
         colf = (col ti)
         lnt = if length parts > 1 then lnf + (length parts) - 1 else lnf
         colt = if length parts > 1 then length (last parts) else colf + (length (lexeme tk))
-        
-extractASTInfo ast = AI fn lnf colf lnt colt 
+
+extractASTInfo ast = AI fn lnf colf lnt colt
     where
         prods = production ast
         AI fn lnf colf _ _ = extractASTInfo (last prods)
@@ -170,7 +170,7 @@ visibleImports :: CompilationUnit -> [[String]]
 visibleImports unit =
     let ownPackage = case package unit of
             Just pkgName -> [pkgName ++ ["*"]]
-            Nothing -> [[]]
+            Nothing -> [["unnamed package", "*"]]
         importedPackages = imports unit
         javaLang = [["java","lang","*"]]
     in ownPackage ++ importedPackages ++ javaLang
@@ -181,10 +181,10 @@ buildAST prods = Comp (if length pk > 0 then Just (nameToPackage pkgn) else Noth
         pk = filter (\ast -> name ast == "PackageDeclaration") prods
         [pkg] = pk
         pkgn =  (production pkg) !! 1
-        
+
         im = filter (\ast -> name ast == "ImportDeclarations") prods
         ims = reverse (flatten "ImportDeclaration" (head im))
-        
+
         t = head (production (head (filter (\ast -> name ast == "TypeDeclaration") prods)))
         td = case name t of
                 "ClassDeclaration" -> CLS (map toLexeme ms) (toLexeme nm) ext (map nameToPackage ipls) (map buildConstructor cons) (map buildField flds) (map buildMethod mtds) (CLSI (map extractASTInfo ms) (extractASTInfo nm) exti (map extractASTInfo ipls))
@@ -195,28 +195,28 @@ buildAST prods = Comp (if length pk > 0 then Just (nameToPackage pkgn) else Noth
         ms = case m of
           [] -> []
           _ -> reverse (flatten "ModifierKeyword" (head m))
-        
+
         [nm] = filter (\ast -> name ast == "IDENTIFIER") (production t)
-        
+
         ex = filter (\ast -> name ast == "Super") (production t)
         ext = if length ex > 0 then Just (nameToPackage (head (production (head ex)))) else Nothing
         exti = if length ex > 0 then Just (extractASTInfo (head (production (head ex)))) else Nothing
-        
+
         ipl = filter (\ast -> name ast == "Interfaces") (production t)
         ipls = reverse (concat (map (flatten "InterfaceType") ipl))
-        
+
         cb = filter (\ast -> name ast == "ClassBody") (production t)
         cbds = expand (flatten "ClassBodyDeclaration" (head cb))
-        
+
         cons = reverse (filter (\ast -> name ast == "ConstructorDeclaration") cbds)
-        
+
         mems = expand (filter (\ast -> name ast == "ClassMemberDeclaration") cbds)
         flds = reverse (filter (\ast -> name ast == "FieldDeclaration") mems)
         mtds = reverse (filter (\ast -> name ast == "MethodDeclaration") mems)
         ------------------ specific for interface
         exipl = filter (\ast -> name ast == "ExtendsInterfaces") (production t)
         exipls = reverse (concat (map (flatten "InterfaceType" ) exipl))
-        
+
         [ib] = filter (\ast -> name ast == "InterfaceBody") (production t)
         ifcmtds = reverse (flatten "InterfaceMemberDeclaration" ib)
 
@@ -230,12 +230,12 @@ buildField ast = FLD (map toLexeme ms) (TV tp nm (extractASTInfo ast)) ex (FLDI 
         ms = case m of
             [a] -> reverse (flatten "ModifierKeyword" (head m))
             []  -> []
-        
+
         [t] = filter (\ast -> name ast == "Type") prods
         tp = buildType t
         [n] = filter (\ast -> name ast == "IDENTIFIER") prods
         nm = toLexeme n
-        
+
         e = filter (\ast -> name ast == "OptionalAssignment") prods
         ex = (if length e > 0 then (Just (buildExp 0 (head (production (head e))))) else Nothing)
         exi = (if length e > 0 then (Just (extractASTInfo (head (production (head e))))) else Nothing)
@@ -250,16 +250,16 @@ buildMethod ast = MTD (map toLexeme ms) (TV tp nm (extractASTInfo ast)) (map bui
         ms = case m of
             [a] -> reverse (flatten "ModifierKeyword" (head m))
             []  -> []
-        
+
         [t] = filter (\ast -> name ast == "Type" || name ast == "KEYWORD_VOID") prods
         tp = buildType t
-        
+
         [dec] = filter (\ast -> name ast == "MethodDeclarator") prods
         decprods = production dec
-        
+
         nm = toLexeme (last decprods)
         params = reverse $ concat (map (flatten "FormalParameter") (filter (\ast -> name ast == "FormalParameterList") decprods))
-        
+
         mb = filter (\ast -> name ast == "MethodBody") (production ast)
         [def] = mb
         [blk] = production def
@@ -278,14 +278,14 @@ buildConstructor ast = Cons (map toLexeme ms) nm (map buildTypedVar params) coni
         ms = case m of
             [a] -> reverse (flatten "ModifierKeyword" (head m))
             []  -> []
-        
+
         [dec] = filter (\ast -> name ast == "ConstructorDeclarator") prods
         decprods = production dec
-        
+
         n = last decprods
         nm = toLexeme n
         params = concat (map (flatten "FormalParameter") (filter (\ast -> name ast == "FormalParameterList") decprods))
-        
+
         [def] = filter (\ast -> name ast == "ConstructorBody") prods
         ci = filter (\ast -> name ast == "ExplicitConstructorInvocation") (production def)
         coninvo = case ci of
@@ -413,6 +413,16 @@ data Type = TypeByte | TypeShort | TypeInt | TypeChar | TypeBoolean | TypeString
           | Object [String]
           | Array Type
           deriving (Eq, Show)
+typeToName TypeByte = ["Byte"]
+typeToName TypeShort = ["Short"]
+typeToName TypeInt = ["Int"]
+typeToName TypeChar = ["Char"]
+typeToName TypeBoolean = ["Boolean"]
+typeToName TypeString = ["String"]
+typeToName TypeNull = ["Null"]
+typeToName TypeVoid = ["Void"]
+typeToName (Object (Name nm)) = nm
+typeToName (Array tp) = ["Array"]
 
 data Name = Name [String]
           deriving (Eq, Show)
