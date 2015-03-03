@@ -1,5 +1,7 @@
 module Main where 
 
+import Data.Map hiding (map, filter)
+
 import Lexical
 import Scanner
 import Parser
@@ -9,6 +11,24 @@ import Environment
 import TypeDatabase
 
 import System.Directory
+
+readDFA :: IO DFA
+readDFA = do
+    contentStr <- readFile "../res/joos1w.lr1"
+    let content = lines contentStr
+    let numOfTerminal = read (head content) :: Int
+    let terminalList = take numOfTerminal (drop 1 content)
+    let numOfNonterminal = read (content !! (1 + numOfTerminal)) :: Int
+    let nonterminalList = take numOfNonterminal (drop (2 + numOfTerminal) content)
+    let root = content !! (1 + numOfTerminal + 1 + numOfNonterminal)
+    let numOfProduction = read (content !! (1 + numOfTerminal + 1 + numOfNonterminal + 1)) :: Int
+    let productionList = map (buildProduction . words) (take numOfProduction (drop (1 + numOfTerminal + 1 + numOfNonterminal + 1 + 1) content))
+    let numOfState = read (content !! (1 + numOfTerminal + 1 + numOfNonterminal + 1 + 1 + numOfProduction)) :: Int
+    let numOfTransition = read (content !! (1 + numOfTerminal + 1 + numOfNonterminal + 1 + 1 + numOfProduction + 1)) :: Int
+    let transitionList = map (buildTransition . words) (take numOfTransition (drop (1 + numOfTerminal + 1 + numOfNonterminal + 1 + 1 + numOfProduction + 1 + 1) content))
+    let transitionMap = fromList(transitionList)
+    --return (terminalList, nonterminalList, root, productionList, numOfState, transitionMap)
+    return (DFA [0] [] numOfState transitionMap productionList)
 
 --------------------------------------------------------------------
 
@@ -27,7 +47,7 @@ testLibFiles = do
     return (zip contents files)
 
 testDFA = do
-    dfa <- readLR1
+    dfa <- readDFA
     singlefile <- testSingleFile
     tokenList <- (scannerRunner 0 0) singlefile
     let filtedToken = filter (\(tk, fn) -> not (elem (tokenType tk) [Comment, WhiteSpace])) tokenList
@@ -63,7 +83,7 @@ testSingleFile = do
 
 --testAST :: IO ()
 testAST = do
-    dfa <- readLR1
+    dfa <- readDFA
     singlefile <- testSingleFile
     tokenByFile <- scannerRunner 0 0 singlefile
     let tokenByFileFiltered = filter (\(tk, fn) -> not (elem (tokenType tk) [Comment, WhiteSpace])) tokenByFile
@@ -80,7 +100,7 @@ testENV = do
     return (buildEnvironment cu)
 
 testTD = do
-    dfa <- readLR1
+    dfa <- readDFA
     files <- testLibFiles
     tokenByFiles <- mapM (scannerRunner 0 0) files
     let tokenByFilesFiltered = map (filter (\(tk, fn) -> not (elem (tokenType tk) [Comment, WhiteSpace]))) tokenByFiles
@@ -97,7 +117,7 @@ testTD = do
 
 main :: IO ()
 main = do
-    dfa <- readLR1
+    dfa <- readDFA
     files <- testVFiles
     tokenByFiles <- mapM (scannerRunner 0 0) files
     let tokenByFilesFiltered = map (filter (\(tk, fn) -> not (elem (tokenType tk) [Comment, WhiteSpace]))) tokenByFiles

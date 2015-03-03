@@ -42,7 +42,7 @@ instance Show SemanticUnit where
   show (Root scope) = "ROOT: " ++ (show scope) ++ "\n"
 
 
-buildSymbolFromConstructor (Cons constructorModifiers constructorName constructorParameters constructorInvocation constructorDefinition consi) = FUNC constructorModifiers constructorName (map typeName constructorParameters) (Object (Simple constructorName))
+buildSymbolFromConstructor (Cons constructorModifiers constructorName constructorParameters constructorInvocation constructorDefinition consi) = FUNC constructorModifiers constructorName (map typeName constructorParameters) (Object (Name [constructorName]))
 buildSymbolFromField (FLD fieldModifiers (TV tp nm ai) fieldValue fldi) = SYM fieldModifiers nm tp
 buildSymbolFromMethod (MTD methodModifiers (TV tp nm ai) methodParameters methodDefinition mtdi) = FUNC methodModifiers nm (map typeName methodParameters) tp
 buildSymbolFromParameter (TV tp nm ai) = SYM [] nm tp
@@ -61,9 +61,9 @@ instance Show Environment where
     where lns = map show kids
 
 buildEnvironment :: CompilationUnit -> Environment
-buildEnvironment (Comp pkg imps def cui) = buildEnvironmentWithPackage cname (Root []) def
-    where
-        cname = if isNothing pkg then [] else fromJust pkg
+buildEnvironment (Comp pkg imps def cui) = case pkg of
+                                            Nothing -> buildEnvironmentWithPackage [[]] (Root []) def
+                                            Just cname -> buildEnvironmentWithPackage cname (Root []) def
 
 buildEnvironmentWithPackage [] parent def = ENV su env
     where
@@ -74,17 +74,7 @@ buildEnvironmentWithPackage [] parent def = ENV su env
         env = case def of
                 (CLS mds nm ext imps cons flds mtds clsi)   -> [buildEnvironmentFromClass su (CLS mds nm ext imps cons flds mtds clsi)]
                 (ITF mds nm imps mtds itfi)                 -> [buildEnvironmentFromInterface su (ITF mds nm imps mtds itfi)]
-{-
-buildEnvironmentWithPackage [nm] parent def = ENV su env
-    where
-        cname' = ((scope parent) ++ ["hello"] ++ [nm])
-        su = case def of
-                (CLS mds nm ext imps cons flds mtds clsi)   -> SU cname' Package [CL mds nm] parent
-                (ITF mds nm imps mtds itfi)                 -> SU cname' Package [IT mds nm] parent
-        env = case def of
-                (CLS mds nm ext imps cons flds mtds clsi)   -> [buildEnvironmentFromClass su (CLS mds nm ext imps cons flds mtds clsi)]
-                (ITF mds nm imps mtds itfi)                 -> [buildEnvironmentFromInterface su (ITF mds nm imps mtds itfi)]
--}
+
 buildEnvironmentWithPackage cname parent def = ENV su env
     where
         nm = head cname

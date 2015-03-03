@@ -170,7 +170,7 @@ visibleImports :: CompilationUnit -> [[String]]
 visibleImports unit =
     let ownPackage = case package unit of
             Just pkgName -> [pkgName ++ ["*"]]
-            Nothing -> []
+            Nothing -> [[]]
         importedPackages = imports unit
         javaLang = [["java","lang","*"]]
     in ownPackage ++ importedPackages ++ javaLang
@@ -414,8 +414,7 @@ data Type = TypeByte | TypeShort | TypeInt | TypeChar | TypeBoolean | TypeString
           | Array Type
           deriving (Eq, Show)
 
-data Name = Simple String
-          | Qualified Name String
+data Name = Name [String]
           deriving (Eq, Show)
 
 type Arguments = [Expression]
@@ -430,12 +429,13 @@ buildName :: AST -> Name
 buildName ast = case (name ast) of
                     "Name" -> buildName singleton
                     "SimpleName" -> buildName identifier
-                    "QualifiedName" -> Qualified (buildName nm) (buildToken identifier)
-                    "IDENTIFIER" -> Simple (buildToken ast)
+                    "QualifiedName" -> Name (parts ++ [(buildToken identifier)])
+                    "IDENTIFIER" -> Name [(buildToken ast)]
     where
         [singleton] = production ast
         [nm] = findProd "Name" ast
         [identifier] = findProd "IDENTIFIER" ast
+        Name parts = (buildName nm)
 
 ------------------------------------------------------
 
