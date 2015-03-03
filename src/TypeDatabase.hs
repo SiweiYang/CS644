@@ -43,13 +43,11 @@ traverseTypeEntry (TN sym nodes) (nm:remain) = case [node | node <- nodes, (loca
                                                 [node] -> traverseTypeEntry node remain
 
 traverseTypeEntryWithImports :: TypeNode -> [[String]] -> [String] -> [[String]]
-traverseTypeEntryWithImports tn imps query = case dropWhile (isNothing . fst) results of
-                                                [] -> []
-                                                results' -> map (\(Just node, imp) -> (init imp) ++ [(localName . symbol) node]) results'
+traverseTypeEntryWithImports tn imps query = [cname | (Just node, cname) <- results]
     where
         entries = map (traverseTypeEntry tn) imps
         entries' = map (\(mnode, imp) -> (fromJust mnode, imp)) (filter (isJust . fst) (zip entries imps))
-        results = map (\(node, imp) -> (traverseTypeEntry node query, imp)) ((tn, ["*"]):entries')
+        results = map (\(node, imp) -> (traverseTypeEntry node query, (init imp) ++ query)) ((tn, ["*"]):entries')
 
 traverseInstanceEntry :: TypeNode -> [TypeNode] -> [String] -> [TypeNode]
 traverseInstanceEntry root nodes cname = [node | Just node <- mnodes']
