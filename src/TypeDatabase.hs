@@ -16,7 +16,8 @@ isVisibleClassNode tn = case symbol tn of
                             PKG _ -> True
                             CL _ _ -> True
                             IT _ _ -> True
-                            _ -> False
+                            FUNC _ _ _ _ -> False
+                            _ -> True -- False -> True
 
 isConcreteNode tn = case symbol tn of
                             CL _ _ -> True
@@ -63,14 +64,24 @@ traverseInstanceEntry' root cur cname = case [node | node <- subNodes cur, (loca
     where
         nm = head cname
 
+buildTypeEntryFromSymbol :: Symbol -> TypeNode
 buildTypeEntryFromSymbol sym = TN sym []
 
+buildTypeEntryFromEnvironments :: TypeNode -> [Environment] -> Maybe TypeNode
 buildTypeEntryFromEnvironments tn [] = Just tn
 buildTypeEntryFromEnvironments tn (env:envs) = case mtn of
                                                 Nothing -> Nothing
                                                 Just tn' -> buildTypeEntryFromEnvironments tn' envs
     where
         mtn = buildTypeEntry tn env
+
+buildInstanceEntryFromEnvironments :: TypeNode -> [Environment] -> Maybe TypeNode
+buildInstanceEntryFromEnvironments tn [] = Just tn
+buildInstanceEntryFromEnvironments tn (env:envs) = case mtn of
+                                                    Nothing -> Nothing
+                                                    Just tn' -> buildInstanceEntryFromEnvironments tn' envs
+    where
+        mtn = buildInstanceEntry tn env
 
 buildTypeEntry :: TypeNode -> Environment -> Maybe TypeNode
 buildTypeEntry tn env = buildEntry tn env (elem "static")

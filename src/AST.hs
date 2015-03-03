@@ -410,7 +410,7 @@ data Expression = Unary { op :: String, expr :: Expression, depth :: Int}
                 deriving (Eq, Show)
 
 data Type = TypeByte | TypeShort | TypeInt | TypeChar | TypeBoolean | TypeString | TypeNull | TypeVoid
-          | Object [String]
+          | Object Name
           | Array Type
           deriving (Eq, Show)
 typeToName TypeByte = ["Byte"]
@@ -447,10 +447,6 @@ buildName ast = case (name ast) of
         [identifier] = findProd "IDENTIFIER" ast
         Name parts = (buildName nm)
 
-nameToStrings :: Name -> [String]
-nameToStrings (Simple str) = [str]
-nameToStrings (Qualified nm str) = (nameToStrings nm) ++ [str]
-
 ------------------------------------------------------
 
 buildType :: AST -> Type
@@ -466,8 +462,8 @@ buildType ast = case (name ast) of
                     "KEYWORD_CHAR" -> TypeChar
                     "KEYWORD_BOOLEAN" -> TypeBoolean
                     "KEYWORD_VOID" -> TypeVoid
-                    "ClassOrInterfaceType" -> Object (nameToStrings $ buildName singleton)
-                    "ArrayType" -> Array (if (check "PrimitiveType" ast) then (buildType pritype) else (Object (nameToStrings $ buildName nm)))
+                    "ClassOrInterfaceType" -> Object (buildName singleton)
+                    "ArrayType" -> Array (if (check "PrimitiveType" ast) then (buildType pritype) else (Object (buildName nm)))
     where
         [singleton] = production ast
         [pritype] = findProd "PrimitiveType" ast
