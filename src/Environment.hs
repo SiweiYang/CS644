@@ -35,9 +35,6 @@ data Symbol = SYM {
 isClass (CL _ _ _ _) = True
 isClass _ = False
 
-isInterface (IT _ _ _ _) = True
-isInterface _ = False
-
 data SemanticUnit = Root {
     scope :: [String]
 }                   | SU {

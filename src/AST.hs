@@ -176,6 +176,12 @@ instance Show TypeDec where
 unitName (CLS _ nm _ _ _ _ _ _) = nm
 unitName (ITF _ nm _ _ _) = nm
 
+-- isClass (CLS _ _ _ _ _ _ _ _) = True
+-- isClass _ = False
+
+isInterface (ITF _ _ _ _ _) = True
+isInterface _ = False
+
 visibleImports :: CompilationUnit -> [[String]]
 visibleImports unit =
     let ownPackage = case package unit of
