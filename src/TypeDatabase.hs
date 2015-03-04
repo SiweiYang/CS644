@@ -10,18 +10,18 @@ import Environment
 data TypeNode = TN {
     symbol :: Symbol,
     subNodes :: [TypeNode]
-}
+} deriving (Eq)
 
 isVisibleClassNode tn = case symbol tn of
                             PKG _ -> True
-                            CL _ _ -> True
-                            IT _ _ -> True
+                            CL _ _ _ -> True
+                            IT _ _ _ -> True
                             FUNC _ _ _ _ -> False
                             _ -> True -- False -> True
 
 isConcreteNode tn = case symbol tn of
-                            CL _ _ -> True
-                            IT _ _ -> True
+                            CL _ _ _ -> True
+                            IT _ _ _ -> True
                             _ -> False
 
 instance Show TypeNode where
@@ -34,13 +34,23 @@ instance Show TypeNode where
 
 traverseTypeEntry :: TypeNode -> [String] -> Maybe TypeNode
 traverseTypeEntry tn [] = case symbol tn of
-                            CL _ _ -> Just (TN (PKG []) [tn])
-                            IT _ _ -> Just (TN (PKG []) [tn])
+                            CL _ _ _ -> Just (TN (PKG []) [tn])
+                            IT _ _ _ -> Just (TN (PKG []) [tn])
                             _ -> Nothing
 traverseTypeEntry (TN sym nodes) ["*"] = Just (TN (PKG []) (filter isConcreteNode nodes))
 traverseTypeEntry (TN sym nodes) (nm:remain) = case [node | node <- nodes, (localName . symbol) node == nm] of
                                                 [] -> Nothing
                                                 [node] -> traverseTypeEntry node remain
+
+traverseFieldEntryWithImports :: TypeNode -> [[String]] -> [String] -> [TypeNode]
+traverseFieldEntryWithImports tn imps query = nub . concat $ (flds ++ funcs)
+    where
+        entries = map (traverseTypeEntry tn) imps
+        entries' = map (\(mnode, imp) -> (fromJust mnode, imp)) (filter (isJust . fst) (zip entries imps))
+        results = map (\(node, imp) -> (traverseTypeEntry node (init query), (init imp) ++ (init query))) ((tn, ["*"]):entries')
+        fld = last query
+        flds = [[TN (SYM mds ln lt) ch | TN (SYM mds ln lt) ch <- subNodes node, elem "static" mds, ln == fld] | (Just (TN _ [node]), cname) <- results]
+        funcs = [[TN (FUNC mds ln ps rt) ch | TN (FUNC mds ln ps rt) ch <- subNodes node, ln == fld] | (Just (TN _ [node]), cname) <- results]
 
 traverseTypeEntryWithImports :: TypeNode -> [[String]] -> [String] -> [[String]]
 traverseTypeEntryWithImports tn imps query = nub [cname | (Just node, cname) <- results]
@@ -149,6 +159,12 @@ refineSymbolWithType :: ([String] -> [[String]]) -> Symbol -> Maybe Symbol
 refineSymbolWithType querier (SYM mds ln lt) = case refineTypeWithType querier lt of
                                                 Nothing -> Nothing
                                                 Just lt' -> Just (SYM mds ln lt')
+refineSymbolWithType querier (CL mds ln lt) = case refineTypeWithType querier lt of
+                                                Nothing -> Nothing
+                                                Just lt' -> Just (CL mds ln lt')
+refineSymbolWithType querier (IT mds ln lt) = case refineTypeWithType querier lt of
+                                                Nothing -> Nothing
+                                                Just lt' -> Just (IT mds ln lt')
 refineSymbolWithType querier (FUNC mds ln params lt) = case (dropWhile isJust params', mlt') of
                                                         (_, Nothing) -> Nothing
                                                         ([], Just lt') -> Just (FUNC mds ln (map fromJust params') lt')

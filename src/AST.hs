@@ -303,7 +303,7 @@ data StatementBlock = SB { statements :: [Statement], statementsInfo :: ASTInfo}
 buildBlock :: AST -> StatementBlock
 buildBlock ast = SB (map buildStatement stmts) (extractASTInfo ast)
     where
-        stmts = concat (map (flattenL ["LocalVariableDeclarationStatement", "IfThenStatement", "IfThenElseStatement", "WhileStatement", "ForStatement", "Block", "EmptyStatement", "ExpressionStatement", "ReturnStatement"]) (production ast))
+        stmts = reverse . concat $ (map (flattenL ["LocalVariableDeclarationStatement", "IfThenStatement", "IfThenElseStatement", "WhileStatement", "ForStatement", "Block", "EmptyStatement", "ExpressionStatement", "ReturnStatement"]) (production ast))
 
 data TypedVar = TV {typeName :: Type, varName :: String, varInfo :: ASTInfo} deriving (Show)
 buildTypedVar :: AST -> TypedVar
@@ -410,6 +410,8 @@ data Expression = Unary { op :: String, expr :: Expression, depth :: Int}
                 deriving (Eq, Show)
 
 data Type = TypeByte | TypeShort | TypeInt | TypeChar | TypeBoolean | TypeString | TypeNull | TypeVoid
+          | Function [Type] Type
+          | TypeClass Name
           | Object Name
           | Array Type
           deriving (Eq, Show)

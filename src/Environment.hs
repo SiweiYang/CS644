@@ -17,10 +17,12 @@ data Symbol = SYM {
     localName :: String
 }           | CL {
     symbolModifiers :: [String],
-    localName :: String
+    localName :: String,
+    localType :: Type
 }           | IT {
     symbolModifiers :: [String],
-    localName :: String
+    localName :: String,
+    localType :: Type
 }           | FUNC {
     symbolModifiers :: [String],
     localName :: String,
@@ -40,7 +42,6 @@ data SemanticUnit = Root {
 instance Show SemanticUnit where
   show (SU scope kind table from) = (show kind) ++ ": " ++ (show scope) ++ "\n" ++ (show table) ++ "\n"
   show (Root scope) = "ROOT: " ++ (show scope) ++ "\n"
-
 
 buildSymbolFromConstructor (Cons constructorModifiers constructorName constructorParameters constructorInvocation constructorDefinition consi) = FUNC constructorModifiers constructorName (map typeName constructorParameters) (Object (Name [constructorName]))
 buildSymbolFromField (FLD fieldModifiers (TV tp nm ai) fieldValue fldi) = SYM fieldModifiers nm tp
@@ -69,8 +70,8 @@ buildEnvironmentWithPackage [] parent def = env
     where
         cname' = [[]]
         su = case def of
-                (CLS mds nm ext imps cons flds mtds clsi)   -> SU cname' Package [CL mds nm] parent
-                (ITF mds nm imps mtds itfi)                 -> SU cname' Package [IT mds nm] parent
+                (CLS mds nm ext imps cons flds mtds clsi)   -> SU cname' Package [CL mds nm (TypeClass (Name [nm]))] parent
+                (ITF mds nm imps mtds itfi)                 -> SU cname' Package [IT mds nm (TypeClass (Name [nm]))] parent
         env = case def of
                 (CLS mds nm ext imps cons flds mtds clsi)   -> buildEnvironmentFromClass parent (CLS mds nm ext imps cons flds mtds clsi)
                 (ITF mds nm imps mtds itfi)                 -> buildEnvironmentFromInterface parent (ITF mds nm imps mtds itfi)
@@ -80,8 +81,8 @@ buildEnvironmentWithPackage (name:remain) parent def = ENV su env
         cname' = ((scope parent) ++ [name])
         su = case remain of
                 [] -> case def of
-                          (CLS mds nm ext imps cons flds mtds clsi)   -> SU cname' Package [CL mds nm] parent
-                          (ITF mds nm imps mtds itfi)                 -> SU cname' Package [IT mds nm] parent
+                          (CLS mds nm ext imps cons flds mtds clsi)   -> SU cname' Package [CL mds nm (TypeClass (Name [nm]))] parent
+                          (ITF mds nm imps mtds itfi)                 -> SU cname' Package [IT mds nm (TypeClass (Name [nm]))] parent
                 _ -> SU cname' Package [] parent
         env = [buildEnvironmentWithPackage remain su def]
 

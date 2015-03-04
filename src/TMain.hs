@@ -1,6 +1,13 @@
 module Main where 
 
-import Data.Map hiding (map, filter)
+import Data.Map hiding (map, null, filter, partition)
+import Data.List
+import Data.Maybe
+
+import System.Environment
+import System.Directory
+import System.Exit
+import System.IO
 
 import Lexical
 import Scanner
@@ -8,10 +15,10 @@ import Parser
 
 import AST
 import Environment
+import Hierarchy
 import TypeDatabase
-
-import Data.Maybe
-import System.Directory
+import TypeLinking
+import Weeder
 
 readDFA :: IO DFA
 readDFA = do
@@ -66,47 +73,6 @@ getModifiersNode a = (production $ (production $ (units $ fst a) !! 1) !! 0) !! 
 getClassBodyNode a = (production $ (production $ (units $ fst a) !! 1) !! 0) !! 0
 getClassBodyDecNode a = (production $ (production $ getClassBodyNode a) !! 1) !! 0
 
-{-
-testAST = do
-    a <- testDFA
-    let cu = buildAST $ units (fst a)
-    let cons = constructors $ definition cu
-    let flds = fields $ definition cu
-    let mtds = methods $ definition cu
-    return (definition cu)
--}
-
--------------------------------------------------------------
-
-{-
-testSingleFile :: IO (String, String)
-testSingleFile = do
-    let file = "../assignment_testcases/a1/J1_siwei.java"
-    --let file = "../assignment_testcases/a1/Je_1_PackagePrivate_Class.java"
-    content <- readFile file
-    return (content, file)
--}
-
-
---testAST :: IO ()
-{-
-testAST = do
-    dfa <- readDFA
-    singlefile <- testSingleFile
-    tokenByFile <- scannerRunner 0 0 singlefile
-    let tokenByFileFiltered = filter (\(tk, fn) -> not (elem (tokenType tk) [Comment, WhiteSpace])) tokenByFile
-    let astByFile = (file (snd (head tokenByFileFiltered)), map tokenToAST tokenByFileFiltered)
-    let resultByFile = (\(fn, ast) -> (fn, run (dfa, ast ++ [AST "EOF" []]))) astByFile
-    let astByFile = (\(fn, a) -> (fn, buildAST $ units (fst a), snd a)) resultByFile
-    let (_, cu, _) = astByFile
-    --putStrLn (show astByFile)
-    return cu
-    --putStrLn "Sdfsdf"
-
-testENV = do
-    cu <- testAST
-    return (buildEnvironment cu)
--}
 
 testTD = do
     dfa <- readDFA
@@ -130,21 +96,102 @@ testTD = do
     --env <- testENV
     --return (buildTypeEntry (TN (PKG []) []) env)
 
-{-
+main' :: [String] -> IO ()
+main' fileNames = do
+  -- Read their contents
+  fileContents <- mapM readFile fileNames
+
+  -- Create content/filename pairs
+  let files = zip fileContents fileNames
+
+  -- LEXER
+  tokenByFiles <- mapM (scannerRunner 0 0) files
+
+  -- Now we strip out the comment & whitespace tokens because they aren't needed by the parser
+  let tokenByFilesFiltered = zip (map (filter (\(tk, fn) -> not (elem (tokenType tk) [Comment, WhiteSpace]))) tokenByFiles) (map snd files)
+  -- The presence of a FAILURE token means something went wrong during lexing
+  -- Let's split the files into 2 groups - valid and invalid
+  let (tokenByFilesInvalid, tokenByFilesValid) = partition (any (\token -> (tokenType $ fst token) == FAILURE) . fst) tokenByFilesFiltered
+
+  if null tokenByFilesInvalid then do
+    hPutStrLn stderr "Scanning OK"
+  else do
+    let badToken = find (\token -> (tokenType $ fst token) == FAILURE) (fst (head tokenByFilesInvalid))
+    let badLocation = snd (fromJust badToken)
+    let error = (file badLocation) ++ "\nLine:" ++ (show $ ln badLocation) ++ "\nColumn:" ++ (show $ col badLocation) ++ "\nContents:" ++ (lexeme . fst $ fromJust badToken)
+    hPutStrLn stderr $ "Lexical error!"
+    hPutStrLn stderr $ "Unexpected sequence: " ++ (show $ fromJust badToken)
+    exitWith (ExitFailure 42)
+
+  let astByFiles = map (\(tokens, file) -> (map tokenToAST tokens, file)) tokenByFilesValid
+
+  -- PARSER
+  dfa <- readDFA
+  let resultByFiles = map (\(ast, file) -> (run (dfa, ast ++ [AST "EOF" []]), file)) astByFiles
+
+  let (validParsed, invalidParsed) = partition (\x -> (length . snd $ fst x)==0) resultByFiles
+
+  if null invalidParsed then do
+    hPutStrLn stderr "Parsing OK"
+  else do
+    let errorToken = (last . snd . fst $ head invalidParsed)
+    hPutStrLn stderr "Parse error!"
+    hPutStrLn stderr $ "Unexpected token following: " ++ (show (content . head . units . fst . fst $ head invalidParsed))
+    exitWith (ExitFailure 42)
+
+
+  -- AST GENERATION
+  let fileAsts = map (\x -> ((buildAST . units . fst $ fst x), snd x)) validParsed
+
+  -- WEEDING
+  let weedResults = map (\x -> weed (snd x) (fst x)) fileAsts
+  let weeded = filter isJust weedResults
+
+  if (length weeded) == 0 then do
+    hPutStrLn stderr "Weeding: OK"
+  else do
+    hPutStrLn stderr "Weeding error!"
+    hPutStrLn stderr $ fromJust (head weeded)
+    exitWith (ExitFailure 42)
+
+  -- ENVIRONMENT CONSTRUCTION
+  let fileEnvironments = map (\x -> (buildEnvironment $ fst x, snd x)) fileAsts
+  let fileEnvironmentWithImports = map (\x -> (visibleImports $ fst x, buildEnvironment $ fst x, snd x)) fileAsts
+
+  let (validEnvironments, invalidEnvironments) = partition (\x -> case (fst x) of {ENVE -> False; _ -> True}) fileEnvironments
+
+  if not $ null invalidEnvironments then do
+    hPutStrLn stderr $ "Environment error in file" ++ (snd $ head invalidEnvironments)
+    exitWith (ExitFailure 42)
+  else do
+    hPutStrLn stderr "Environment: OK"
+
+  let Just typeDB = buildTypeEntryFromEnvironments (TN (PKG []) []) (map fst validEnvironments)
+  --hPutStrLn stderr (show typeDB)
+  let listImpEnvFns = map (\(imp, env, fn) -> (imp, refineEnvironmentWithType (traverseTypeEntryWithImports typeDB imp) (Root []) env, fn)) fileEnvironmentWithImports
+  let Just db = (buildInstanceEntryFromEnvironments (TN (PKG []) []) (map (\(imp, Just env, fn) -> env) listImpEnvFns))
+  --hPutStrLn stderr (show listImpEnvFns)
+  
+  hPutStrLn stderr (show (traverseInstanceEntry db (traverseFieldEntryWithImports db [["unnamed package","*"],["foo","bar"], ["java","lang","*"]] ["bar"]) ["method"]))
+  hPutStrLn stderr (show (lookUpDB db [["foo","bar"]] ["bar", "method"]))  
+  hPutStrLn stderr (show (lookUpDB db [["unnamed package","*"],["foo","bar"], ["java","lang","*"]] ["bar", "method"]))
+  
+  hPutStrLn stderr (show (map (\(imp, Just env, fn) -> typeLinkingCheck db imp env) listImpEnvFns))
+  --let failures = filter (\(imp, Just env, fn) -> not (typeLinkingCheck db imp env)) listImpEnvFns
+
+  hPutStrLn stderr "TypeChecking: OK"
+  {-
+  if length failures > 0 then do
+    hPutStrLn stderr "Environment building error!"
+    hPutStrLn stderr (show failures)
+    exitWith (ExitFailure 42)
+  else do
+    hPutStrLn stderr "TypeChecking: OK"
+  -}
+
+
 main :: IO ()
 main = do
-    dfa <- readDFA
-    files <- testVFiles
-    tokenByFiles <- mapM (scannerRunner 0 0) files
-    let tokenByFilesFiltered = map (filter (\(tk, fn) -> not (elem (tokenType tk) [Comment, WhiteSpace]))) tokenByFiles
-    let astByFiles = map (\x -> (file (snd (head x)), map tokenToAST x)) tokenByFilesFiltered
-    let resultByFiles = map (\(fn, ast) -> (fn, run (dfa, ast ++ [AST "EOF" []]))) astByFiles
-    let astByFiles = map (\(fn, a) -> (fn, buildAST $ units (fst a))) resultByFiles
-    putStrLn (show astByFiles)
--}
-    
-    --let res = zip (map snd resultByFiles) (map snd files)
-    --let pass = filter (\(r, f) -> length r == 0) res
-    --putStrLn ("test passed: " ++ (show (length pass)) ++ "/" ++ (show (length res)))
-    --putStrLn (show (filter (\(r, f) -> length r > 0) res))
-	--putStrLn (foldl (\acc x -> acc ++ show x ++ "\n") "" listC)
+  -- Get the files to compile from the args
+  fileNames <- getArgs
+  main' fileNames
