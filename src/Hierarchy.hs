@@ -18,16 +18,18 @@ checkHierarchy :: CompilationUnit -> TypeNode -> HierarchyError
 checkHierarchy unit typeDB
   | isJust implementError = implementError
   | otherwise = Nothing
-  where implementError = checkImplementTargets unit typeDB
+  where implementError = checkImplements unit typeDB
 
-checkImplementTargets :: CompilationUnit -> TypeNode -> HierarchyError
-checkImplementTargets unit typeDB =
-  fmap (++(" in class " ++ name)) (msum $ map (\name -> checkInterface name (visibleImports unit) typeDB) implementedInterfaces)
-  where
-  	implementedInterfaces = implements (definition unit)
-  	name = case (definition unit) of
-  		(CLS _ clsName _ _ _ _ _ _) -> clsName
-  		(ITF _ itfName _ _ _) -> itfName
+checkImplements :: CompilationUnit -> TypeNode -> HierarchyError
+checkImplements unit@(Comp _ _ (CLS _ clsName _ implemented _ _ _ _) _) typeDB
+  | not . null $ implementedClasses = Just $ "Class " ++ clsName ++ " cannot implement class " ++ (localName $ head implementedClasses)
+  | otherwise = Nothing
+  where unitImports = visibleImports unit
+        implementedNames = map (traverseTypeEntryWithImports typeDB unitImports) implemented
+        implementedNodes = mapMaybe (getTypeEntry typeDB) (map head implementedNames)
+        implementedSymbols = map symbol implementedNodes
+        implementedClasses = filter isClass implementedSymbols
+checkImplements _ _ = Nothing
 
 -- Looks up the interface name, and sees if it exists
 checkInterface :: [String] -> [[String]] -> TypeNode -> HierarchyError

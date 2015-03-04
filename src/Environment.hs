@@ -28,6 +28,12 @@ data Symbol = SYM {
     localType :: Type
 } deriving (Eq, Show)
 
+isClass (CL _ _) = True
+isClass _ = False
+
+isInterface (IT _ _) = True
+isInterface _ = False
+
 data SemanticUnit = Root {
     scope :: [String]
 }                   | SU {
