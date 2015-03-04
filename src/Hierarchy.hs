@@ -23,6 +23,7 @@ checkHierarchy unit typeDB
 checkImplements :: CompilationUnit -> TypeNode -> HierarchyError
 checkImplements unit@(Comp _ _ (CLS _ clsName _ implemented _ _ _ _) _) typeDB
   | not . null $ implementedClasses = Just $ "Class " ++ clsName ++ " cannot implement class " ++ (localName $ head implementedClasses)
+  | nub implementedNames /= implementedNames = Just $ "Class " ++ clsName ++ " implements the same interface twice"
   | otherwise = Nothing
   where unitImports = visibleImports unit
         implementedNames = map (traverseTypeEntryWithImports typeDB unitImports) implemented
