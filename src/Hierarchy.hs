@@ -51,12 +51,15 @@ checkExtends unit@(Comp _ _ (ITF _ itfName extended _ _) _) typeDB
   | not . null $ extendedClasses = Just $ "Interface " ++ itfName ++ " cannot extend class " ++ (localName $ head extendedClasses)
   | nub extendedClasses /= extendedClasses = Just $ "Interface " ++ itfName ++ " extends the same interface twice"
   | ownName `elem` extendedNames = Just $ "Interface " ++ itfName ++ " cannot extend itself"
+  | null hierarchyChain = Just $ "Interface " ++ itfName ++ " extends a circular extend chain"
+  | otherwise = Nothing
   where unitImports = visibleImports unit
         ownName = traverseTypeEntryWithImports typeDB unitImports [itfName]
         extendedNames = map (traverseTypeEntryWithImports typeDB unitImports) extended
         extendedNodes = mapMaybe (getTypeEntry typeDB) (map head extendedNames)
         extendedSymbols = map symbol extendedNodes
         extendedClasses = filter isClass extendedSymbols
+        hierarchyChain = getInterfaceSupers unit typeDB
 checkExtends _ _ = Nothing
 
 getClassSuper :: CompilationUnit -> TypeNode -> Maybe CompilationUnit
@@ -67,9 +70,26 @@ getClassSuper unit@(Comp _ _ (CLS _ clsName (Just extendee) _ _ _ _ _) _) typeDB
         extendedName = traverseTypeEntryWithImports typeDB classImports extendee
         extendedNode = getTypeEntry typeDB (head extendedName)
         extendedNodeExists = isJust extendedNode
-        extendedSymbol = symbol . fromJust $ extendedNode
-        extendedUnit = astUnit extendedSymbol
+        extendedUnit = astUnit . symbol . fromJust $ extendedNode
 getClassSuper _ _ = Nothing
+
+getInterfaceSupers :: CompilationUnit -> TypeNode -> [CompilationUnit]
+getInterfaceSupers unit typeDB = getInterfaceSupers' unit typeDB []
+
+getInterfaceSupers' :: CompilationUnit -> TypeNode -> [CompilationUnit] -> [CompilationUnit]
+getInterfaceSupers' unit@(Comp _ _ (ITF _ _ extended _ _) _) typeDB hierarchy
+  | null extended = [unit]
+  | unit `elem` hierarchy = []
+  | any null extendedInterfaceExtensions = []
+  | otherwise = nub (unit : (concat extendedInterfaceExtensions))
+  where unitImports = visibleImports unit
+        extendedNames = map (traverseTypeEntryWithImports typeDB unitImports) extended
+        extendedNodes = mapMaybe (getTypeEntry typeDB) (map head extendedNames)
+        extendedSymbols = map symbol extendedNodes
+        extendedInterfaces = map astUnit extendedSymbols
+        newHierarchy = unit : hierarchy
+        extendedInterfaceExtensions = map (\x -> getInterfaceSupers' x typeDB newHierarchy) extendedInterfaces
+getInterfaceSupers' _ _ _ = []
 
 getClassHierarchy :: CompilationUnit -> TypeNode -> [CompilationUnit]
 getClassHierarchy unit typeDB = getClassHierarchy' unit typeDB [unit]
