@@ -34,6 +34,11 @@ instance Show TypeNode where
         where
             lns = map show (filter isVisibleClassNode nodes)
 
+getTypeEntry :: TypeNode -> [String] -> Maybe TypeNode
+getTypeEntry tn name = case traverseTypeEntry tn name of
+  Just node -> Just . head . subNodes $ node
+  Nothing -> Nothing
+
 traverseTypeEntry :: TypeNode -> [String] -> Maybe TypeNode
 traverseTypeEntry tn [] = case symbol tn of
                             CL _ _ _ -> Just (TN (PKG []) [tn])
@@ -116,7 +121,7 @@ buildEntry (TN sym nodes) env cond = case (sym, kind su) of
                 [s] -> s
                 a -> error (show (a, su))
         --[sym'] = symbolTable parent
-        
+
         cname = (scope . semantic)  env
         nm = case cname of
             [] -> (show env)
@@ -124,12 +129,12 @@ buildEntry (TN sym nodes) env cond = case (sym, kind su) of
         --nm = (last . scope . semantic)  env
         remainNodes = [node | node <- nodes, (localName . symbol) node /= nm]
         conflict = [node | node <- nodes, (localName . symbol) node == nm]
-        
+
         mcNode = buildEntry' sym' env cond
         mcNode' = case (conflict, isJust mcNode) of
                     ([], True) -> Just (TN sym ((fromJust mcNode):remainNodes))
                     _ -> Nothing
-        
+
         mpNode' = case conflict of
                       [] -> buildEntry (TN (PKG nm) []) ch cond
                       [tar] -> buildEntry tar ch cond
@@ -184,5 +189,5 @@ refineEnvironmentWithType querier parent (ENV su ch) = case (dropWhile isJust sy
     where
         (SU cname k syms _) = su
         syms' = map (refineSymbolWithType querier) syms
-        su' = (SU cname k (map fromJust syms') parent)        
+        su' = (SU cname k (map fromJust syms') parent)
         ch' = map (refineEnvironmentWithType querier su') ch

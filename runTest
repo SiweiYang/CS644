@@ -4,8 +4,9 @@ make
 
 function joosc_run {
   ./joosc `find $1 -printf "%p\n"| grep "\.java$"` assignment_testcases/stdlib2/*.java
-  if [ $? -ne 0 ]; then
-    echo $1
+  status=$?
+  if [ $status -ne 0 ]; then
+    echo "Exit code: $status"
   fi
 }
 export -f joosc_run

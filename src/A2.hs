@@ -93,7 +93,6 @@ main = do
     hPutStrLn stderr "Environment building error!"
     exitWith (ExitFailure 42)
   else do
-    hPutStrLn stderr $ show globalEnvironment
     hPutStrLn stderr "Type DB: OK"
 
   -- HIERARCHY CHECKING
