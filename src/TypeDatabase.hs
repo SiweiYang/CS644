@@ -12,6 +12,8 @@ data TypeNode = TN {
     subNodes :: [TypeNode]
 } deriving (Eq)
 
+nativeTypes = TN (PKG []) [TN (PKG "joosc native") [TN (CL ["public"] "Array" (TypeClass (Name ["joosc native", "Array"]))) [TN (SYM ["public"] "length" TypeInt) []]]]
+
 isVisibleClassNode tn = case symbol tn of
                             PKG _ -> True
                             CL _ _ _ -> True
@@ -60,16 +62,16 @@ traverseTypeEntryWithImports tn imps query = nub [cname | (Just node, cname) <- 
         results = map (\(node, imp) -> (traverseTypeEntry node query, (init imp) ++ query)) ((tn, ["*"]):entries')
 
 traverseInstanceEntry :: TypeNode -> [TypeNode] -> [String] -> [TypeNode]
-traverseInstanceEntry root nodes cname = [node | Just node <- mnodes']
+traverseInstanceEntry root nodes cname = concat nodes'
     where
-        mnodes' = map (\cur -> traverseInstanceEntry' root cur cname) nodes
+        nodes' = map (\cur -> traverseInstanceEntry' root cur cname) nodes
 
-traverseInstanceEntry' :: TypeNode -> TypeNode -> [String] -> Maybe TypeNode
-traverseInstanceEntry' root cur [] = Just cur
+traverseInstanceEntry' :: TypeNode -> TypeNode -> [String] -> [TypeNode]
+traverseInstanceEntry' root cur [] = [cur]
 traverseInstanceEntry' root (TN (SYM mds ln lt) _) (nm:cname) = traverseInstanceEntry' root root ((typeToName lt) ++ (nm:cname))
 traverseInstanceEntry' root cur (nm:cname) = case [node | node <- subNodes cur, (localName . symbol) node == nm] of
-                                        []            -> Nothing
-                                        [target]      -> traverseInstanceEntry' root target cname
+                                        []            -> []
+                                        targets      -> concat $ map (\target -> traverseInstanceEntry' root target cname) targets
 
 buildTypeEntryFromSymbol :: Symbol -> TypeNode
 buildTypeEntryFromSymbol sym = TN sym []

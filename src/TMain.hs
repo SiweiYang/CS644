@@ -166,10 +166,11 @@ main' fileNames = do
   else do
     hPutStrLn stderr "Environment: OK"
 
-  let Just typeDB = buildTypeEntryFromEnvironments (TN (PKG []) []) (map fst validEnvironments)
-  --hPutStrLn stderr (show typeDB)
+  let Just typeDB = buildTypeEntryFromEnvironments nativeTypes (map fst validEnvironments)
+  hPutStrLn stderr (show typeDB)
   let listImpEnvFns = map (\(imp, env, fn) -> (imp, refineEnvironmentWithType (traverseTypeEntryWithImports typeDB imp) (Root []) env, fn)) fileEnvironmentWithImports
-  let Just db = (buildInstanceEntryFromEnvironments (TN (PKG []) []) (map (\(imp, Just env, fn) -> env) listImpEnvFns))
+  --hPutStrLn stderr (show (map (\(imp, env, fn) -> env) listImpEnvFns))
+  let Just db = (buildInstanceEntryFromEnvironments nativeTypes (map (\(imp, Just env, fn) -> env) listImpEnvFns))
   --hPutStrLn stderr (show listImpEnvFns)
   
   hPutStrLn stderr (show (traverseInstanceEntry db (traverseFieldEntryWithImports db [["unnamed package","*"],["foo","bar"], ["java","lang","*"]] ["bar"]) ["method"]))
@@ -177,17 +178,14 @@ main' fileNames = do
   hPutStrLn stderr (show (lookUpDB db [["unnamed package","*"],["foo","bar"], ["java","lang","*"]] ["bar", "method"]))
   
   hPutStrLn stderr (show (map (\(imp, Just env, fn) -> typeLinkingCheck db imp env) listImpEnvFns))
-  --let failures = filter (\(imp, Just env, fn) -> not (typeLinkingCheck db imp env)) listImpEnvFns
+  let failures = filter (\(imp, Just env, fn) ->  typeLinkingCheck db imp env == []) listImpEnvFns
 
-  hPutStrLn stderr "TypeChecking: OK"
-  {-
   if length failures > 0 then do
     hPutStrLn stderr "Environment building error!"
     hPutStrLn stderr (show failures)
     exitWith (ExitFailure 42)
   else do
-    hPutStrLn stderr "TypeChecking: OK"
-  -}
+    hPutStrLn stderr "Type Linking: OK"
 
 
 main :: IO ()

@@ -424,7 +424,7 @@ typeToName TypeString = ["String"]
 typeToName TypeNull = ["Null"]
 typeToName TypeVoid = ["Void"]
 typeToName (Object (Name nm)) = nm
-typeToName (Array tp) = ["Array"]
+typeToName (Array tp) = ["joosc native", "Array"]
 
 data Name = Name [String]
           deriving (Eq, Show)

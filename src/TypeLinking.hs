@@ -29,7 +29,7 @@ typeLinkingCheck db imps (ENV su c) = tps
 typeLinkingExpr :: TypeNode -> [[String]] -> SemanticUnit -> Expression -> [Type]
 typeLinkingExpr db imps su Null = [TypeNull]
 typeLinkingExpr db imps su (Unary _ expr _) = typeLinkingExpr db imps su expr
-typeLinkingExpr db imps su (Binary op exprL exprR _) = if (typeL == typeR) then typeL else (error $ "Binary: type(left) != type(right)" ++ (show exprL) ++ (show exprR))
+typeLinkingExpr db imps su (Binary op exprL exprR _) = if (typeL == typeR) || typeL == [TypeNull] || typeR == [TypeNull] then typeL else (error $ "Binary: type(left) != type(right)" ++ (show exprL) ++ (show typeL) ++ (show exprR) ++ (show typeR))
 	where
 		typeL = typeLinkingExpr db imps su exprL
 		typeR = typeLinkingExpr db imps su exprR
@@ -40,24 +40,19 @@ typeLinkingExpr db imps su (InstanceOf tp expr _) = if typeLinkingExpr db imps s
 
 typeLinkingExpr db imps su (FunctionCall exprf args _) = case fts of
                                                             [] -> []
-                                                            [Function pt rt] -> [rt]
+                                                            (Function pt rt):_ -> [rt]
+                                                            _ -> error ((show fts) ++ (show exprf))
 --if and $ map (\(lt, lts) -> [lt] == lts) (zip pt ats) then [rt] else []
         where
+                --fts = [Function pt rt | Function pt rt <- typeLinkingExpr db imps su exprf]
                 fts = typeLinkingExpr db imps su exprf
                 ats = map (typeLinkingExpr db imps su) args
 
-typeLinkingExpr db imps su (Attribute s m _) = rt
+typeLinkingExpr db imps su (Attribute s m _) = map (symbolToType . symbol) nodes
 	where
 		[tp] = typeLinkingExpr db imps su s
                 --should handle Class and instance differently
-                a = traverseInstanceEntry' db db ((typeToName tp)++[m])
-                rt = case a of
-                    Nothing -> []
-                    Just node -> case symbol node of
-                                    SYM mds ln lt -> [lt]
-                                    CL mds ln lt -> [lt]
-                                    IT mds ln lt -> [lt]
-                                    _ -> []
+                nodes = traverseInstanceEntry' db db ((typeToName tp)++[m])
 
 typeLinkingExpr db imps su (NewObject tp args _) = [Object (Name tpn)]
         where
@@ -93,11 +88,12 @@ Object [String] --> a Class --> DB --> next Object
 -}
 
 typeLinkingName :: TypeNode -> [[String]] -> SemanticUnit -> Name -> [Type]
-typeLinkingName db imps su (Name (nm:remain)) = case msym of
-                                                    Just sym -> [localType sym]
-                                                    Nothing -> lookUpDB db imps (nm:remain)
+typeLinkingName db imps su (Name (nm:remain)) = case syms of
+                                                    [] -> lookUpDB db imps (nm:remain)
+                                                    _ -> if remain == [] then map symbolToType syms else map (symbolToType . symbol) nodes
 	where
-		msym = lookUpSymbolTable su nm
+		syms = lookUpSymbolTable su nm
+                nodes = concat $ map (traverseInstanceEntry' db db) (map (\sym -> (typeToName . localType $ sym) ++ remain) syms)
                 
 
 {-
@@ -125,11 +121,11 @@ symbolToType (FUNC _ _ ps rt) = Function ps  rt
 lookUpThis :: SemanticUnit -> Type
 lookUpThis su = if kind su == Class then Object (Name (scope su)) else lookUpThis (inheritFrom su)
 
-lookUpSymbolTable :: SemanticUnit -> String -> Maybe Symbol
-lookUpSymbolTable (Root _) str = Nothing
+lookUpSymbolTable :: SemanticUnit -> String -> [Symbol]
+lookUpSymbolTable (Root _) str = []
 lookUpSymbolTable su nm = case cur of
                             [] -> lookUpSymbolTable parent nm
-                            [sym] -> Just sym
+                            _ -> cur
 	where
 		(SU _ _ st parent) = su
 		cur = filter (\s -> (localName s) == nm) st
