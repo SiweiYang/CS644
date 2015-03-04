@@ -30,10 +30,10 @@ data Symbol = SYM {
     localType :: Type
 } deriving (Eq, Show)
 
-isClass (CL _ _) = True
+isClass (CL _ _ _) = True
 isClass _ = False
 
-isInterface (IT _ _) = True
+isInterface (IT _ _ _) = True
 isInterface _ = False
 
 data SemanticUnit = Root {
@@ -98,8 +98,9 @@ buildEnvironmentFromClass parent (CLS mds nm ext imps cons flds mtds clsi) = env
         syms = (map buildSymbolFromConstructor cons) ++ (map buildSymbolFromField flds) ++ (map buildSymbolFromMethod mtds)
         su = (SU cname' Class syms parent)
         flds' = map (buildEnvironmentFromField su) flds
+        cons' = map (buildEnvironmentFromConstructor su) cons
         mtds' = map (buildEnvironmentFromMethod su) mtds
-        env = ENV su (flds' ++ mtds')
+        env = ENV su (flds' ++ cons' ++ mtds')
 buildEnvironmentFromInterface parent (ITF mds nm imps mtds itfi) = env
     where
         cname' = ((scope parent) ++ [nm])
@@ -120,6 +121,16 @@ buildEnvironmentFromMethod parent (MTD methodModifiers methodVar methodParameter
         syms = (map buildSymbolFromParameter methodParameters)
         su = (SU cname' Method syms parent)
         ch = if isNothing methodDefinition then [] else [buildEnvironmentFromStatements su (statements (fromJust methodDefinition))]
+
+buildEnvironmentFromConstructor :: SemanticUnit -> Constructor -> Environment
+buildEnvironmentFromConstructor parent (Cons constructorModifiers constructorName constructorParameters constructorInvocation constructorDefinition consi) = ENV su ch
+    where
+        cname' = ((scope parent) ++ [constructorName])
+        syms = (map buildSymbolFromParameter constructorParameters)
+        su = (SU cname' Method syms parent)
+        stmts = if isNothing constructorInvocation then [] else [Expr (fromJust constructorInvocation)]
+        stmts' = if isNothing constructorDefinition then stmts else stmts ++(statements (fromJust constructorDefinition))
+        ch = [buildEnvironmentFromStatements su stmts']
 
 buildEnvironmentFromStatements :: SemanticUnit -> [Statement] -> Environment
 buildEnvironmentFromStatements parent [] = ENVE

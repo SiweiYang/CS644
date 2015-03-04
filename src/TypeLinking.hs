@@ -14,17 +14,18 @@ typeLinkingCheck db imps (ENV su c) = tps
         [sym] = [sym | sym <- symbolTable inhf, localName sym == last cname]
         SYM mds ln lt = sym
         
-        cts = if and $ map (\env -> typeLinkingCheck db imps env /= []) c then [TypeVoid] else []
+        cts = map (\env -> typeLinkingCheck db imps env) c
+        cts' = if and $ map (\tps -> tps /= []) cts then [TypeVoid] else []
         
         tps = case kd of
                 Var expr -> if typeLinkingExpr db imps su expr /= [] then [TypeVoid] else []
                 Exp expr -> typeLinkingExpr db imps su expr
                 
-                Ret expr -> if typeLinkingExpr db imps su expr == [] then [] else cts
-                WhileBlock expr -> if typeLinkingExpr db imps su expr == [] then [] else cts
-                IfBlock expr -> if typeLinkingExpr db imps su expr == [] then [] else cts
+                Ret expr -> if typeLinkingExpr db imps su expr == [] then [] else cts'
+                WhileBlock expr -> if typeLinkingExpr db imps su expr == [] then [] else cts'
+                IfBlock expr -> if typeLinkingExpr db imps su expr == [] then [] else cts'
                 
-                _ -> cts
+                _ -> cts'
 
 typeLinkingExpr :: TypeNode -> [[String]] -> SemanticUnit -> Expression -> [Type]
 typeLinkingExpr db imps su Null = [TypeNull]
