@@ -17,8 +17,10 @@ checkHierarchies units typeDB = msum $ map (\unit -> checkHierarchy unit typeDB)
 checkHierarchy :: CompilationUnit -> TypeNode -> HierarchyError
 checkHierarchy unit typeDB
   | isJust implementError = implementError
+  | isJust extendError = extendError
   | otherwise = Nothing
   where implementError = checkImplements unit typeDB
+        extendError = checkExtends unit typeDB
 
 checkImplements :: CompilationUnit -> TypeNode -> HierarchyError
 checkImplements unit@(Comp _ _ (CLS _ clsName _ implemented _ _ _ _) _) typeDB
@@ -32,9 +34,14 @@ checkImplements unit@(Comp _ _ (CLS _ clsName _ implemented _ _ _ _) _) typeDB
         implementedClasses = filter isClass implementedSymbols
 checkImplements _ _ = Nothing
 
--- Looks up the interface name, and sees if it exists
-checkInterface :: [String] -> [[String]] -> TypeNode -> HierarchyError
-checkInterface name imports typeDB =
-  case traverseTypeEntryWithImports typeDB imports name of
-    [] -> Just $ "interface " ++ last name ++ " does not exist"
-    _ -> Nothing
+checkExtends :: CompilationUnit -> TypeNode -> HierarchyError
+checkExtends unit@(Comp _ _ (CLS _ clsName (Just extendee) _ _ _ _ _) _) typeDB
+  | extendedName == ownName = Just $ "Class " ++ clsName ++ " cannot extend itself"
+  | otherwise = Nothing
+  where unitImports = visibleImports unit
+        extendedName = traverseTypeEntryWithImports typeDB unitImports extendee
+        ownName = traverseTypeEntryWithImports typeDB unitImports [clsName]
+        -- extendedNode = mapMaybe (getTypeEntry typeDB) (map head extendedNames)
+        -- extendedSymbols = map symbol extendedNodes
+        -- extendedInterfaces = filter isInterface extendedSymbols
+checkExtends _ _ = Nothing
