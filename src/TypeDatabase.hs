@@ -12,18 +12,20 @@ data TypeNode = TN {
     subNodes :: [TypeNode]
 } deriving (Eq)
 
-nativeTypes = TN (PKG []) [TN (PKG "joosc native") [TN (CL ["public"] "Array" (TypeClass (Name ["joosc native", "Array"]))) [TN (SYM ["public"] "length" TypeInt) []]]]
+arrayClass = CLS ["public"] "Array" (Just ["Object"]) [[]] [] [] [] (CLSI [] (AI "" 0 0 0 0) Nothing [])
+arrayUnit = Comp (Just ["joosc native", "Array"]) [[]] arrayClass (CompI Nothing [])
+nativeTypes = TN (PKG []) [TN (PKG "joosc native") [TN (CL ["public"] "Array" (TypeClass (Name ["joosc native", "Array"])) arrayUnit) [TN (SYM ["public"] "length" TypeInt) []]]]
 
 isVisibleClassNode tn = case symbol tn of
                             PKG _ -> True
-                            CL _ _ _ -> True
-                            IT _ _ _ -> True
+                            CL _ _ _ _ -> True
+                            IT _ _ _ _ -> True
                             FUNC _ _ _ _ -> False
                             _ -> True -- False -> True
 
 isConcreteNode tn = case symbol tn of
-                            CL _ _ _ -> True
-                            IT _ _ _ -> True
+                            CL  _ _ _ _ -> True
+                            IT _ _ _ _ -> True
                             _ -> False
 
 instance Show TypeNode where
@@ -72,8 +74,8 @@ dumpDB tn@(TN sym nodes) = if isConcreteNode tn then [(typeToName . localType) s
 
 traverseTypeEntry :: TypeNode -> [String] -> Maybe TypeNode
 traverseTypeEntry tn [] = case symbol tn of
-                            CL _ _ _ -> Just (TN (PKG []) [tn])
-                            IT _ _ _ -> Just (TN (PKG []) [tn])
+                            CL _ _ _ _ -> Just (TN (PKG []) [tn])
+                            IT _ _ _  _ -> Just (TN (PKG []) [tn])
                             _ -> Nothing
 traverseTypeEntry (TN sym nodes) ["*"] = Just (TN (PKG []) (filter isConcreteNode nodes))
 traverseTypeEntry (TN sym nodes) (nm:remain) = case [node | node <- nodes, (localName . symbol) node == nm] of
@@ -197,12 +199,12 @@ refineSymbolWithType :: ([String] -> [[String]]) -> Symbol -> Maybe Symbol
 refineSymbolWithType querier (SYM mds ln lt) = case refineTypeWithType querier lt of
                                                 Nothing -> Nothing
                                                 Just lt' -> Just (SYM mds ln lt')
-refineSymbolWithType querier (CL mds ln lt) = case refineTypeWithType querier lt of
+refineSymbolWithType querier (CL mds ln lt unit) = case refineTypeWithType querier lt of
                                                 Nothing -> Nothing
-                                                Just lt' -> Just (CL mds ln lt')
-refineSymbolWithType querier (IT mds ln lt) = case refineTypeWithType querier lt of
+                                                Just lt' -> Just (CL mds ln lt' unit)
+refineSymbolWithType querier (IT mds ln lt unit) = case refineTypeWithType querier lt of
                                                 Nothing -> Nothing
-                                                Just lt' -> Just (IT mds ln lt')
+                                                Just lt' -> Just (IT mds ln lt' unit)
 refineSymbolWithType querier (FUNC mds ln params lt) = case (dropWhile isJust params', mlt') of
                                                         (_, Nothing) -> Nothing
                                                         ([], Just lt') -> Just (FUNC mds ln (map fromJust params') lt')

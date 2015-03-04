@@ -98,9 +98,13 @@ data CompilationUnit = Comp { package :: Maybe [String],
                               definition :: TypeDec,
                               cui :: CompilationUnitInfo
                               }
+
 data CompilationUnitInfo = CompI { packageInfo :: Maybe ASTInfo,
                                    importsInfo :: [ASTInfo]
                                    } deriving (Show)
+
+instance Eq CompilationUnit where
+  x == y = (package x) == (package y) && (definition x) == (definition y)
 
 instance Show CompilationUnit where
     show (Comp pkg imps def cui) =
@@ -126,6 +130,12 @@ data TypeDec = CLS { modifiers :: [String],
                      implements :: [[String]],
                      methods :: [Method],
                      itfi :: TDInfo}
+
+
+instance Eq TypeDec where
+  (CLS _ nameA _ _ _ _ _ _) == (CLS _ nameB _ _ _ _ _ _) = nameA == nameB
+  (ITF _ nameA _ _ _) == (ITF _ nameB _ _ _) = nameA == nameB
+  _ == _ = False
 
 data TDInfo = CLSI { modifiersInfo :: [ASTInfo],
                       classNameInfo :: ASTInfo,
