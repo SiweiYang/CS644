@@ -47,6 +47,7 @@ typeLinkingExpr db imps su (FunctionCall exprf args _) = case fts of
         where
                 --fts = [Function pt rt | Function pt rt <- typeLinkingExpr db imps su exprf]
                 fts = typeLinkingExpr db imps su exprf
+                fts' = [Function pt rt | ft@(Function pt rt) <- fts, length pt == length args]
                 ats = map (typeLinkingExpr db imps su) args
 
 typeLinkingExpr db imps su (Attribute s m _) = map (symbolToType . symbol) nodes

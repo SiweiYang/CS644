@@ -49,10 +49,10 @@ inheritFromTypes tn cname cnames = if and tycs then Just $ inheritFromNodes (fro
         msrcs = map (getTypeEntry tn) cnames
         tycs = map isJust (mtar:msrcs)
 
-updateNodes :: TypeNode -> [String] -> TypeNode -> Maybe TypeNode
-updateNodes cur [] n = if symbol cur == symbol n then Just n else Nothing
-updateNodes (TN sym nodes) (nm:remain) n = case conflict of
-                                    [tar] -> case updateNodes tar remain n of
+updateNode :: TypeNode -> [String] -> TypeNode -> Maybe TypeNode
+updateNode cur [] n = if symbol cur == symbol n then Just n else Nothing
+updateNode (TN sym nodes) (nm:remain) n = case conflict of
+                                    [tar] -> case updateNode tar remain n of
                                                 Just tar' -> Just $ TN sym (tar':remainNodes)
                                                 Nothing -> Nothing
                                     _ -> Nothing
@@ -60,6 +60,15 @@ updateNodes (TN sym nodes) (nm:remain) n = case conflict of
         nm = (localName . symbol) n
         remainNodes = [node | node <- nodes, (localName . symbol) node /= nm]
         conflict = [node | node <- nodes, (localName . symbol) node == nm]
+
+updateDBWithInheritance :: TypeNode -> [String] -> [[String]] -> Maybe TypeNode
+updateDBWithInheritance root cname cnames = if isJust tar && isJust root' then root' else Nothing
+    where
+        tar = inheritFromTypes root cname cnames
+        root' = updateNode root cname (fromJust tar)
+
+dumpDB :: TypeNode -> [[String]]
+dumpDB tn@(TN sym nodes) = if isConcreteNode tn then [(typeToName . localType) sym] else concat $ map dumpDB nodes
 
 traverseTypeEntry :: TypeNode -> [String] -> Maybe TypeNode
 traverseTypeEntry tn [] = case symbol tn of
