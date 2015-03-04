@@ -39,6 +39,28 @@ getTypeEntry tn name = case traverseTypeEntry tn name of
   Just node -> Just . head . subNodes $ node
   Nothing -> Nothing
 
+inheritFromNodes :: TypeNode -> [TypeNode] -> TypeNode
+inheritFromNodes (TN sym ch) nodes = (TN sym (nub $ ch ++ (concat $ map subNodes nodes)))
+
+inheritFromTypes :: TypeNode -> [String] -> [[String]] -> Maybe TypeNode
+inheritFromTypes tn cname cnames = if and tycs then Just $ inheritFromNodes (fromJust mtar) (map fromJust msrcs) else Nothing
+    where
+        mtar = getTypeEntry tn cname
+        msrcs = map (getTypeEntry tn) cnames
+        tycs = map isJust (mtar:msrcs)
+
+updateNodes :: TypeNode -> [String] -> TypeNode -> Maybe TypeNode
+updateNodes cur [] n = if symbol cur == symbol n then Just n else Nothing
+updateNodes (TN sym nodes) (nm:remain) n = case conflict of
+                                    [tar] -> case updateNodes tar remain n of
+                                                Just tar' -> Just $ TN sym (tar':remainNodes)
+                                                Nothing -> Nothing
+                                    _ -> Nothing
+    where
+        nm = (localName . symbol) n
+        remainNodes = [node | node <- nodes, (localName . symbol) node /= nm]
+        conflict = [node | node <- nodes, (localName . symbol) node == nm]
+
 traverseTypeEntry :: TypeNode -> [String] -> Maybe TypeNode
 traverseTypeEntry tn [] = case symbol tn of
                             CL _ _ _ -> Just (TN (PKG []) [tn])
