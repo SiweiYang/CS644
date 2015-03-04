@@ -30,10 +30,14 @@ typeLinkingCheck db imps (ENV su c) = tps
 typeLinkingExpr :: TypeNode -> [[String]] -> SemanticUnit -> Expression -> [Type]
 typeLinkingExpr db imps su Null = [TypeNull]
 typeLinkingExpr db imps su (Unary _ expr _) = typeLinkingExpr db imps su expr
-typeLinkingExpr db imps su (Binary op exprL exprR _) = if (typeL == typeR) || typeL == [TypeNull] || typeR == [TypeNull] then typeL else (error $ "Binary: type(left) != type(right)" ++ (show exprL) ++ (show typeL) ++ (show exprR) ++ (show typeR))
+typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
+    |   elem op ["+", "-", "*", "/", "%"] = if elem typeL [TypeByte, TypeShort, TypeInt] && elem typeR [TypeByte, TypeShort, TypeInt] then [typeL] else report
+    |   elem op ["<", ">", "<=", ">=", "=="] = if elem typeL [TypeByte, TypeShort, TypeInt] && elem typeR [TypeByte, TypeShort, TypeInt] then [TypeBoolean] else report
+    |   elem op ["="] = if (typeL == typeR) || typeL == TypeNull || typeR == TypeNull then [TypeInt] else report
 	where
-		typeL = typeLinkingExpr db imps su exprL
-		typeR = typeLinkingExpr db imps su exprR
+		[typeL] = typeLinkingExpr db imps su exprL
+		[typeR] = typeLinkingExpr db imps su exprR
+                report = (error $ "Binary: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show typeL) ++ (show exprR) ++ (show typeR))
 typeLinkingExpr db imps su (ID nm _) = typeLinkingName db imps su nm
 typeLinkingExpr db imps su This = [lookUpThis su]
 typeLinkingExpr db imps su (Value tp _ _) = [tp]
