@@ -36,12 +36,15 @@ checkImplements _ _ = Nothing
 
 checkExtends :: CompilationUnit -> TypeNode -> HierarchyError
 checkExtends unit@(Comp _ _ (CLS _ clsName (Just extendee) _ _ _ _ _) _) typeDB
+  | not extendedNodeExists = Just $ "Class " ++ clsName ++ " tried to extend non-existent class " ++ (show extendee)
+  | "final" `elem` (symbolModifiers extendedSymbol) = Just $ "Class " ++ clsName ++ " cannot extend final class " ++ (localName extendedSymbol)
   | extendedName == ownName = Just $ "Class " ++ clsName ++ " cannot extend itself"
   | otherwise = Nothing
   where unitImports = visibleImports unit
         extendedName = traverseTypeEntryWithImports typeDB unitImports extendee
         ownName = traverseTypeEntryWithImports typeDB unitImports [clsName]
-        -- extendedNode = mapMaybe (getTypeEntry typeDB) (map head extendedNames)
-        -- extendedSymbols = map symbol extendedNodes
+        extendedNode = getTypeEntry typeDB (head extendedName)
+        extendedNodeExists = isJust extendedNode
+        extendedSymbol = symbol . fromJust $ extendedNode
         -- extendedInterfaces = filter isInterface extendedSymbols
 checkExtends _ _ = Nothing
