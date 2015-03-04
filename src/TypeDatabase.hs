@@ -57,7 +57,6 @@ updateNode (TN sym nodes) (nm:remain) n = case conflict of
                                                 Nothing -> Nothing
                                     _ -> Nothing
     where
-        nm = (localName . symbol) n
         remainNodes = [node | node <- nodes, (localName . symbol) node /= nm]
         conflict = [node | node <- nodes, (localName . symbol) node == nm]
 
