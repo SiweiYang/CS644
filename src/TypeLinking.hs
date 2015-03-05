@@ -133,8 +133,8 @@ typeLinkingName db imps su (Name cname@(nm:remain)) = case syms' of
 
 symbolToType :: Symbol -> Type
 symbolToType (SYM _ _ t) = t
-symbolToType (CL _ _ t) = t
-symbolToType (IT _ _ t) = t
+symbolToType (CL _ _ t _) = t
+symbolToType (IT _ _ t _) = t
 symbolToType (FUNC _ _ ps rt) = Function ps  rt
 
 ---------------------------------------------------------------------------------------------------------

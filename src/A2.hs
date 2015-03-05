@@ -13,6 +13,7 @@ import Lexical
 import Parser
 import Scanner
 import TypeDatabase
+import TypeLinking
 import Weeder
 
 main :: IO ()
@@ -78,6 +79,7 @@ main = do
 
   -- ENVIRONMENT CONSTRUCTION
   let fileEnvironments = map (\x -> (buildEnvironment $ fst x, snd x)) fileAsts
+  let fileEnvironmentWithImports = map (\x -> (visibleImports $ fst x, buildEnvironment $ fst x, snd x)) fileAsts
 
   let (validEnvironments, invalidEnvironments) = partition (\x -> case (fst x) of {ENVE -> False; _ -> True}) fileEnvironments
 
@@ -87,7 +89,42 @@ main = do
   else do
     hPutStrLn stderr "Environment: OK"
 
-  let globalEnvironment = buildTypeEntryFromEnvironments (TN (PKG []) []) (map fst validEnvironments)
+  -- Type Linking
+  let mtypeDB = buildTypeEntryFromEnvironments nativeTypes (map fst validEnvironments)
+  if isNothing mtypeDB then do
+    hPutStrLn stderr "Environment DB building error!"
+    exitWith (ExitFailure 42)
+  else do
+    hPutStrLn stderr "Environment DB: OK"
+  let Just typeDB = mtypeDB
+  
+  let listImpEnvFns = map (\(imp, env, fn) -> (imp, refineEnvironmentWithType (traverseTypeEntryWithImports typeDB imp) (Root []) env, fn)) fileEnvironmentWithImports
+  let mdb = (buildInstanceEntryFromEnvironments nativeTypes (map (\(imp, Just env, fn) -> env) listImpEnvFns))
+  
+  if isNothing mdb then do
+    hPutStrLn stderr "Instance DB building error!"
+    exitWith (ExitFailure 42)
+  else do
+    hPutStrLn stderr "Instance DB: OK"
+  let Just db = mdb
+  
+  let mdb' = updateDBWithInheritance db ["java","io","PrintStream"] [["java","io","PrintStream"], ["java","io","OutputStream"]]
+  if isNothing mdb' then do
+    hPutStrLn stderr "Inheritance DB building error!"
+    exitWith (ExitFailure 42)
+  else do
+    hPutStrLn stderr "Inheritance DB: OK"
+  let Just db' = mdb'
+  
+  let failures = filter (\(imp, Just env, fn) ->  typeLinkingCheck db' imp env == []) listImpEnvFns
+  if length failures > 0 then do
+    hPutStrLn stderr "Type Linking error!"
+    hPutStrLn stderr (show failures)
+    exitWith (ExitFailure 42)
+  else do
+    hPutStrLn stderr "Type Linking: OK"
+
+let globalEnvironment = buildTypeEntryFromEnvironments (TN (PKG []) []) (map fst validEnvironments)
 
   if isNothing globalEnvironment then do
     hPutStrLn stderr "Environment building error!"
@@ -96,13 +133,11 @@ main = do
     hPutStrLn stderr "Type DB: OK"
 
   -- HIERARCHY CHECKING
-  let hierarchyResults = checkHierarchies (map fst fileAsts) (fromJust globalEnvironment)
+  let hierarchyResults = checkHierarchies (map fst fileAsts) db'
 
   if isJust hierarchyResults then do
     hPutStrLn stderr "Hierarchy error!"
     hPutStrLn stderr $ fromJust hierarchyResults
     exitWith (ExitFailure 42)
   else do
-    hPutStrLn stderr "Hierarchy: OK"
-    exitSuccess
-
+    hPutStrLn stderr "Hierarchy: OK"   
