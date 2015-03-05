@@ -108,7 +108,23 @@ main = do
     hPutStrLn stderr "Instance DB: OK"
   let Just db = mdb
   
-  let mdb' = updateDBWithInheritance db ["java","io","PrintStream"] [["java","io","PrintStream"], ["java","io","OutputStream"]]
+  -- HIERARCHY CHECKING
+  let hierarchyResults = checkHierarchies (map fst fileAsts) db
+
+  if isJust hierarchyResults then do
+    hPutStrLn stderr "Hierarchy error!"
+    hPutStrLn stderr $ fromJust hierarchyResults
+    exitWith (ExitFailure 42)
+  else do
+    hPutStrLn stderr "Hierarchy: OK"   
+  
+  -- Update DB with inheritance relations
+  --hPutStrLn stderr (show fileNames)
+  let cn = dumpDBNodes db
+  let relations = [((typeToName . localType . symbol) node, map (typeToName . localType . symbol) (getClassHierarchyForSymbol node db)) | node <- cn]
+  --hPutStrLn stderr (show relations)
+  
+  let mdb' = updateDBWithInheritances db relations
   if isNothing mdb' then do
     hPutStrLn stderr "Inheritance DB building error!"
     exitWith (ExitFailure 42)
@@ -124,20 +140,5 @@ main = do
   else do
     hPutStrLn stderr "Type Linking: OK"
 
-let globalEnvironment = buildTypeEntryFromEnvironments (TN (PKG []) []) (map fst validEnvironments)
 
-  if isNothing globalEnvironment then do
-    hPutStrLn stderr "Environment building error!"
-    exitWith (ExitFailure 42)
-  else do
-    hPutStrLn stderr "Type DB: OK"
 
-  -- HIERARCHY CHECKING
-  let hierarchyResults = checkHierarchies (map fst fileAsts) db'
-
-  if isJust hierarchyResults then do
-    hPutStrLn stderr "Hierarchy error!"
-    hPutStrLn stderr $ fromJust hierarchyResults
-    exitWith (ExitFailure 42)
-  else do
-    hPutStrLn stderr "Hierarchy: OK"   

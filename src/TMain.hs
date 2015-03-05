@@ -127,8 +127,8 @@ main' fileNames = do
   let astByFiles = map (\(tokens, file) -> (map tokenToAST tokens, file)) tokenByFilesValid
 
   -- PARSER
-  --dfa <- readDFA
-  dfa <- readLR1
+  --dfa <- readLR1
+  dfa <- readDFA
   let resultByFiles = map (\(ast, file) -> (run (dfa, ast ++ [AST "EOF" []]), file)) astByFiles
 
   let (validParsed, invalidParsed) = partition (\x -> (length . snd $ fst x)==0) resultByFiles
@@ -161,14 +161,14 @@ main' fileNames = do
   let fileEnvironmentWithImports = map (\x -> (visibleImports $ fst x, buildEnvironment $ fst x, snd x)) fileAsts
 
   let (validEnvironments, invalidEnvironments) = partition (\x -> case (fst x) of {ENVE -> False; _ -> True}) fileEnvironments
-  --hPutStrLn stderr (show (map (\(imp, env, fn) -> env) fileEnvironmentWithImports))
-  
+
   if not $ null invalidEnvironments then do
     hPutStrLn stderr $ "Environment error in file" ++ (snd $ head invalidEnvironments)
     exitWith (ExitFailure 42)
   else do
     hPutStrLn stderr "Environment: OK"
 
+  -- Type Linking
   let mtypeDB = buildTypeEntryFromEnvironments nativeTypes (map fst validEnvironments)
   if isNothing mtypeDB then do
     hPutStrLn stderr "Environment DB building error!"
@@ -177,12 +177,9 @@ main' fileNames = do
     hPutStrLn stderr "Environment DB: OK"
   let Just typeDB = mtypeDB
   
-  --hPutStrLn stderr (show $ subNodes $ fromJust (getTypeEntry typeDB' ["java","io","PrintStream"]))
-  --hPutStrLn stderr (show typeDB)
+  hPutStrLn stderr (show (map (\(imp, env, fn) -> (imp, fn)) fileEnvironmentWithImports))
+  
   let listImpEnvFns = map (\(imp, env, fn) -> (imp, refineEnvironmentWithType (traverseTypeEntryWithImports typeDB imp) (Root []) env, fn)) fileEnvironmentWithImports
-  --hPutStrLn stderr (show fileEnvironmentWithImports)
-  --hPutStrLn stderr (show (map (\(imp, env, fn) -> env) (filter (\(imp, env, fn) -> reverse (take (length "String.java") (reverse fn)) == "String.java") listImpEnvFns)))
-  --hPutStrLn stderr (show listImpEnvFns)
   let mdb = (buildInstanceEntryFromEnvironments nativeTypes (map (\(imp, Just env, fn) -> env) listImpEnvFns))
   
   if isNothing mdb then do
@@ -192,34 +189,36 @@ main' fileNames = do
     hPutStrLn stderr "Instance DB: OK"
   let Just db = mdb
   
-  let mdb' = updateDBWithInheritance db ["java","io","PrintStream"] [["java","io","PrintStream"], ["java","io","OutputStream"]]
+  -- HIERARCHY CHECKING
+  let hierarchyResults = checkHierarchies (map fst fileAsts) db
+
+  if isJust hierarchyResults then do
+    hPutStrLn stderr "Hierarchy error!"
+    hPutStrLn stderr $ fromJust hierarchyResults
+    exitWith (ExitFailure 42)
+  else do
+    hPutStrLn stderr "Hierarchy: OK"   
+  
+  -- Update DB with inheritance relations
+  hPutStrLn stderr (show fileNames)
+  let cn = dumpDBNodes db
+  let relations = [((typeToName . localType . symbol) node, map (typeToName . localType . symbol) (getClassHierarchyForSymbol node db)) | node <- cn]
+  
+  
+  let mdb' = updateDBWithInheritances db relations
+  
   if isNothing mdb' then do
     hPutStrLn stderr "Inheritance DB building error!"
     exitWith (ExitFailure 42)
   else do
     hPutStrLn stderr "Inheritance DB: OK"
   let Just db' = mdb'
-  --let Just db' = Just db
   
-  --hPutStrLn stderr (show listImpEnvFns)
-  --hPutStrLn stderr (show db)
-  --hPutStrLn stderr (show (traverseInstanceEntry db (traverseFieldEntryWithImports db [["unnamed package","*"],["foo","bar"], ["java","lang","*"]] ["bar"]) ["method"]))
-  hPutStrLn stderr (show (lookUpDB db' [] ["test", "A"]))
-  hPutStrLn stderr (show (lookUpDB db' [] ["test", "A", "foo"]))
-  --hPutStrLn stderr (show (lookUpDB db [["unnamed package","*"],["foo","bar"], ["java","lang","*"]] ["bar", "method"]))
-  
-  --hPutStrLn stderr (show (map (\(imp, Just env, fn) -> typeLinkingCheck db imp env) listImpEnvFns))
-  --let failures = filter (\(imp, Just env, fn) ->  typeLinkingCheck db' imp env == []) (filter (\(imp, env, fn) -> reverse (take 16 (reverse fn)) == "PrintStream.java") listImpEnvFns)
-  --hPutStrLn stderr (show (map subNodes $ traverseInstanceEntry' db db ["java","lang","String"]))
-  --hPutStrLn stderr (show (map subNodes $ traverseInstanceEntry' db' db' ["java","lang","String"]))
-  --hPutStrLn stderr (show (traverseInstanceEntry' db' db' ["java","lang","String","chars"]))
-  --let failures = filter (\(imp, Just env, fn) ->  typeLinkingCheck db' imp env == []) (filter (\(imp, env, fn) -> reverse (take (length "String.java") (reverse fn)) == "String.java") listImpEnvFns)
-  --hPutStrLn stderr (show listImpEnvFns)
+  --hPutStrLn stderr (show relations)
   let failures = filter (\(imp, Just env, fn) ->  typeLinkingCheck db' imp env == []) listImpEnvFns
-  -- HERE Just env can be nothing
-
-  if isNothing mtypeDB || isNothing mdb || isNothing mdb' || length failures > 0 then do
-    hPutStrLn stderr "Environment building error!"
+  hPutStrLn stderr (show relations)
+  if length failures > 0 then do
+    hPutStrLn stderr "Type Linking error!"
     hPutStrLn stderr (show failures)
     exitWith (ExitFailure 42)
   else do

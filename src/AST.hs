@@ -184,12 +184,15 @@ isInterface _ = False
 
 visibleImports :: CompilationUnit -> [[String]]
 visibleImports unit =
-    let ownPackage = case package unit of
-            Just pkgName -> [pkgName ++ ["*"]]
-            Nothing -> [["unnamed package", "*"]]
-        importedPackages = imports unit
+    let (ownPackage, ownClass) = case package unit of
+            Just pkgName -> ([pkgName ++ ["*"]], [])
+            --Nothing -> ([], [["unnamed package", (unitName . definition) unit]])
+            Nothing -> ([["unnamed package", "*"]], [])
+        
+        importedClasses = [cname | cname <- imports unit, last cname /= "*"]
+        importedPackages = [cname | cname <- imports unit, last cname == "*"]
         javaLang = [["java","lang","*"]]
-    in ownPackage ++ importedPackages ++ javaLang
+    in ownClass ++ importedClasses ++ ownPackage ++ importedPackages ++ javaLang
 
 buildAST :: [AST] -> CompilationUnit
 buildAST prods = Comp (if length pk > 0 then Just (nameToPackage pkgn) else Nothing) (if length im > 0 then map importToPackage ims else []) td (CompI (if length pk > 0 then Just (extractASTInfo pkg) else Nothing) (if length im > 0 then map extractASTInfo ims else []))
@@ -441,6 +444,7 @@ typeToName TypeString = ["String"]
 typeToName TypeNull = ["Null"]
 typeToName TypeVoid = ["Void"]
 typeToName (Object (Name nm)) = nm
+typeToName (TypeClass (Name nm)) = nm
 typeToName (Array tp) = ["joosc native", "Array"]
 
 data Name = Name [String]

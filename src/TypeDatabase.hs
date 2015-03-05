@@ -13,7 +13,7 @@ data TypeNode = TN {
 } deriving (Eq)
 
 arrayClass = CLS ["public"] "Array" (Just ["Object"]) [[]] [] [] [] (CLSI [] (AI "" 0 0 0 0) Nothing [])
-arrayUnit = Comp (Just ["joosc native", "Array"]) [[]] arrayClass (CompI Nothing [])
+arrayUnit = Comp (Just ["joosc native", "Array"]) [] arrayClass (CompI Nothing [])
 nativeTypes = TN (PKG []) [TN (PKG "joosc native") [TN (CL ["public"] "Array" (TypeClass (Name ["joosc native", "Array"])) arrayUnit) [TN (SYM ["public"] "length" TypeInt) []]]]
 
 isVisibleClassNode tn = case symbol tn of
@@ -68,8 +68,17 @@ updateDBWithInheritance root cname cnames = if isJust tar && isJust root' then r
         tar = inheritFromTypes root cname cnames
         root' = updateNode root cname (fromJust tar)
 
+updateDBWithInheritances :: TypeNode -> [([String], [[String]])] -> Maybe TypeNode
+updateDBWithInheritances root [] = Just root
+updateDBWithInheritances root ((cname, cnames):remain) = case updateDBWithInheritance root cname cnames of
+                                                            Just root' -> updateDBWithInheritances root' remain
+                                                            Nothing -> Nothing
+
 dumpDB :: TypeNode -> [[String]]
-dumpDB tn@(TN sym nodes) = if isConcreteNode tn then [(typeToName . localType) sym] else concat $ map dumpDB nodes
+dumpDB tn@(TN sym nodes) = map (typeToName . localType . symbol) (dumpDBNodes tn)
+
+dumpDBNodes :: TypeNode -> [TypeNode]
+dumpDBNodes tn@(TN sym nodes) = if isConcreteNode tn then [tn] else concat $ map dumpDBNodes nodes
 
 traverseTypeEntry :: TypeNode -> [String] -> Maybe TypeNode
 traverseTypeEntry tn [] = case symbol tn of
@@ -89,7 +98,7 @@ traverseFieldEntryWithImports tn imps query = nub . concat $ (flds ++ funcs)
         entries = map (traverseTypeEntry tn) imps
         entries' = map (\(mnode, imp) -> (fromJust mnode, imp)) (filter (isJust . fst) (zip entries imps))
         results = map (\(node, imp) -> (traverseTypeEntry node (init query), (init imp) ++ (init query))) ((tn, ["*"]):entries')
-        fld = last query
+        fld = if query == [] then error "traverseFieldEntryWithImports" else last query
         flds = [[TN (SYM mds ln lt) ch | TN (SYM mds ln lt) ch <- subNodes node, elem "static" mds, ln == fld] | (Just (TN _ [node]), cname) <- results]
         funcs = [[TN (FUNC mds ln ps rt) ch | TN (FUNC mds ln ps rt) ch <- subNodes node, ln == fld] | (Just (TN _ [node]), cname) <- results]
 
@@ -189,8 +198,11 @@ buildEntry' sym env cond = case kind su of
 refineTypeWithType :: ([String] -> [[String]]) -> Type -> Maybe Type
 refineTypeWithType querier (Object (Name nm)) = case querier nm of
                                                     [] -> Nothing
-                                                    [nm'] -> Just (Object (Name nm'))
-                                                    r -> Just (Object (Name . head $ filter (\x -> elem "unamed package" x) r)) --to check
+                                                    nm':_ -> Just (Object (Name nm'))
+                                                    --r -> error (show (nm, r))
+refineTypeWithType querier (TypeClass (Name nm)) = case querier nm of
+                                                    [] -> Nothing
+                                                    nm':_ -> Just (TypeClass (Name nm'))
                                                     --r -> error (show (nm, r))
 refineTypeWithType querier (Array t) = case refineTypeWithType querier t of
                                         Nothing -> Nothing

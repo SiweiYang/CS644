@@ -66,9 +66,12 @@ typeLinkingExpr db imps su expr@(Attribute s m _) = if nodes /= [] then map (sym
                 --should handle Class and instance differently
                 nodes = traverseInstanceEntry' db db ((typeToName tp)++[m])
 
-typeLinkingExpr db imps su (NewObject tp args _) = [Object (Name tpn)]
+-- import rule plays here
+typeLinkingExpr db imps su (NewObject tp args dp) = [Object (Name tp')]
         where
-                [tpn] = traverseTypeEntryWithImports db imps (typeToName tp)
+                tp':_ = case traverseTypeEntryWithImports db imps (typeToName tp) of
+                            [] -> error $ (show tp) ++ (show args)
+                            tps -> tps
 -- to check param types
 
 typeLinkingExpr db imps su (NewArray tp exprd _ _) = if elem typeIdx [TypeByte, TypeShort, TypeInt] then [Array tp] else error "Array: index is not an integer"

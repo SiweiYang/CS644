@@ -41,7 +41,7 @@ checkImplements unit@(Comp _ _ (CLS modifiers clsName _ implemented _ _ _ _) _) 
   | otherwise = Nothing
   where unitImports = visibleImports unit
         ownName = traverseTypeEntryWithImports typeDB unitImports [clsName]
-        ownNode = fromJust $ getTypeEntry typeDB (head ownName)
+        ownNode = if ownName == [] then error "checkImplements" else fromJust $ getTypeEntry typeDB (head ownName)
         implementedNames = map (traverseTypeEntryWithImports typeDB unitImports) implemented
         implementedNodes = mapMaybe (getTypeEntry typeDB) (map head implementedNames)
         implementedSymbols = map symbol implementedNodes
@@ -67,7 +67,7 @@ checkExtends unit@(Comp _ _ (CLS clsMods clsName (Just extendee) _ _ _ _ _) _) t
         extendedUnit = astUnit . symbol . fromJust $ extendedNodeMaybe
         extendedClass = definition extendedUnit
         hierarchyChain = getClassHierarchy unit typeDB
-        ownNode = head hierarchyChain
+        ownNode = if hierarchyChain == [] then error "checkExtends" else head hierarchyChain
         extendeeMethods = filter isFunction (map symbol (concat $ map subNodes (tail hierarchyChain)))
         ownMethods = filter isFunction (map symbol (subNodes ownNode))
         isAbstract = "abstract" `elem` clsMods
@@ -95,7 +95,7 @@ getClassSuper unit@(Comp _ _ (CLS _ clsName (Just extendee) _ _ _ _ _) _) typeDB
   | otherwise = extendedNode
   where classImports = visibleImports unit
         extendedName = traverseTypeEntryWithImports typeDB classImports extendee
-        extendedNode = getTypeEntry typeDB (head extendedName)
+        extendedNode = if extendedName == [] then error "getClassSuper" else getTypeEntry typeDB (head extendedName)
         extendedNodeExists = isJust extendedNode
 getClassSuper _ _ = Nothing
 
@@ -122,13 +122,19 @@ getClassHierarchy unit@(Comp _ _ (CLS _ clsName _ _ _ _ _ _) _) typeDB
   | otherwise = getClassHierarchyForSymbol ownNode typeDB
   where unitImports = visibleImports unit
         ownName = traverseTypeEntryWithImports typeDB unitImports [clsName]
-        ownNode = fromJust $ getTypeEntry typeDB (head ownName)
+        ownNode = if ownName == [] then error "getClassHierarchy" else fromJust $ getTypeEntry typeDB (head ownName)
 
 getClassHierarchyForSymbol :: TypeNode -> TypeNode -> [TypeNode]
 getClassHierarchyForSymbol node typeDB = getClassHierarchy' node typeDB [node]
 
 getClassHierarchy' :: TypeNode -> TypeNode -> [TypeNode] -> [TypeNode]
 getClassHierarchy' node@(TN sym@(CL _ _ _ unit@(Comp _ _ (CLS _ _ _ implemented _ _ _ _) _)) _) typeDB hierarchy
+  | isNothing extendedClassMaybe = hierarchy
+  | extendedClass `elem` hierarchy = []
+  | otherwise = getClassHierarchy' extendedClass typeDB (hierarchy ++ [extendedClass])
+  where extendedClassMaybe = getClassSuper unit typeDB
+        extendedClass = fromJust extendedClassMaybe
+getClassHierarchy' node@(TN sym@(IT _ _ _ unit@(Comp _ _ (ITF _ _ implemented _ _) _)) _) typeDB hierarchy
   | isNothing extendedClassMaybe = hierarchy
   | extendedClass `elem` hierarchy = []
   | otherwise = getClassHierarchy' extendedClass typeDB (hierarchy ++ [extendedClass])
