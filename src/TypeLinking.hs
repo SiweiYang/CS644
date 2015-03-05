@@ -160,3 +160,27 @@ lookUpDB db imps cname = map (symbolToType . symbol) $ nub tps
             ps = map (\i -> (take i cname, drop i cname)) [1..(length cname)]
             tps = concat $ map (\(pre, post) -> traverseInstanceEntry db (traverseFieldEntryWithImports db imps pre) post) ps
             tps' = []
+
+------------------------------------------------------------------------------------
+
+checkSameNameInEnvironment :: Environment -> Bool
+checkSameNameInEnvironment ENVE = False
+checkSameNameInEnvironment (ENV su [ENVE]) = checkSameNameUp su []
+checkSameNameInEnvironment (ENV su []) = checkSameNameUp su []
+checkSameNameInEnvironment (ENV su chs) = or $ map checkSameNameInEnvironment chs
+
+
+checkSameNameUp :: SemanticUnit -> [Symbol] -> Bool
+checkSameNameUp (Root _) accst = checkSameNameInSymbolTable accst
+checkSameNameUp (SU _ kd st parent) accst = if kd `elem` [Method, Interface, Class] then (res || checkSameNameUp parent []) else checkSameNameUp parent nextst
+    where
+        nextst = accst ++ st
+        res = checkSameNameInSymbolTable nextst
+
+
+checkSameNameInSymbolTable :: [Symbol] -> Bool
+checkSameNameInSymbolTable st = length nms /= length uniqs
+    where
+        syms = [SYM modis nm tp | SYM modis nm tp <- st]
+        nms = map localName syms
+        uniqs = nub nms
