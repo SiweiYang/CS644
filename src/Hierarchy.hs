@@ -24,6 +24,7 @@ checkHierarchy unit typeDB
 
 checkImplements :: CompilationUnit -> TypeNode -> HierarchyError
 checkImplements unit@(Comp _ _ (CLS _ clsName _ implemented _ _ _ _) _) typeDB
+  | any null implementedNames = Just $ "Class " ++ clsName ++ " extends a non-existent interface"
   | not . null $ implementedClasses = Just $ "Class " ++ clsName ++ " cannot implement class " ++ (localName $ head implementedClasses)
   | nub implementedNames /= implementedNames = Just $ "Class " ++ clsName ++ " implements the same interface twice"
   | otherwise = Nothing
