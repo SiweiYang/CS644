@@ -39,9 +39,9 @@ export -f run_bad_test_dir
 echo "Running tests..."
 echo "Failures:"
 
-echo "Negatives Folder"
-for dir in $( ls -d assignment_testcases/a2/Je*/ ); do
-    run_bad_test_dir $dir
+echo "Negatives Single File"
+for file in $( echo assignment_testcases/a2/Je*.java ); do
+    run_bad_test $file
 done
 
 echo "Positive Folder"
@@ -49,15 +49,16 @@ for dir in $( ls -d assignment_testcases/a2/J[!e]*/ ); do
     run_test_dir $dir
 done
 
+echo "Negatives Folder"
+for dir in $( ls -d assignment_testcases/a2/Je*/ ); do
+    run_bad_test_dir $dir
+done
+
 echo "Positive Single File"
 for file in $( echo assignment_testcases/a2/J[!e]*.java ); do
     run_test ${file}
 done
   
-echo "Negatives Single File"
-for file in $( echo assignment_testcases/a2/Je*.java ); do
-    run_bad_test $file
-done
 
 #function joosc_run {
 #  ./joosc `find $1 | grep "\.java$"` assignment_testcases/stdlib2/*.java
