@@ -24,6 +24,7 @@ weedTypeDec filename (CLS modifiers name _ _ constructors fields methods info)
   | fieldError /= Nothing = fieldError
   | constructorError /= Nothing = constructorError
   | name /= correctName = Just $ "Expected class to be named '" ++ correctName ++ "' but saw '" ++ name ++ "'" ++ show info
+  | shouldBeAbstract && not ("abstract" `elem` modifiers) = Just $ name ++ " has an abstract method but isn't abstract"
   | otherwise = Nothing
   where methodError = weedClassMethods methods
         fieldError = weedFields fields
@@ -31,6 +32,7 @@ weedTypeDec filename (CLS modifiers name _ _ constructors fields methods info)
         fileName = last $ splitOneOf "/" filename
         fileNameSplit = splitOneOf "." fileName
         correctName = foldl (++) "" (take ((length fileNameSplit) - 1) fileNameSplit)
+        shouldBeAbstract = any (\mthd -> "abstract" `elem` (methodModifiers mthd)) methods
 weedTypeDec filename (ITF modifiers name _ methods info)
   | "private" `elem` modifiers = Just $ "Interfaces cannot be private" ++ show info
   | (nub modifiers) /= modifiers = Just $ "Interface modifiers cannot be repeated" ++ show info

@@ -18,9 +18,19 @@ checkHierarchy :: CompilationUnit -> TypeNode -> HierarchyError
 checkHierarchy unit typeDB
   | isJust implementError = implementError
   | isJust extendError = extendError
+  | isJust importError = importError
   | otherwise = Nothing
   where implementError = checkImplements unit typeDB
         extendError = checkExtends unit typeDB
+        importError = checkImports unit typeDB
+
+checkImports :: CompilationUnit -> TypeNode -> HierarchyError
+checkImports unit@(Comp _ imports _ _) typeDB
+  | any null importedPackages = Just "Invalid import - package not found"
+  | otherwise = Nothing
+  where unitImports = visibleImports unit
+        importedPackages = map (traverseTypeEntryWithImports typeDB unitImports) imports
+
 
 checkImplements :: CompilationUnit -> TypeNode -> HierarchyError
 checkImplements unit@(Comp _ _ (CLS _ clsName _ implemented _ _ _ _) _) typeDB
