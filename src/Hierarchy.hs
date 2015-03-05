@@ -31,30 +31,37 @@ checkImports unit@(Comp _ imports _ _) typeDB
   where unitImports = visibleImports unit
         importedPackages = map (traverseTypeEntryWithImports typeDB unitImports) imports
 
-
 checkImplements :: CompilationUnit -> TypeNode -> HierarchyError
-checkImplements unit@(Comp _ _ (CLS _ clsName _ implemented _ _ _ _) _) typeDB
+checkImplements unit@(Comp _ _ (CLS modifiers clsName _ implemented _ _ _ _) _) typeDB
   | any null implementedNames = Just $ "Class " ++ clsName ++ " extends a non-existent interface"
   | not . null $ implementedClasses = Just $ "Class " ++ clsName ++ " cannot implement class " ++ (localName $ head implementedClasses)
   | nub implementedNames /= implementedNames = Just $ "Class " ++ clsName ++ " implements the same interface twice"
+  | (not isAbstract) && (not . null $ unimplementedMethods) = Just $ "Class " ++ clsName ++ " doesn't implement methods " ++ (show $ map localName unimplementedMethods)
   | otherwise = Nothing
   where unitImports = visibleImports unit
+        ownName = traverseTypeEntryWithImports typeDB unitImports [clsName]
+        ownNode = fromJust $ getTypeEntry typeDB (head ownName)
         implementedNames = map (traverseTypeEntryWithImports typeDB unitImports) implemented
         implementedNodes = mapMaybe (getTypeEntry typeDB) (map head implementedNames)
         implementedSymbols = map symbol implementedNodes
         implementedClasses = filter isClass implementedSymbols
+        extendChain = getClassHierarchy unit typeDB
+        abstractMethods = filter isFunction (map symbol (concat $ map subNodes implementedNodes))
+        definedMethods = filter isFunction (map symbol (concat $ map subNodes extendChain))
+        isAbstract = "abstract" `elem` modifiers
+        unimplementedMethods = filter (not . (functionImplemented definedMethods)) abstractMethods
 checkImplements _ _ = Nothing
 
 checkExtends :: CompilationUnit -> TypeNode -> HierarchyError
 checkExtends unit@(Comp _ _ (CLS _ clsName (Just extendee) _ _ _ _ _) _) typeDB
-  | isNothing extendedUnitMaybe = Just $ "Class " ++ clsName ++ " tried to extend non-existent class " ++ (show extendee)
+  | isNothing extendedNodeMaybe = Just $ "Class " ++ clsName ++ " tried to extend non-existent class " ++ (show extendee)
   | isInterface extendedClass = Just $ "Class " ++ clsName ++ " cannot extend interface " ++ (interfaceName extendedClass)
   | "final" `elem` (modifiers extendedClass) = Just $ "Class " ++ clsName ++ " cannot extend final class " ++ (className extendedClass)
   | extendedUnit == unit = Just $ "Class " ++ clsName ++ " cannot extend itself"
   | null hierarchyChain = Just $ "Class " ++ clsName ++ " has a circular extend reference"
   | otherwise = Nothing
-  where extendedUnitMaybe = getClassSuper unit typeDB
-        extendedUnit = fromJust extendedUnitMaybe
+  where extendedNodeMaybe = getClassSuper unit typeDB
+        extendedUnit = astUnit . symbol . fromJust $ extendedNodeMaybe
         extendedClass = definition extendedUnit
         hierarchyChain = getClassHierarchy unit typeDB
 
@@ -73,16 +80,15 @@ checkExtends unit@(Comp _ _ (ITF _ itfName extended _ _) _) typeDB
         hierarchyChain = getInterfaceSupers unit typeDB
 checkExtends _ _ = Nothing
 
-getClassSuper :: CompilationUnit -> TypeNode -> Maybe CompilationUnit
+getClassSuper :: CompilationUnit -> TypeNode -> Maybe TypeNode
 getClassSuper unit@(Comp _ _ (CLS _ clsName (Just extendee) _ _ _ _ _) _) typeDB
   | null extendedName = Nothing
   | not extendedNodeExists = Nothing
-  | otherwise = Just extendedUnit
+  | otherwise = extendedNode
   where classImports = visibleImports unit
         extendedName = traverseTypeEntryWithImports typeDB classImports extendee
         extendedNode = getTypeEntry typeDB (head extendedName)
         extendedNodeExists = isJust extendedNode
-        extendedUnit = astUnit . symbol . fromJust $ extendedNode
 getClassSuper _ _ = Nothing
 
 getInterfaceSupers :: CompilationUnit -> TypeNode -> [CompilationUnit]
@@ -103,15 +109,27 @@ getInterfaceSupers' unit@(Comp _ _ (ITF _ _ extended _ _) _) typeDB hierarchy
         extendedInterfaceExtensions = map (\x -> getInterfaceSupers' x typeDB newHierarchy) extendedInterfaces
 getInterfaceSupers' _ _ _ = []
 
-getClassHierarchy :: CompilationUnit -> TypeNode -> [CompilationUnit]
-getClassHierarchy unit typeDB = getClassHierarchy' unit typeDB [unit]
+getClassHierarchy :: CompilationUnit -> TypeNode -> [TypeNode]
+getClassHierarchy unit@(Comp _ _ (CLS _ clsName _ _ _ _ _ _) _) typeDB
+  | otherwise = getClassHierarchyForSymbol ownNode typeDB
+  where unitImports = visibleImports unit
+        ownName = traverseTypeEntryWithImports typeDB unitImports [clsName]
+        ownNode = fromJust $ getTypeEntry typeDB (head ownName)
 
-getClassHierarchy' :: CompilationUnit -> TypeNode -> [CompilationUnit] -> [CompilationUnit]
-getClassHierarchy' unit@(Comp _ _ (CLS _ _ _ implemented _ _ _ _) _) typeDB hierarchy
+getClassHierarchyForSymbol :: TypeNode -> TypeNode -> [TypeNode]
+getClassHierarchyForSymbol node typeDB = getClassHierarchy' node typeDB [node]
+
+getClassHierarchy' :: TypeNode -> TypeNode -> [TypeNode] -> [TypeNode]
+getClassHierarchy' node@(TN sym@(CL _ _ _ unit@(Comp _ _ (CLS _ _ _ implemented _ _ _ _) _)) _) typeDB hierarchy
   | isNothing extendedClassMaybe = hierarchy
   | extendedClass `elem` hierarchy = []
   | otherwise = getClassHierarchy' extendedClass typeDB (hierarchy ++ [extendedClass])
   where extendedClassMaybe = getClassSuper unit typeDB
         extendedClass = fromJust extendedClassMaybe
 
-
+functionImplemented :: [Symbol] -> Symbol -> Bool
+functionImplemented definitions fun =
+  let funEqual a b = (localName a == localName b) &&
+                     (parameterTypes a == parameterTypes b) &&
+                     (localType a == localType b)
+  in any (funEqual fun) definitions
