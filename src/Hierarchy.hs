@@ -48,7 +48,7 @@ checkExtends unit@(Comp _ _ (CLS _ clsName (Just extendee) _ _ _ _ _) _) typeDB
         hierarchyChain = getClassHierarchy unit typeDB
 
 checkExtends unit@(Comp _ _ (ITF _ itfName extended _ _) _) typeDB
-  | not . null $ extendedClasses = Just $ "Interface " ++ itfName ++ " cannot extend class " ++ (localName $ head extendedClasses)
+  | not . null $ extendedClasses = Just $ "Interface " ++ itfName ++ " cannot extend class " ++ (show $ head extendedClasses)
   | nub extendedClasses /= extendedClasses = Just $ "Interface " ++ itfName ++ " extends the same interface twice"
   | ownName `elem` extendedNames = Just $ "Interface " ++ itfName ++ " cannot extend itself"
   | null hierarchyChain = Just $ "Interface " ++ itfName ++ " extends a circular extend chain"
@@ -64,6 +64,7 @@ checkExtends _ _ = Nothing
 
 getClassSuper :: CompilationUnit -> TypeNode -> Maybe CompilationUnit
 getClassSuper unit@(Comp _ _ (CLS _ clsName (Just extendee) _ _ _ _ _) _) typeDB
+  | null extendedName = Nothing
   | not extendedNodeExists = Nothing
   | otherwise = Just extendedUnit
   where classImports = visibleImports unit
