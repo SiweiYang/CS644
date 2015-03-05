@@ -33,16 +33,23 @@ checkImports unit@(Comp _ imports _ _) typeDB
 
 
 checkImplements :: CompilationUnit -> TypeNode -> HierarchyError
-checkImplements unit@(Comp _ _ (CLS _ clsName _ implemented _ _ _ _) _) typeDB
+checkImplements unit@(Comp _ _ (CLS modifiers clsName _ implemented _ _ _ _) _) typeDB
   | any null implementedNames = Just $ "Class " ++ clsName ++ " extends a non-existent interface"
   | not . null $ implementedClasses = Just $ "Class " ++ clsName ++ " cannot implement class " ++ (localName $ head implementedClasses)
   | nub implementedNames /= implementedNames = Just $ "Class " ++ clsName ++ " implements the same interface twice"
+  | (not isAbstract) && (not . null $ unimplementedMethods) = Just $ "Class " ++ clsName ++ " doesn't implement methods " ++ (show $ map localName unimplementedMethods)
   | otherwise = Nothing
   where unitImports = visibleImports unit
+        ownName = traverseTypeEntryWithImports typeDB unitImports [clsName]
+        ownNode = fromJust $ getTypeEntry typeDB (head ownName)
         implementedNames = map (traverseTypeEntryWithImports typeDB unitImports) implemented
         implementedNodes = mapMaybe (getTypeEntry typeDB) (map head implementedNames)
         implementedSymbols = map symbol implementedNodes
         implementedClasses = filter isClass implementedSymbols
+        abstractMethods = filter isFunction (map symbol (concat $ map subNodes implementedNodes))
+        definedMethods = filter isFunction $ map symbol $ subNodes ownNode
+        isAbstract = "abstract" `elem` modifiers
+        unimplementedMethods = filter (not . (functionImplemented definedMethods)) abstractMethods
 checkImplements _ _ = Nothing
 
 checkExtends :: CompilationUnit -> TypeNode -> HierarchyError
@@ -114,4 +121,9 @@ getClassHierarchy' unit@(Comp _ _ (CLS _ _ _ implemented _ _ _ _) _) typeDB hier
   where extendedClassMaybe = getClassSuper unit typeDB
         extendedClass = fromJust extendedClassMaybe
 
-
+functionImplemented :: [Symbol] -> Symbol -> Bool
+functionImplemented definitions fun =
+  let funEqual a b = (localName a == localName b) &&
+                     (parameterTypes a == parameterTypes b) &&
+                     (localType a == localType b)
+  in any (funEqual fun) definitions
