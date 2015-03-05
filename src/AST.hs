@@ -215,7 +215,8 @@ buildAST prods = Comp (if length pk > 0 then Just (nameToPackage pkgn) else Noth
         [nm] = filter (\ast -> name ast == "IDENTIFIER") (production t)
 
         ex = filter (\ast -> name ast == "Super") (production t)
-        ext = if length ex > 0 then Just (nameToPackage (head (production (head ex)))) else Nothing
+        ext = if length ex > 0 then Just (nameToPackage (head (production (head ex)))) else
+          if (toLexeme nm) == "Object" then Nothing else Just ["java","lang","Object"]
         exti = if length ex > 0 then Just (extractASTInfo (head (production (head ex)))) else Nothing
 
         ipl = filter (\ast -> name ast == "Interfaces") (production t)
