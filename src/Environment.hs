@@ -18,11 +18,13 @@ data Symbol = SYM {
 }           | CL {
     symbolModifiers :: [String],
     localName :: String,
-    localType :: Type
+    localType :: Type,
+    astUnit :: CompilationUnit
 }           | IT {
     symbolModifiers :: [String],
     localName :: String,
-    localType :: Type
+    localType :: Type,
+    astUnit :: CompilationUnit
 }           | FUNC {
     symbolModifiers :: [String],
     localName :: String,
@@ -30,11 +32,8 @@ data Symbol = SYM {
     localType :: Type
 } deriving (Eq, Show)
 
-isClass (CL _ _ _) = True
+isClass (CL _ _ _ _) = True
 isClass _ = False
-
-isInterface (IT _ _ _) = True
-isInterface _ = False
 
 data SemanticUnit = Root {
     scope :: [String]
@@ -68,29 +67,31 @@ instance Show Environment where
     where lns = map show kids
 
 buildEnvironment :: CompilationUnit -> Environment
-buildEnvironment (Comp pkg imps def cui) = case pkg of
-                                            Nothing -> buildEnvironmentWithPackage ["unnamed package"] (Root []) def
-                                            Just cname -> buildEnvironmentWithPackage cname (Root []) def
+buildEnvironment comp@(Comp pkg imps def cui) = case pkg of
+                                            Nothing -> buildEnvironmentWithPackage ["unnamed package"] (Root []) comp
+                                            Just cname -> buildEnvironmentWithPackage cname (Root []) comp
 
-buildEnvironmentWithPackage [] parent def = env
+buildEnvironmentWithPackage [] parent unit = env
     where
+        def = definition unit
         cname' = [[]]
         su = case def of
-                (CLS mds nm ext imps cons flds mtds clsi)   -> SU cname' Package [CL mds nm (TypeClass (Name [nm]))] parent
-                (ITF mds nm imps mtds itfi)                 -> SU cname' Package [IT mds nm (TypeClass (Name [nm]))] parent
+                (CLS mds nm ext imps cons flds mtds clsi)   -> SU cname' Package [CL mds nm (TypeClass (Name [nm])) unit] parent
+                (ITF mds nm imps mtds itfi)                 -> SU cname' Package [IT mds nm (TypeClass (Name [nm])) unit] parent
         env = case def of
                 (CLS mds nm ext imps cons flds mtds clsi)   -> buildEnvironmentFromClass parent (CLS mds nm ext imps cons flds mtds clsi)
                 (ITF mds nm imps mtds itfi)                 -> buildEnvironmentFromInterface parent (ITF mds nm imps mtds itfi)
 
-buildEnvironmentWithPackage (name:remain) parent def = ENV su env
+buildEnvironmentWithPackage (name:remain) parent unit = ENV su env
     where
+        def = definition unit
         cname' = ((scope parent) ++ [name])
         su = case remain of
                 [] -> case def of
-                          (CLS mds nm ext imps cons flds mtds clsi)   -> SU cname' Package [CL mds nm (TypeClass (Name [nm]))] parent
-                          (ITF mds nm imps mtds itfi)                 -> SU cname' Package [IT mds nm (TypeClass (Name [nm]))] parent
+                          (CLS mds nm ext imps cons flds mtds clsi)   -> SU cname' Package [CL mds nm (TypeClass (Name [nm])) unit] parent
+                          (ITF mds nm imps mtds itfi)                 -> SU cname' Package [IT mds nm (TypeClass (Name [nm])) unit] parent
                 _ -> SU cname' Package [] parent
-        env = [buildEnvironmentWithPackage remain su def]
+        env = [buildEnvironmentWithPackage remain su unit]
 
 buildEnvironmentFromClass parent (CLS mds nm ext imps cons flds mtds clsi) = env
     where
