@@ -169,14 +169,13 @@ main' fileNames = do
   else do
     hPutStrLn stderr "Environment: OK"
 
-  let Just typeDB = buildTypeEntryFromEnvironments nativeTypes (map fst validEnvironments)
-  --hPutStrLn stderr (show (getTypeEntry typeDB ["java","io","PrintStream"]))
-  --hPutStrLn stderr (show (map (getTypeEntry typeDB) [["java","io","PrintStream"], ["java","io","OutputStream"]]))
-  --let np = (inheritFromNodes (fromJust (getTypeEntry typeDB ["java","io","PrintStream"])) (map fromJust (map (getTypeEntry typeDB) [["java","io","PrintStream"], ["java","io","OutputStream"]])))
-  --hPutStrLn stderr (show typeDB)
-  --hPutStrLn stderr (show (subNodes np))
-  --hPutStrLn stderr (show $ subNodes $ fromJust (getTypeEntry (fromJust (updateNode typeDB ["java","io","PrintStream"] np)) ["java","io","PrintStream"]))
-
+  let mtypeDB = buildTypeEntryFromEnvironments nativeTypes (map fst validEnvironments)
+  if isNothing mtypeDB then do
+    hPutStrLn stderr "Environment DB building error!"
+    exitWith (ExitFailure 42)
+  else do
+    hPutStrLn stderr "Environment DB: OK"
+  let Just typeDB = mtypeDB
   
   --hPutStrLn stderr (show $ subNodes $ fromJust (getTypeEntry typeDB' ["java","io","PrintStream"]))
   --hPutStrLn stderr (show typeDB)
@@ -184,10 +183,22 @@ main' fileNames = do
   --hPutStrLn stderr (show fileEnvironmentWithImports)
   --hPutStrLn stderr (show (map (\(imp, env, fn) -> env) (filter (\(imp, env, fn) -> reverse (take (length "String.java") (reverse fn)) == "String.java") listImpEnvFns)))
   --hPutStrLn stderr (show listImpEnvFns)
-  let Just db = (buildInstanceEntryFromEnvironments nativeTypes (map (\(imp, Just env, fn) -> env) listImpEnvFns))
+  let mdb = (buildInstanceEntryFromEnvironments nativeTypes (map (\(imp, Just env, fn) -> env) listImpEnvFns))
   
-  let Just db' = updateDBWithInheritance db ["java","io","PrintStream"] [["java","io","PrintStream"], ["java","io","OutputStream"]]
+  if isNothing mdb then do
+    hPutStrLn stderr "Instance DB building error!"
+    exitWith (ExitFailure 42)
+  else do
+    hPutStrLn stderr "Instance DB: OK"
+  let Just db = mdb
   
+  let mdb' = updateDBWithInheritance db ["java","io","PrintStream"] [["java","io","PrintStream"], ["java","io","OutputStream"]]
+  if isNothing mdb' then do
+    hPutStrLn stderr "Inheritance DB building error!"
+    exitWith (ExitFailure 42)
+  else do
+    hPutStrLn stderr "Inheritance DB: OK"
+  let Just db' = mdb'
   --let Just db' = Just db
   
   --hPutStrLn stderr (show listImpEnvFns)
@@ -207,7 +218,7 @@ main' fileNames = do
   let failures = filter (\(imp, Just env, fn) ->  typeLinkingCheck db' imp env == []) listImpEnvFns
   -- HERE Just env can be nothing
 
-  if length failures > 0 then do
+  if isNothing mtypeDB || isNothing mdb || isNothing mdb' || length failures > 0 then do
     hPutStrLn stderr "Environment building error!"
     hPutStrLn stderr (show failures)
     exitWith (ExitFailure 42)
