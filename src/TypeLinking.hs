@@ -179,8 +179,8 @@ checkSameNameUp (SU _ kd st parent) accst = if kd `elem` [Method, Interface, Cla
 
 
 checkSameNameInSymbolTable :: [Symbol] -> Bool
-checkSameNameInSymbolTable st = length nms /= length uniqs
+checkSameNameInSymbolTable st = length nms /= (length . nub) nms || length funcs /= (length . nub) funcs
     where
         syms = [SYM modis nm tp | SYM modis nm tp <- st]
-        nms = map localName syms
-        uniqs = nub nms
+        nms = map localName syms        
+        funcs = [(ln, pt, lt) | f@(FUNC _ ln pt lt) <- st]
