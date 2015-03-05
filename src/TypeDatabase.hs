@@ -78,6 +78,8 @@ traverseTypeEntry (TN sym nodes) ["*"] = Just (TN (PKG []) (filter isConcreteNod
 traverseTypeEntry (TN sym nodes) (nm:remain) = case [node | node <- nodes, (localName . symbol) node == nm] of
                                                 [] -> Nothing
                                                 [node] -> traverseTypeEntry node remain
+                                                ns -> error (show ns)
+                                                --HERE!!!!!!!
 
 traverseFieldEntryWithImports :: TypeNode -> [[String]] -> [String] -> [TypeNode]
 traverseFieldEntryWithImports tn imps query = nub . concat $ (flds ++ funcs)
@@ -186,7 +188,8 @@ refineTypeWithType :: ([String] -> [[String]]) -> Type -> Maybe Type
 refineTypeWithType querier (Object (Name nm)) = case querier nm of
                                                     [] -> Nothing
                                                     [nm'] -> Just (Object (Name nm'))
-                                                    r -> error (show (nm, r))
+                                                    r -> Just (Object (Name . head $ filter (\x -> elem "unamed package" x) r)) --to check
+                                                    --r -> error (show (nm, r))
 refineTypeWithType querier (Array t) = case refineTypeWithType querier t of
                                         Nothing -> Nothing
                                         Just t' -> Just (Array t')

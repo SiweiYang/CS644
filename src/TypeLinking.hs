@@ -29,6 +29,10 @@ typeLinkingCheck db imps (ENV su c) = tps
                 Method -> cts'
                 _ -> cts'
 
+filterNonFunction (Function _ _) = False
+filterNonFunction _ = True
+---------------------------------------------------------------------------------------------------------
+
 typeLinkingExpr :: TypeNode -> [[String]] -> SemanticUnit -> Expression -> [Type]
 typeLinkingExpr db imps su Null = [TypeNull]
 typeLinkingExpr db imps su (Unary _ expr _) = typeLinkingExpr db imps su expr
@@ -37,7 +41,7 @@ typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
     |   elem op ["<", ">", "<=", ">="] = if elem typeL [TypeByte, TypeShort, TypeInt] && elem typeR [TypeByte, TypeShort, TypeInt] then [TypeBoolean] else report
     |   elem op ["=", "=="] = if (typeL == typeR) || typeL == TypeNull || typeR == TypeNull then [TypeInt] else report
 	where
-		[typeL] = typeLinkingExpr db imps su exprL
+		[typeL] = filter filterNonFunction $ typeLinkingExpr db imps su exprL
 		[typeR] = typeLinkingExpr db imps su exprR
                 report = (error $ "Binary: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show typeL) ++ (show exprR) ++ (show typeR))
 typeLinkingExpr db imps su (ID nm _) = typeLinkingName db imps su nm
@@ -45,10 +49,10 @@ typeLinkingExpr db imps su This = [lookUpThis su]
 typeLinkingExpr db imps su (Value tp _ _) = [tp]
 typeLinkingExpr db imps su (InstanceOf tp expr _) = if typeLinkingExpr db imps su expr == [] then [] else [tp]
 
-typeLinkingExpr db imps su (FunctionCall exprf args _) = case fts of
-                                                            [] -> error ((show fts) ++ "func " ++ (show exprf) ++ (show args))
+typeLinkingExpr db imps su (FunctionCall exprf args _) = case fts' of
+                                                            [] -> error ((show fts) ++ "func " ++ (show exprf) ++ (show fts) ++ (show args))
                                                             (Function pt rt):_ -> [rt]
-                                                            _ -> error ((show fts) ++ "func " ++ (show exprf) ++ (show args))
+                                                            _ -> error ((show fts) ++ "func mul" ++ (show exprf) ++ (show args))
 --if and $ map (\(lt, lts) -> [lt] == lts) (zip pt ats) then [rt] else []
         where
                 --fts = [Function pt rt | Function pt rt <- typeLinkingExpr db imps su exprf]
@@ -74,8 +78,6 @@ typeLinkingExpr db imps su (NewArray tp exprd _ _) = if elem typeIdx [TypeByte, 
 typeLinkingExpr db imps su (Dimension _ expr _) = if elem typeIdx [TypeByte, TypeShort, TypeInt] then [typeIdx] else error "Array: index is not an integer"
         where
                 [typeIdx] = typeLinkingExpr db imps su expr
-{-
-
 
 typeLinkingExpr db imps su (ArrayAccess arr idx _) = case typeArr of
                                                         [tp] -> if elem typeIdx [TypeByte, TypeShort, TypeInt] then [tp] else error "Array: index is not an integer"
@@ -83,58 +85,59 @@ typeLinkingExpr db imps su (ArrayAccess arr idx _) = case typeArr of
 	where
 		typeArr = typeLinkingExpr db imps su arr 
 		[typeIdx] = typeLinkingExpr db imps su idx
+                
+                
+-- to check: allow use array of primitive type to cast
+typeLinkingExpr db imps su (CastA casttp dim expr _) = case typeExpr of
+                                                        [] -> error "CastA: cannot type linking the expression"
+                                                        _ -> if dim == Null then [casttp] else [Array casttp]
+        where
+            typeExpr = typeLinkingExpr db imps su expr
 
--}
+-- to do: is it possible cast from A to B?
+typeLinkingExpr db imps su (CastB castexpr expr _) = case typeExpr of
+                                                        [] -> error "CastB: cannot type linking the expression"
+                                                        _ -> if null typeCastExpr then error "CastB: cannot type linking the cast expression" else typeCastExpr
+        where
+            typeCastExpr = typeLinkingExpr db imps su castexpr
+            typeExpr = typeLinkingExpr db imps su expr
 
-{-
-                | CastA { casttype :: Type, dims :: Expression, expr :: Expression, depth :: Int }
-                | CastB { castexpr :: Expression, expr :: Expression, depth :: Int }
-                | CastC { castname :: Name, dims :: Expression, expr :: Expression, depth :: Int }
--}
+-- to check: must be (Name [])?
+typeLinkingExpr db imps su (CastC castnm _ expr _) = case typeExpr of
+                                                        [] -> error "CastC: cannot type linking the expression"
+                                                        _-> [Array typeCastName]
+        where
+            [typeCastName] = typeLinkingName db imps su castnm
+            typeExpr = typeLinkingExpr db imps su expr
+            
 
 typeLinkingExpr db imps su _ = [TypeVoid]
 
-{-
-Name.String
-String --> Type : Object [String] { from DB or Symbol Table }
-Object [String] --> a Class --> DB --> next Object
--}
+---------------------------------------------------------------------------------------------------------
 
 typeLinkingName :: TypeNode -> [[String]] -> SemanticUnit -> Name -> [Type]
-typeLinkingName db imps su (Name cname@(nm:remain)) = case syms of
-                                                    [] -> case withThis of
-                                                            [] -> lookUpDB db imps (nm:remain)
-                                                            _ -> map (symbolToType . symbol) withThis
-                                                    _ -> if remain == [] then map symbolToType syms else map (symbolToType . symbol) nodes
+typeLinkingName db imps su (Name cname@(nm:remain)) = case syms' of
+                                                                    [] -> case withThis of
+                                                                            [] -> lookUpDB db imps (nm:remain)
+                                                                            _ -> map (symbolToType . symbol) withThis
+                                                                    _ -> syms'
 	where
 		syms = lookUpSymbolTable su nm
+                syms' = if remain == [] then map symbolToType syms else map (symbolToType . symbol) nodes
+                
                 nodes = concat $ map (traverseInstanceEntry' db db) (map (\sym -> (typeToName . localType $ sym) ++ remain) syms)
                 
                 Just thisNode = getTypeEntry db (typeToName . lookUpThis $ su)
                 withThis = traverseInstanceEntry' db thisNode cname
                 
 
-{-
-A.B.C.D
-
-objectType :: TypeNode -> [Symbol] -> [[String]] -> String -> Type
-objectType db st imps nm = 
-	where
-		inST = lookUpSymbolTable st nm
-		inDB = lookUpTypeDB 
-
-objectTypeNext :: TypeNode -> Name -> String -> Type
-
-lookUpTypeDB :: TypeNode -> [[String]] -> String -> Symbol
-lookUpTypeDB st ast 
-
--}
-
 symbolToType :: Symbol -> Type
 symbolToType (SYM _ _ t) = t
 symbolToType (CL _ _ t) = t
 symbolToType (IT _ _ t) = t
 symbolToType (FUNC _ _ ps rt) = Function ps  rt
+
+---------------------------------------------------------------------------------------------------------
 
 lookUpThis :: SemanticUnit -> Type
 lookUpThis su = if kind su == Class then Object (Name (scope su)) else lookUpThis (inheritFrom su)

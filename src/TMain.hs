@@ -161,7 +161,7 @@ main' fileNames = do
   let fileEnvironmentWithImports = map (\x -> (visibleImports $ fst x, buildEnvironment $ fst x, snd x)) fileAsts
 
   let (validEnvironments, invalidEnvironments) = partition (\x -> case (fst x) of {ENVE -> False; _ -> True}) fileEnvironments
-  --hPutStrLn stderr (show (map (\(imp, env, fn) -> env) (filter (\(imp, env, fn) -> reverse (take (length "String.java") (reverse fn)) == "String.java") fileEnvironmentWithImports)))
+  --hPutStrLn stderr (show (map (\(imp, env, fn) -> env) fileEnvironmentWithImports))
   
   if not $ null invalidEnvironments then do
     hPutStrLn stderr $ "Environment error in file" ++ (snd $ head invalidEnvironments)
@@ -173,21 +173,28 @@ main' fileNames = do
   --hPutStrLn stderr (show (getTypeEntry typeDB ["java","io","PrintStream"]))
   --hPutStrLn stderr (show (map (getTypeEntry typeDB) [["java","io","PrintStream"], ["java","io","OutputStream"]]))
   --let np = (inheritFromNodes (fromJust (getTypeEntry typeDB ["java","io","PrintStream"])) (map fromJust (map (getTypeEntry typeDB) [["java","io","PrintStream"], ["java","io","OutputStream"]])))
-  
+  --hPutStrLn stderr (show typeDB)
   --hPutStrLn stderr (show (subNodes np))
   --hPutStrLn stderr (show $ subNodes $ fromJust (getTypeEntry (fromJust (updateNode typeDB ["java","io","PrintStream"] np)) ["java","io","PrintStream"]))
-  
+
   
   --hPutStrLn stderr (show $ subNodes $ fromJust (getTypeEntry typeDB' ["java","io","PrintStream"]))
   --hPutStrLn stderr (show typeDB)
   let listImpEnvFns = map (\(imp, env, fn) -> (imp, refineEnvironmentWithType (traverseTypeEntryWithImports typeDB imp) (Root []) env, fn)) fileEnvironmentWithImports
+  --hPutStrLn stderr (show fileEnvironmentWithImports)
   --hPutStrLn stderr (show (map (\(imp, env, fn) -> env) (filter (\(imp, env, fn) -> reverse (take (length "String.java") (reverse fn)) == "String.java") listImpEnvFns)))
-  let Just db = (buildInstanceEntryFromEnvironments nativeTypes (map (\(imp, Just env, fn) -> env) listImpEnvFns))
-  let Just db' = updateDBWithInheritance db ["java","io","PrintStream"] [["java","io","PrintStream"], ["java","io","OutputStream"]]
   --hPutStrLn stderr (show listImpEnvFns)
+  let Just db = (buildInstanceEntryFromEnvironments nativeTypes (map (\(imp, Just env, fn) -> env) listImpEnvFns))
   
+  let Just db' = updateDBWithInheritance db ["java","io","PrintStream"] [["java","io","PrintStream"], ["java","io","OutputStream"]]
+  
+  --let Just db' = Just db
+  
+  --hPutStrLn stderr (show listImpEnvFns)
+  --hPutStrLn stderr (show db)
   --hPutStrLn stderr (show (traverseInstanceEntry db (traverseFieldEntryWithImports db [["unnamed package","*"],["foo","bar"], ["java","lang","*"]] ["bar"]) ["method"]))
-  --hPutStrLn stderr (show (lookUpDB db [["foo","bar"]] ["bar", "method"]))  
+  hPutStrLn stderr (show (lookUpDB db' [] ["test", "A"]))
+  hPutStrLn stderr (show (lookUpDB db' [] ["test", "A", "foo"]))
   --hPutStrLn stderr (show (lookUpDB db [["unnamed package","*"],["foo","bar"], ["java","lang","*"]] ["bar", "method"]))
   
   --hPutStrLn stderr (show (map (\(imp, Just env, fn) -> typeLinkingCheck db imp env) listImpEnvFns))
@@ -196,7 +203,9 @@ main' fileNames = do
   --hPutStrLn stderr (show (map subNodes $ traverseInstanceEntry' db' db' ["java","lang","String"]))
   --hPutStrLn stderr (show (traverseInstanceEntry' db' db' ["java","lang","String","chars"]))
   --let failures = filter (\(imp, Just env, fn) ->  typeLinkingCheck db' imp env == []) (filter (\(imp, env, fn) -> reverse (take (length "String.java") (reverse fn)) == "String.java") listImpEnvFns)
+  --hPutStrLn stderr (show listImpEnvFns)
   let failures = filter (\(imp, Just env, fn) ->  typeLinkingCheck db' imp env == []) listImpEnvFns
+  -- HERE Just env can be nothing
 
   if length failures > 0 then do
     hPutStrLn stderr "Environment building error!"
