@@ -185,9 +185,9 @@ isInterface _ = False
 visibleImports :: CompilationUnit -> [[String]]
 visibleImports unit =
     let (ownPackage, ownClass) = case package unit of
-            Just pkgName -> ([pkgName ++ ["*"]], [])
+            Just pkgName -> ([pkgName ++ ["*"]], [pkgName ++ [(unitName $ definition unit)]])
             --Nothing -> ([], [["unnamed package", (unitName . definition) unit]])
-            Nothing -> ([["unnamed package", "*"]], [])
+            Nothing -> ([["unnamed package", "*"]], [["unnamed package", (unitName $ definition unit)]])
         
         importedClasses = [cname | cname <- imports unit, last cname /= "*"]
         importedPackages = [cname | cname <- imports unit, last cname == "*"]

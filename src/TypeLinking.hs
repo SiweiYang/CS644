@@ -25,9 +25,18 @@ typeLinkingCheck db imps (ENV su c) = tps
                 WhileBlock expr -> if typeLinkingExpr db imps su expr == [] then [] else cts'
                 IfBlock expr -> if typeLinkingExpr db imps su expr == [] then [] else cts'
                 
-                Class -> cts'
+                Class -> case typeLinkingPrefix db imps (scope su) of
+                            [] -> cts'
+                            _ -> []
                 Method -> cts'
                 _ -> cts'
+
+typeLinkingPrefix :: TypeNode -> [[String]] -> [String] -> [[String]]
+typeLinkingPrefix db imps cname = concat tps
+    where
+        ps = map (\i -> (take i cname)) [1..(length $ init cname)]
+        tps = map (traverseTypeEntryWithImports db imps) ps
+
 
 filterNonFunction (Function _ _) = False
 filterNonFunction _ = True
@@ -50,9 +59,9 @@ typeLinkingExpr db imps su (Value tp _ _) = [tp]
 typeLinkingExpr db imps su (InstanceOf tp expr _) = if typeLinkingExpr db imps su expr == [] then [] else [tp]
 
 typeLinkingExpr db imps su (FunctionCall exprf args _) = case fts' of
-                                                            [] -> error ((show fts) ++ "func " ++ (show exprf) ++ (show fts) ++ (show args))
+                                                            [] -> []--error ("func " ++ (show exprf) ++ (show fts) ++ (show args))
                                                             (Function pt rt):_ -> [rt]
-                                                            _ -> error ((show fts) ++ "func mul" ++ (show exprf) ++ (show args))
+                                                            _ -> error ("func mul" ++ (show exprf) ++ (show args))
 --if and $ map (\(lt, lts) -> [lt] == lts) (zip pt ats) then [rt] else []
         where
                 --fts = [Function pt rt | Function pt rt <- typeLinkingExpr db imps su exprf]
@@ -60,57 +69,65 @@ typeLinkingExpr db imps su (FunctionCall exprf args _) = case fts' of
                 fts' = [Function pt rt | ft@(Function pt rt) <- fts, length pt == length args]
                 ats = map (typeLinkingExpr db imps su) args
 
-typeLinkingExpr db imps su expr@(Attribute s m _) = if nodes /= [] then map (symbolToType . symbol) nodes else error ("Attr " ++ (show expr) ++ (show ((typeToName tp)++[m])))
+typeLinkingExpr db imps su expr@(Attribute s m _) = case typeLinkingExpr db imps su s of
+                                                        [] -> []-- error ("Attr " ++ (show s) ++ (show m))
+                                                        tp:_ -> if nodes /= [] then map (symbolToType . symbol) nodes else error ("Attr " ++ (show expr) ++ (show ((typeToName tp)++[m])))
 	where
 		[tp] = typeLinkingExpr db imps su s
                 --should handle Class and instance differently
                 nodes = traverseInstanceEntry' db db ((typeToName tp)++[m])
 
 -- import rule plays here
-typeLinkingExpr db imps su (NewObject tp args dp) = [Object (Name tp')]
-        where
-                tp':_ = case traverseTypeEntryWithImports db imps (typeToName tp) of
-                            [] -> error $ (show tp) ++ (show args)
-                            tps -> tps
+typeLinkingExpr db imps su (NewObject tp args dp) = case typeLinkingName db imps su (Name (typeToName tp)) of
+                                                        [] -> []--error $ (show tp) ++ (show args)
+                                                        tp':_ -> let cname = typeToName tp' in map (symbolToType . symbol) (traverseFieldEntryWithImports db imps (cname ++ [last cname]))
 -- to check param types
 
 typeLinkingExpr db imps su (NewArray tp exprd _ _) = if elem typeIdx [TypeByte, TypeShort, TypeInt] then [Array tp] else error "Array: index is not an integer"
         where
                 [typeIdx] = typeLinkingExpr db imps su exprd
 
-typeLinkingExpr db imps su (Dimension _ expr _) = if elem typeIdx [TypeByte, TypeShort, TypeInt] then [typeIdx] else error "Array: index is not an integer"
+typeLinkingExpr db imps su (Dimension _ expr _) = case typeIdx of
+                                                        [tp] -> if elem tp [TypeByte, TypeShort, TypeInt] then [tp] else []--error "Array: index is not an integer"
+                                                        _ -> []--error "Array Index Type error"
         where
-                [typeIdx] = typeLinkingExpr db imps su expr
+                typeIdx = typeLinkingExpr db imps su expr
 
 typeLinkingExpr db imps su (ArrayAccess arr idx _) = case typeArr of
-                                                        [tp] -> if elem typeIdx [TypeByte, TypeShort, TypeInt] then [tp] else error "Array: index is not an integer"
-                                                        _ -> error "Array Type cannot be found"
+                                                        [tp] -> case typeIdx of
+                                                                    [tp'] -> if elem tp' [TypeByte, TypeShort, TypeInt] then [tp] else error "Array: index is not an integer"
+                                                                    _ -> []--error "Array Index Type error"
+                                                        _ -> []--error "Array Type cannot be found"
 	where
 		typeArr = typeLinkingExpr db imps su arr 
-		[typeIdx] = typeLinkingExpr db imps su idx
+		typeIdx = typeLinkingExpr db imps su idx
                 
                 
 -- to check: allow use array of primitive type to cast
 typeLinkingExpr db imps su (CastA casttp dim expr _) = case typeExpr of
-                                                        [] -> error "CastA: cannot type linking the expression"
+                                                        [] -> []--error "CastA: cannot type linking the expression"
                                                         _ -> if dim == Null then [casttp] else [Array casttp]
         where
             typeExpr = typeLinkingExpr db imps su expr
 
 -- to do: is it possible cast from A to B?
 typeLinkingExpr db imps su (CastB castexpr expr _) = case typeExpr of
-                                                        [] -> error "CastB: cannot type linking the expression"
-                                                        _ -> if null typeCastExpr then error "CastB: cannot type linking the cast expression" else typeCastExpr
+                                                        [] -> []--error "CastB: cannot type linking the expression"
+                                                        _ -> case typeCastExpr of
+                                                                [] -> []--error "CastB: cannot type linking the cast expression"
+                                                                _ -> typeCastExpr
         where
             typeCastExpr = typeLinkingExpr db imps su castexpr
             typeExpr = typeLinkingExpr db imps su expr
 
 -- to check: must be (Name [])?
 typeLinkingExpr db imps su (CastC castnm _ expr _) = case typeExpr of
-                                                        [] -> error "CastC: cannot type linking the expression"
-                                                        _-> [Array typeCastName]
+                                                        [] -> []--error "CastC: cannot type linking the expression"
+                                                        _-> case tps of
+                                                                [] -> []
+                                                                tp:_ -> [Array tp]
         where
-            [typeCastName] = typeLinkingName db imps su castnm
+            tps = typeLinkingName db imps su castnm
             typeExpr = typeLinkingExpr db imps su expr
             
 
@@ -155,11 +172,12 @@ lookUpSymbolTable su nm = case cur of
 		cur = filter (\s -> (localName s) == nm) st
 
 lookUpDB :: TypeNode -> [[String]] -> [String] -> [Type]
-lookUpDB db imps cname = map (symbolToType . symbol) $ nub tps
+lookUpDB db imps cname = if length tps'' < 2 then map (symbolToType . symbol) $ nub tps else []--error "multiple matches"
         where
             ps = map (\i -> (take i cname, drop i cname)) [1..(length cname)]
             tps = concat $ map (\(pre, post) -> traverseInstanceEntry db (traverseFieldEntryWithImports db imps pre) post) ps
-            tps' = []
+            tps' = traverseTypeEntryWithImports db imps cname
+            tps'' = [tp | tp <- tps', not $ elem tp imps]
 
 ------------------------------------------------------------------------------------
 
@@ -183,4 +201,4 @@ checkSameNameInSymbolTable st = length nms /= (length . nub) nms || length funcs
     where
         syms = [SYM modis nm tp | SYM modis nm tp <- st]
         nms = map localName syms        
-        funcs = [(ln, pt, lt) | f@(FUNC _ ln pt lt) <- st]
+        funcs = [(ln, pt) | f@(FUNC _ ln pt lt) <- st]

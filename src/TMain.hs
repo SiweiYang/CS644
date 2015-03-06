@@ -127,8 +127,8 @@ main' fileNames = do
   let astByFiles = map (\(tokens, file) -> (map tokenToAST tokens, file)) tokenByFilesValid
 
   -- PARSER
-  --dfa <- readLR1
-  dfa <- readDFA
+  dfa <- readLR1
+  --dfa <- readDFA
   let resultByFiles = map (\(ast, file) -> (run (dfa, ast ++ [AST "EOF" []]), file)) astByFiles
 
   let (validParsed, invalidParsed) = partition (\x -> (length . snd $ fst x)==0) resultByFiles

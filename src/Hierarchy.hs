@@ -25,11 +25,13 @@ checkHierarchy unit typeDB
         importError = checkImports unit typeDB
 
 checkImports :: CompilationUnit -> TypeNode -> HierarchyError
-checkImports unit@(Comp _ imports _ _) typeDB
+checkImports unit@(Comp _ imports def _) typeDB
   | any null importedPackages = Just "Invalid import - package not found"
+  | visibleNames /= nub visibleNames = Just "Invalid import - name conflict"
   | otherwise = Nothing
-  where unitImports = visibleImports unit
+  where unitImports = nub $ visibleImports unit
         importedPackages = map (traverseTypeEntryWithImports typeDB unitImports) imports
+        visibleNames = [last cname | cname <- unitImports, last cname /= "*"]
 
 checkImplements :: CompilationUnit -> TypeNode -> HierarchyError
 checkImplements unit@(Comp _ _ (CLS modifiers clsName _ implemented _ _ _ _) _) typeDB

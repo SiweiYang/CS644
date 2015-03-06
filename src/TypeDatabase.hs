@@ -89,8 +89,7 @@ traverseTypeEntry (TN sym nodes) ["*"] = Just (TN (PKG []) (filter isConcreteNod
 traverseTypeEntry (TN sym nodes) (nm:remain) = case [node | node <- nodes, (localName . symbol) node == nm] of
                                                 [] -> Nothing
                                                 [node] -> traverseTypeEntry node remain
-                                                ns -> error (show ns)
-                                                --HERE!!!!!!!
+                                                _ -> Nothing
 
 traverseFieldEntryWithImports :: TypeNode -> [[String]] -> [String] -> [TypeNode]
 traverseFieldEntryWithImports tn imps query = nub . concat $ (flds ++ funcs)
