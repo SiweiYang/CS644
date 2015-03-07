@@ -8,11 +8,13 @@ import AST
 
 typeLinkingCheck :: TypeNode -> [[String]] -> Environment -> [Type]
 typeLinkingCheck _ _ ENVE = [TypeVoid]
-typeLinkingCheck db imps (ENV su c) = tps
+typeLinkingCheck db imps (ENV su c) = if elem Nothing imps' then [] else tps
     where
         (SU cname kd st inhf) = su
         [sym] = [sym | sym <- symbolTable inhf, localName sym == last cname]
         SYM mds ln lt = sym
+        
+        imps' = map (traverseTypeEntry db) imps
         
         cts = map (\env -> typeLinkingCheck db imps env) c
         cts' = if and $ map (\tps -> tps /= []) cts then [TypeVoid] else []

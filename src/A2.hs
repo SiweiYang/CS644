@@ -107,6 +107,12 @@ main = do
   let Just typeDB = mtypeDB
   
   let listImpEnvFns = map (\(imp, env, fn) -> (imp, refineEnvironmentWithType (traverseTypeEntryWithImports typeDB imp) (Root []) env, fn)) fileEnvironmentWithImports
+  if length [Nothing | (_, Nothing, _) <- listImpEnvFns] > 0 then do
+    hPutStrLn stderr "Environment Refine error!"
+    exitWith (ExitFailure 42)
+  else do
+    hPutStrLn stderr "Environment Refine: OK"
+
   let mdb = (buildInstanceEntryFromEnvironments nativeTypes (map (\(imp, Just env, fn) -> env) listImpEnvFns))
   
   if isNothing mdb then do

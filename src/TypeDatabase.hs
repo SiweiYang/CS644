@@ -85,7 +85,7 @@ traverseTypeEntry tn [] = case symbol tn of
                             CL _ _ _ _ -> Just (TN (PKG []) [tn])
                             IT _ _ _  _ -> Just (TN (PKG []) [tn])
                             _ -> Nothing
-traverseTypeEntry (TN sym nodes) ["*"] = Just (TN (PKG []) (filter isConcreteNode nodes))
+traverseTypeEntry (TN sym nodes) ["*"] = let nodes' = filter isConcreteNode nodes in if nodes' == [] then Nothing else Just (TN (PKG []) (filter isConcreteNode nodes))
 traverseTypeEntry (TN sym nodes) (nm:remain) = case [node | node <- nodes, (localName . symbol) node == nm] of
                                                 [] -> Nothing
                                                 [node] -> traverseTypeEntry node remain
