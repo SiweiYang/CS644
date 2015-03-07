@@ -150,7 +150,9 @@ functionClobbered :: [Symbol] -> Symbol -> Bool
 functionClobbered definitions fun =
   let funEqual a b = (localName a == localName b) &&
                        ("final" `elem` symbolModifiers a && parameterTypes a == parameterTypes b ||
-                        ("static" `elem` (symbolModifiers a) && (parameterTypes a == parameterTypes b)) ||
+                        ("static" `elem` symbolModifiers b &&
+                         not ("static" `elem` (symbolModifiers a)) &&
+                         parameterTypes a == parameterTypes b) ||
                         ((localType a) /= (localType b)))
   in any (funEqual fun) definitions
 
