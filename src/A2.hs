@@ -89,14 +89,6 @@ main = do
   else do
     hPutStrLn stderr "Environment: OK"
 
-  -- Scope Checking
-  let scopeCheck = filter (checkSameNameInEnvironment . fst) validEnvironments
-  if not $ null scopeCheck then do
-    hPutStrLn stderr $ "Scope checking error in file" ++ (snd $ head scopeCheck)
-    exitWith (ExitFailure 42)
-  else do
-    hPutStrLn stderr "Scope Checking: OK"
-
   -- Type Linking
   let mtypeDB = buildTypeEntryFromEnvironments nativeTypes (map fst validEnvironments)
   if isNothing mtypeDB then do
@@ -112,6 +104,14 @@ main = do
     exitWith (ExitFailure 42)
   else do
     hPutStrLn stderr "Environment Refine: OK"
+
+  -- Scope Checking
+  let scopeCheck = filter (\(imp, Just env, fn) -> checkSameNameInEnvironment env) listImpEnvFns
+  if not $ null scopeCheck then do
+    hPutStrLn stderr $ "Scope checking error in files: " ++ (show (map (\(imp, Just env, fn) -> fn) scopeCheck))
+    exitWith (ExitFailure 42)
+  else do
+    hPutStrLn stderr "Scope Checking: OK"
 
   let mdb = (buildInstanceEntryFromEnvironments nativeTypes (map (\(imp, Just env, fn) -> env) listImpEnvFns))
   

@@ -176,7 +176,13 @@ main' fileNames = do
     hPutStrLn stderr "Environment DB: OK"
   let Just typeDB = mtypeDB
   
-  hPutStrLn stderr (show (map (\(imp, env, fn) -> (imp, fn)) fileEnvironmentWithImports))
+  -- Scope Checking
+  let scopeCheck = filter (checkSameNameInEnvironment . fst) validEnvironments
+  if not $ null scopeCheck then do
+    hPutStrLn stderr $ "Scope checking error in file" ++ (snd $ head scopeCheck)
+    exitWith (ExitFailure 42)
+  else do
+    hPutStrLn stderr "Scope Checking: OK"
   
   let listImpEnvFns = map (\(imp, env, fn) -> (imp, refineEnvironmentWithType (traverseTypeEntryWithImports typeDB imp) (Root []) env, fn)) fileEnvironmentWithImports
   let mdb = (buildInstanceEntryFromEnvironments nativeTypes (map (\(imp, Just env, fn) -> env) listImpEnvFns))

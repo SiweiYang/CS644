@@ -83,7 +83,7 @@ typeLinkingExpr db imps su expr@(Attribute s m _) = case typeLinkingExpr db imps
 
 -- import rule plays here
 typeLinkingExpr db imps su (NewObject tp args dp) = case lookUpDB db imps su (typeToName tp) of
-                                                        [] -> error $ (show tp) ++ (show args) ++ (show imps)
+                                                        [] -> [] --error $ "New Object: " ++ (show tp) ++ (show args) ++ (show imps)
                                                         tp':_ -> [tp']--let cname = typeToName tp' in map (symbolToType . symbol) (traverseFieldEntryWithImports db imps (cname ++ [last cname]))
 -- to check param types
 
@@ -164,7 +164,7 @@ symbolToType (FUNC _ _ ps rt) = Function ps  rt
 ---------------------------------------------------------------------------------------------------------
 
 lookUpThis :: SemanticUnit -> Type
-lookUpThis su = if kind su == Class then Object (Name (scope su)) else lookUpThis (inheritFrom su)
+lookUpThis su = if elem (kind su) [Class, Interface] then Object (Name (scope su)) else lookUpThis (inheritFrom su)
 
 lookUpSymbolTable :: SemanticUnit -> String -> [Symbol]
 lookUpSymbolTable (Root _) str = []
@@ -177,7 +177,7 @@ lookUpSymbolTable su nm = case cur of
 
 lookUpDB :: TypeNode -> [[String]] -> SemanticUnit -> [String] -> [Type]
 lookUpDB db imps su cname
-    | length tpsExplicit > 0 = map (Object . Name) $ tpsExplicit
+    | length tpsExplicit > 0 = if length tpsFromPrefix > 0 then [] else map (Object . Name) $ tpsExplicit
     | length tpsSamePackage > 0 = map (Object . Name) $ tpsSamePackage
     | length tpsOnDemand > 1 = []
     | otherwise = (map (symbolToType . symbol) $ nub tps) ++ (map (Object . Name) tps')
@@ -186,6 +186,7 @@ lookUpDB db imps su cname
             tps = concat $ map (\(pre, post) -> traverseInstanceEntry db (traverseFieldEntryWithImports db imps pre) post) ps
             tps' = traverseTypeEntryWithImports db imps cname
             tpsExplicit = nub [tp | tp <- tps', elem tp imps]
+            tpsFromPrefix = concat $ map (traverseTypeEntryWithImports db imps) (map fst (init ps))
             tpsSamePackage = nub [tp | tp <- tps', (init tp) == (init ((typeToName . lookUpThis) su))]
             tpsOnDemand = nub [tp | tp <- tps', not $ elem tp imps]
 
@@ -203,12 +204,12 @@ checkSameNameUp (Root _) accst = checkSameNameInSymbolTable accst
 checkSameNameUp su@(SU _ kd st parent) accst = if kd `elem` [Method, Interface, Class] then (res || checkSameNameUp parent []) else checkSameNameUp parent nextst
     where
         nextst = accst ++ st
-        res = checkSameNameInSymbolTable nextst
+        res = functionCheck || checkSameNameInSymbolTable nextst
         
-        functionCheck = if elem kd [Interface, Class] then length cons /= (length . nub) cons || length funcs /= (length . nub) funcs else False
+        functionCheck = length cons /= (length . nub) cons || length funcs /= (length . nub) funcs
         cname = lookUpThis su
-        cons = [(ln, pt) | f@(FUNC _ ln pt lt) <- st, lt == cname]
-        funcs = [(ln, pt) | f@(FUNC _ ln pt lt) <- st, lt /= cname]
+        cons = [(ln, pt) | f@(FUNC _ ln pt lt) <- st, (last . typeToName) lt == (last . typeToName) cname]
+        funcs = [(ln, pt) | f@(FUNC _ ln pt lt) <- st, (last . typeToName) lt /= (last . typeToName) cname]
 
 
 checkSameNameInSymbolTable :: [Symbol] -> Bool
