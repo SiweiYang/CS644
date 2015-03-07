@@ -80,6 +80,14 @@ dumpDB tn@(TN sym nodes) = map (typeToName . localType . symbol) (dumpDBNodes tn
 dumpDBNodes :: TypeNode -> [TypeNode]
 dumpDBNodes tn@(TN sym nodes) = if isConcreteNode tn then [tn] else concat $ map dumpDBNodes nodes
 
+traverseNodeEntry :: TypeNode -> [String] -> Maybe TypeNode
+traverseNodeEntry tn [] = traverseTypeEntry tn []
+traverseNodeEntry tn@(TN sym nodes) ["*"] = Just tn
+traverseNodeEntry tn@(TN sym nodes) (nm:remain) = case [node | node <- nodes, (localName . symbol) node == nm] of
+                                                [] -> Nothing
+                                                [node] -> traverseNodeEntry node remain
+                                                _ -> Nothing
+
 traverseTypeEntry :: TypeNode -> [String] -> Maybe TypeNode
 traverseTypeEntry tn [] = case symbol tn of
                             CL _ _ _ _ -> Just (TN (PKG []) [tn])

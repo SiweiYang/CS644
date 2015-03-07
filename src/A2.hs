@@ -135,7 +135,7 @@ main = do
   -- Update DB with inheritance relations
   --hPutStrLn stderr (show fileNames)
   let cn = dumpDBNodes db
-  let relations = [((typeToName . localType . symbol) node, map (typeToName . localType . symbol) (getClassHierarchyForSymbol node db)) | node <- cn]
+  let relations = [((typeToName . localType . symbol) node, ["java","lang","Object"]:(map (typeToName . localType . symbol) (getClassHierarchyForSymbol node db))) | node <- cn]
   --hPutStrLn stderr (show relations)
   
   let mdb' = updateDBWithInheritances db relations

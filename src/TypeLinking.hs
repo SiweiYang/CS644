@@ -14,7 +14,7 @@ typeLinkingCheck db imps (ENV su c) = if elem Nothing imps' then [] else tps
         [sym] = [sym | sym <- symbolTable inhf, localName sym == last cname]
         SYM mds ln lt = sym
         
-        imps' = map (traverseTypeEntry db) imps
+        imps' = map (traverseNodeEntry db) imps
         
         cts = map (\env -> typeLinkingCheck db imps env) c
         cts' = if and $ map (\tps -> tps /= []) cts then [TypeVoid] else []
@@ -28,8 +28,7 @@ typeLinkingCheck db imps (ENV su c) = if elem Nothing imps' then [] else tps
                 IfBlock expr -> if typeLinkingExpr db imps su expr == [] then [] else cts'
                 
                 Class -> case typeLinkingPrefix db imps (scope su) of
-                            [] -> cts'
-                            _ -> []
+                            _ -> cts'
                 Method -> cts'
                 _ -> cts'
 
@@ -53,7 +52,10 @@ typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
     |   elem op ["=", "=="] = if (typeL == typeR) || typeL == TypeNull || typeR == TypeNull then [TypeInt] else report
 	where
 		[typeL] = filter filterNonFunction $ typeLinkingExpr db imps su exprL
-		[typeR] = typeLinkingExpr db imps su exprR
+		[typeR] = case filter filterNonFunction $ typeLinkingExpr db imps su exprR of
+                            [] -> error $ "Binary: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show typeL) ++ (show exprR)
+                            [r] -> [r]
+                            a -> error $ "Binary: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show typeL) ++ (show exprR) ++ (show a)
                 report = (error $ "Binary: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show typeL) ++ (show exprR) ++ (show typeR))
 typeLinkingExpr db imps su (ID nm _) = typeLinkingName db imps su nm
 typeLinkingExpr db imps su This = [lookUpThis su]
@@ -80,9 +82,9 @@ typeLinkingExpr db imps su expr@(Attribute s m _) = case typeLinkingExpr db imps
                 nodes = traverseInstanceEntry' db db ((typeToName tp)++[m])
 
 -- import rule plays here
-typeLinkingExpr db imps su (NewObject tp args dp) = case typeLinkingName db imps su (Name (typeToName tp)) of
-                                                        [] -> []--error $ (show tp) ++ (show args)
-                                                        tp':_ -> let cname = typeToName tp' in map (symbolToType . symbol) (traverseFieldEntryWithImports db imps (cname ++ [last cname]))
+typeLinkingExpr db imps su (NewObject tp args dp) = case lookUpDB db imps su (typeToName tp) of
+                                                        [] -> error $ (show tp) ++ (show args) ++ (show imps)
+                                                        tp':_ -> [tp']--let cname = typeToName tp' in map (symbolToType . symbol) (traverseFieldEntryWithImports db imps (cname ++ [last cname]))
 -- to check param types
 
 typeLinkingExpr db imps su (NewArray tp exprd _ _) = if elem typeIdx [TypeByte, TypeShort, TypeInt] then [Array tp] else error "Array: index is not an integer"
@@ -140,7 +142,7 @@ typeLinkingExpr db imps su _ = [TypeVoid]
 typeLinkingName :: TypeNode -> [[String]] -> SemanticUnit -> Name -> [Type]
 typeLinkingName db imps su (Name cname@(nm:remain)) = case syms' of
                                                                     [] -> case withThis of
-                                                                            [] -> lookUpDB db imps (nm:remain)
+                                                                            [] -> lookUpDB db imps su(nm:remain)
                                                                             _ -> map (symbolToType . symbol) withThis
                                                                     _ -> syms'
 	where
@@ -173,13 +175,19 @@ lookUpSymbolTable su nm = case cur of
 		(SU _ _ st parent) = su
 		cur = filter (\s -> (localName s) == nm) st
 
-lookUpDB :: TypeNode -> [[String]] -> [String] -> [Type]
-lookUpDB db imps cname = if length tps'' < 2 then map (symbolToType . symbol) $ nub tps else []--error "multiple matches"
+lookUpDB :: TypeNode -> [[String]] -> SemanticUnit -> [String] -> [Type]
+lookUpDB db imps su cname
+    | length tpsExplicit > 0 = map (Object . Name) $ tpsExplicit
+    | length tpsSamePackage > 0 = map (Object . Name) $ tpsSamePackage
+    | length tpsOnDemand > 1 = []
+    | otherwise = (map (symbolToType . symbol) $ nub tps) ++ (map (Object . Name) tps')
         where
             ps = map (\i -> (take i cname, drop i cname)) [1..(length cname)]
             tps = concat $ map (\(pre, post) -> traverseInstanceEntry db (traverseFieldEntryWithImports db imps pre) post) ps
             tps' = traverseTypeEntryWithImports db imps cname
-            tps'' = [tp | tp <- tps', not $ elem tp imps]
+            tpsExplicit = nub [tp | tp <- tps', elem tp imps]
+            tpsSamePackage = nub [tp | tp <- tps', (init tp) == (init ((typeToName . lookUpThis) su))]
+            tpsOnDemand = nub [tp | tp <- tps', not $ elem tp imps]
 
 ------------------------------------------------------------------------------------
 
@@ -192,15 +200,19 @@ checkSameNameInEnvironment (ENV su chs) = or $ map checkSameNameInEnvironment ch
 
 checkSameNameUp :: SemanticUnit -> [Symbol] -> Bool
 checkSameNameUp (Root _) accst = checkSameNameInSymbolTable accst
-checkSameNameUp (SU _ kd st parent) accst = if kd `elem` [Method, Interface, Class] then (res || checkSameNameUp parent []) else checkSameNameUp parent nextst
+checkSameNameUp su@(SU _ kd st parent) accst = if kd `elem` [Method, Interface, Class] then (res || checkSameNameUp parent []) else checkSameNameUp parent nextst
     where
         nextst = accst ++ st
         res = checkSameNameInSymbolTable nextst
+        
+        functionCheck = if elem kd [Interface, Class] then length cons /= (length . nub) cons || length funcs /= (length . nub) funcs else False
+        cname = lookUpThis su
+        cons = [(ln, pt) | f@(FUNC _ ln pt lt) <- st, lt == cname]
+        funcs = [(ln, pt) | f@(FUNC _ ln pt lt) <- st, lt /= cname]
 
 
 checkSameNameInSymbolTable :: [Symbol] -> Bool
-checkSameNameInSymbolTable st = length nms /= (length . nub) nms || length funcs /= (length . nub) funcs
+checkSameNameInSymbolTable st = length nms /= (length . nub) nms
     where
         syms = [SYM modis nm tp | SYM modis nm tp <- st]
-        nms = map localName syms        
-        funcs = [(ln, pt) | f@(FUNC _ ln pt lt) <- st]
+        nms = map localName syms

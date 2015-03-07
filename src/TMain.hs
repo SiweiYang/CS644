@@ -125,14 +125,14 @@ main' fileNames = do
     exitWith (ExitFailure 42)
 
   let astByFiles = map (\(tokens, file) -> (map tokenToAST tokens, file)) tokenByFilesValid
-
   -- PARSER
   dfa <- readLR1
   --dfa <- readDFA
   let resultByFiles = map (\(ast, file) -> (run (dfa, ast ++ [AST "EOF" []]), file)) astByFiles
-
+  
+  hPutStrLn stderr (show (map (snd . fst) resultByFiles))
   let (validParsed, invalidParsed) = partition (\x -> (length . snd $ fst x)==0) resultByFiles
-
+  
   if null invalidParsed then do
     hPutStrLn stderr "Parsing OK"
   else do
@@ -140,7 +140,6 @@ main' fileNames = do
     hPutStrLn stderr "Parse error!"
     hPutStrLn stderr $ "Unexpected token following: " ++ (show (content . head . units . fst . fst $ head invalidParsed))
     exitWith (ExitFailure 42)
-
 
   -- AST GENERATION
   let fileAsts = map (\x -> ((buildAST . units . fst $ fst x), snd x)) validParsed
@@ -202,9 +201,9 @@ main' fileNames = do
   -- Update DB with inheritance relations
   hPutStrLn stderr (show fileNames)
   let cn = dumpDBNodes db
-  let relations = [((typeToName . localType . symbol) node, map (typeToName . localType . symbol) (getClassHierarchyForSymbol node db)) | node <- cn]
+  let relations = [((typeToName . localType . symbol) node, ["java","lang","Object"]:(map (typeToName . localType . symbol) (getClassHierarchyForSymbol node db))) | node <- cn]
   
-  
+  hPutStrLn stderr (show relations)
   let mdb' = updateDBWithInheritances db relations
   
   if isNothing mdb' then do
