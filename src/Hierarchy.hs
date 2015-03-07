@@ -61,7 +61,9 @@ checkExtends unit@(Comp _ _ (CLS clsMods clsName (Just extendee) _ _ _ _ _) _) t
   | extendedUnit == unit = Just $ "Class " ++ clsName ++ " cannot extend itself"
   | null hierarchyChain = Just $ "Class " ++ clsName ++ " has a circular extend reference"
   | any (\x -> "final" `elem` symbolModifiers x) overridenMethods = Just $ "Class " ++ clsName ++ " redeclared a final method"
+  | any (\x -> "static" `elem` symbolModifiers x) overridenMethods = Just $ "Class " ++ clsName ++ " redeclared a static method"
   | (not isAbstract) && (any (\x -> "abstract" `elem` symbolModifiers x) nonoverridenMethods) = Just $ "Class " ++ clsName ++ " doesn't define all abstract methods"
+  | (length clobberedMethods) > 0 = Just $ "Class " ++ clsName ++ " overwrites a final or static method"
   | otherwise = Nothing
   where extendedNodeMaybe = getClassSuper unit typeDB
         extendedUnit = astUnit . symbol . fromJust $ extendedNodeMaybe
@@ -72,6 +74,7 @@ checkExtends unit@(Comp _ _ (CLS clsMods clsName (Just extendee) _ _ _ _ _) _) t
         ownMethods = filter isFunction (map symbol (subNodes ownNode))
         isAbstract = "abstract" `elem` clsMods
         (overridenMethods, nonoverridenMethods) = partition (functionImplemented ownMethods) extendeeMethods
+        clobberedMethods = filter (functionClobbered ownMethods) extendeeMethods
 
 checkExtends unit@(Comp _ _ (ITF _ itfName extended _ _) _) typeDB
   | not . null $ extendedClasses = Just $ "Interface " ++ itfName ++ " cannot extend class " ++ (show $ head extendedClasses)
@@ -134,6 +137,14 @@ getClassHierarchy' node@(TN sym@(CL _ _ _ unit@(Comp _ _ (CLS _ _ _ implemented 
   | otherwise = getClassHierarchy' extendedClass typeDB (hierarchy ++ [extendedClass])
   where extendedClassMaybe = getClassSuper unit typeDB
         extendedClass = fromJust extendedClassMaybe
+
+functionClobbered :: [Symbol] -> Symbol -> Bool
+functionClobbered definitions fun =
+  let funEqual a b = (localName a == localName b) &&
+                       ("final" `elem` (symbolModifiers a) ||
+                        ("static" `elem` (symbolModifiers a) && (parameterTypes a == parameterTypes b)) ||
+                        ((localType a) /= (localType b)))
+  in any (funEqual fun) definitions
 
 functionImplemented :: [Symbol] -> Symbol -> Bool
 functionImplemented definitions fun =
