@@ -188,7 +188,7 @@ visibleImports unit =
             Just pkgName -> ([pkgName ++ ["*"]], [pkgName ++ [(unitName $ definition unit)]])
             --Nothing -> ([], [["unnamed package", (unitName . definition) unit]])
             Nothing -> ([["unnamed package", "*"]], [["unnamed package", (unitName $ definition unit)]])
-        
+
         importedClasses = [cname | cname <- imports unit, last cname /= "*"]
         importedPackages = [cname | cname <- imports unit, last cname == "*"]
         javaLang = [["java","lang","*"]]
@@ -208,7 +208,7 @@ buildAST prods = Comp (if length pk > 0 then Just (nameToPackage pkgn) else Noth
         td = case name t of
                 "ClassDeclaration" -> CLS (map toLexeme ms) (toLexeme nm) ext (map nameToPackage ipls) (map buildConstructor cons) (map buildField flds) (map buildMethod mtds) (CLSI (map extractASTInfo ms) (extractASTInfo nm) exti (map extractASTInfo ipls))
                 ---------------------- Interface to be done
-                "InterfaceDeclaration" -> ITF (map toLexeme ms) (toLexeme nm) (map nameToPackage exipls) (map buildMethod ifcmtds) (ITFI (map extractASTInfo ms) (extractASTInfo nm) (map extractASTInfo exipls))
+                "InterfaceDeclaration" -> ITF (map toLexeme ms) (toLexeme nm) exiplnames (map buildMethod ifcmtds) (ITFI (map extractASTInfo ms) (extractASTInfo nm) (map extractASTInfo exipls))
         ------------------ specific for class
         m = filter (\ast -> name ast == "Modifiers") (production t)
         ms = case m of
@@ -236,6 +236,7 @@ buildAST prods = Comp (if length pk > 0 then Just (nameToPackage pkgn) else Noth
         ------------------ specific for interface
         exipl = filter (\ast -> name ast == "ExtendsInterfaces") (production t)
         exipls = reverse (concat (map (flatten "InterfaceType" ) exipl))
+        exiplnames = map nameToPackage exipls
 
         [ib] = filter (\ast -> name ast == "InterfaceBody") (production t)
         ifcmtds = reverse (flatten "InterfaceMemberDeclaration" ib)
