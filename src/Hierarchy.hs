@@ -65,7 +65,7 @@ checkExtends unit@(Comp _ _ (CLS clsMods clsName (Just extendee) _ _ _ _ _) _) t
   | any (\x -> "final" `elem` symbolModifiers x) overridenMethods = Just $ "Class " ++ clsName ++ " redeclared a final method"
   | any (\x -> "static" `elem` symbolModifiers x) overridenMethods = Just $ "Class " ++ clsName ++ " redeclared a static method"
   | (not isAbstract) && (any (\x -> "abstract" `elem` symbolModifiers x) nonoverridenMethods) = Just $ "Class " ++ clsName ++ " doesn't define all abstract methods"
-  | (length clobberedMethods) > 0 = Just $ "Class " ++ clsName ++ " overwrites a final or static method"
+  | (length clobberedMethods) > 0 = Just $ show [clobberedMethods, ownMethods] --Just $ "Class " ++ clsName ++ " overwrites a final or static method"
   | otherwise = Nothing
   where extendedNodeMaybe = getClassSuper unit typeDB
         extendedUnit = astUnit . symbol . fromJust $ extendedNodeMaybe
@@ -148,12 +148,13 @@ getClassHierarchy' node@(TN sym@(IT _ _ _ unit@(Comp _ _ (ITF _ _ implemented _ 
 
 functionClobbered :: [Symbol] -> Symbol -> Bool
 functionClobbered definitions fun =
-  let funEqual a b = (localName a == localName b) &&
+  -- A is parent, b is child (replacement)
+  let funEqual a b = (localName a == localName b && localName a /= (last . typeToName . localType $ a))  &&
                        ("final" `elem` symbolModifiers a && parameterTypes a == parameterTypes b ||
                         ("static" `elem` symbolModifiers b &&
                          not ("static" `elem` (symbolModifiers a)) &&
                          parameterTypes a == parameterTypes b) ||
-                        ((localType a) /= (localType b)))
+                        (localType a) /= (localType b))
   in any (funEqual fun) definitions
 
 functionImplemented :: [Symbol] -> Symbol -> Bool
