@@ -141,7 +141,7 @@ getClassHierarchy' node@(TN sym@(CL _ _ _ unit@(Comp _ _ (CLS _ _ _ implemented 
 functionClobbered :: [Symbol] -> Symbol -> Bool
 functionClobbered definitions fun =
   let funEqual a b = (localName a == localName b) &&
-                       ("final" `elem` (symbolModifiers a) ||
+                       ("final" `elem` symbolModifiers a && parameterTypes a == parameterTypes b ||
                         ("static" `elem` (symbolModifiers a) && (parameterTypes a == parameterTypes b)) ||
                         ((localType a) /= (localType b)))
   in any (funEqual fun) definitions
