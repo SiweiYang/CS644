@@ -44,12 +44,11 @@ checkImplements unit@(Comp _ _ (CLS modifiers clsName _ implemented _ _ _ _) _) 
   | otherwise = Nothing
   where unitImports = visibleImports unit
         ownName = traverseTypeEntryWithImports typeDB unitImports [clsName]
-        ownNode = if ownName == [] then error "checkImplements" else fromJust $ getTypeEntry typeDB (head ownName)
+        extendChain = getClassHierarchy unit typeDB
         implementedNames = map (traverseTypeEntryWithImports typeDB unitImports) implemented
-        implementedNodes = mapMaybe (getTypeEntry typeDB) (map head implementedNames)
+        implementedNodes = concat $ map (\n -> (getClassInterfaces (astUnit . symbol $ n) typeDB)) extendChain
         implementedSymbols = map symbol implementedNodes
         implementedClasses = filter isClass implementedSymbols
-        extendChain = getClassHierarchy unit typeDB
         abstractMethods = filter isFunction (map symbol (concat $ map subNodes implementedNodes))
         definedMethods = filter isFunction (map symbol (concat $ map subNodes extendChain))
         isAbstract = "abstract" `elem` modifiers
@@ -154,6 +153,16 @@ getClassHierarchy' node@(TN sym@(IT _ _ _ unit@(Comp _ _ (ITF _ _ implemented _ 
   | otherwise = getClassHierarchy' extendedClass typeDB (hierarchy ++ [extendedClass])
   where extendedClassMaybe = getClassSuper unit typeDB
         extendedClass = fromJust extendedClassMaybe
+
+getClassInterfaces :: CompilationUnit -> TypeNode -> [TypeNode]
+getClassInterfaces unit@(Comp _ _ (CLS modifiers clsName _ implemented _ _ _ _) _) typeDB =
+  let unitImports = visibleImports unit
+      ownName = traverseTypeEntryWithImports typeDB unitImports [clsName]
+      ownNode = if ownName == [] then error "checkImplements" else fromJust $ getTypeEntry typeDB (head ownName)
+      implementedNames = map (traverseTypeEntryWithImports typeDB unitImports) implemented
+      implementedNodes = mapMaybe (getTypeEntry typeDB) (map head implementedNames)
+  in implementedNodes
+getClassInterfaces _ _ = []
 
 functionClobbered :: [Symbol] -> Symbol -> Bool
 functionClobbered definitions fun =
