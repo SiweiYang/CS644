@@ -41,6 +41,7 @@ checkImplements unit@(Comp _ _ (CLS modifiers clsName _ implemented _ _ _ _) _) 
   | (not isAbstract) && (not . null $ unimplementedMethods) = Just $ "Class " ++ clsName ++ " doesn't implement methods " ++ (show $ map localName unimplementedMethods)
   | any (\x -> "final" `elem` symbolModifiers x) implementedMethods = Just $ "Class " ++ clsName ++ " overrides a final method"
   | (length clobberedMethods) > 0 = Just $ "Class " ++ clsName ++ " doesn't correctly implement an interface method"
+  | (length interfaceConflicts) > 0 = Just $ "Class " ++ clsName ++ " implements conflicting interfaces which can't be satisfied"
   | otherwise = Nothing
   where unitImports = visibleImports unit
         ownName = traverseTypeEntryWithImports typeDB unitImports [clsName]
@@ -56,6 +57,7 @@ checkImplements unit@(Comp _ _ (CLS modifiers clsName _ implemented _ _ _ _) _) 
         isAbstract = "abstract" `elem` modifiers
         (implementedMethods, unimplementedMethods) = partition (functionImplemented definedMethods) abstractMethods
         clobberedMethods = filter (functionClobbered definedMethods) abstractMethods
+        interfaceConflicts = filter (functionClobbered abstractMethods) abstractMethods
 checkImplements _ _ = Nothing
 
 checkExtends :: CompilationUnit -> TypeNode -> HierarchyError
