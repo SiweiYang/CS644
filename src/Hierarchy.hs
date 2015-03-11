@@ -39,8 +39,8 @@ checkImplements unit@(Comp _ _ (CLS modifiers clsName _ implemented _ _ _ _) _) 
   | not . null $ implementedClasses = Just $ "Class " ++ clsName ++ " cannot implement class " ++ (localName $ head implementedClasses)
   | nub implementedNames /= implementedNames = Just $ "Class " ++ clsName ++ " implements the same interface twice"
   | (not isAbstract) && (not . null $ unimplementedMethods) = Just $ "Class " ++ clsName ++ " doesn't implement methods " ++ (show $ map localName unimplementedMethods)
-  | any (\x -> "final" `elem` symbolModifiers x) implementedMethods = Just $ "Class " ++ clsName ++ " overrides a final method"
-  | (length clobberedMethods) > 0 = Just $ "Class " ++ clsName ++ " doesn't correctly implement an interface method"
+  | any (\x -> "final" `elem` symbolModifiers x && (not $ "abstract" `elem` symbolModifiers x)) implementedMethods = Just $ "Class " ++ clsName ++ " overrides a final method"
+  | (length clobberedMethods) > 0 = Just $ "Class " ++ clsName ++ " doesn't correctly implement an interface method: " ++ show clobberedMethods
   | (length interfaceConflicts) > 0 = Just $ "Class " ++ clsName ++ " implements conflicting interfaces which can't be satisfied"
   | otherwise = Nothing
   where unitImports = visibleImports unit
@@ -100,7 +100,7 @@ checkExtends unit@(Comp _ _ (ITF _ itfName extended _ _) _) typeDB
         hierarchyChain = getInterfaceSupers unit typeDB
         ownMethods = filter isFunction (map symbol (subNodes ownNode))
         extendeeMethods = filter isFunction (map symbol (concat $ map subNodes (tail hierarchyChain)))
-        clobberedMethods = filter (functionClobbered ownMethods) extendeeMethods
+        clobberedMethods = filter (functionClobberedInterface ownMethods) extendeeMethods
 checkExtends _ _ = Nothing
 
 getClassSuper :: CompilationUnit -> TypeNode -> Maybe TypeNode
@@ -173,11 +173,23 @@ functionClobbered :: [Symbol] -> Symbol -> Bool
 functionClobbered definitions fun =
   -- A is parent, b is child (replacement)
   let funEqual a b = (localName a == localName b && localName a /= (last . typeToName . localType $ a))  &&
-                       ("final" `elem` symbolModifiers a && parameterTypes a == parameterTypes b ||
-                        ("static" `elem` symbolModifiers b &&
+                       (("static" `elem` symbolModifiers b &&
                          not ("static" `elem` (symbolModifiers a)) &&
                          parameterTypes a == parameterTypes b) ||
                         (localType a) /= (localType b) ||
+                        ("public" `elem` symbolModifiers a && "protected" `elem` symbolModifiers b &&
+                          parameterTypes a == parameterTypes b))
+  in any (funEqual fun) definitions
+
+functionClobberedInterface :: [Symbol] -> Symbol -> Bool
+functionClobberedInterface definitions fun =
+  -- A is parent, b is child (replacement)
+  let funEqual a b = (localName a == localName b && localName a /= (last . typeToName . localType $ a))  &&
+                       (("static" `elem` symbolModifiers b &&
+                         not ("static" `elem` (symbolModifiers a)) &&
+                         parameterTypes a == parameterTypes b) ||
+                        (localType a) /= (localType b) ||
+                        ("final" `elem` symbolModifiers a) ||
                         ("public" `elem` symbolModifiers a && "protected" `elem` symbolModifiers b &&
                           parameterTypes a == parameterTypes b))
   in any (funEqual fun) definitions
@@ -186,6 +198,10 @@ functionImplemented :: [Symbol] -> Symbol -> Bool
 functionImplemented definitions fun =
   let funEqual a b = (localName a == localName b) &&
                      (parameterTypes a == parameterTypes b) &&
+                     ("public" `elem` (symbolModifiers a)) == ("public" `elem` (symbolModifiers b)) &&
                      (localType a == localType b) &&
                      (not $ "abstract" `elem` (symbolModifiers b))
   in any (funEqual fun) definitions
+
+-- Symbol
+-- Class -> Class -> TypeNode -> Maybe super Or NOTHING
