@@ -182,11 +182,11 @@ unitName (ITF _ nm _ _ _) = nm
 isInterface (ITF _ _ _ _ _) = True
 isInterface _ = False
 
+-- first import is self
 visibleImports :: CompilationUnit -> [[String]]
 visibleImports unit =
     let (ownPackage, ownClass) = case package unit of
             Just pkgName -> ([pkgName ++ ["*"]], [pkgName ++ [(unitName $ definition unit)]])
-            --Nothing -> ([], [["unnamed package", (unitName . definition) unit]])
             Nothing -> ([["unnamed package", "*"]], [["unnamed package", (unitName $ definition unit)]])
 
         importedClasses = [cname | cname <- imports unit, last cname /= "*"]
@@ -208,7 +208,7 @@ buildAST prods = Comp (if length pk > 0 then Just (nameToPackage pkgn) else Noth
         td = case name t of
                 "ClassDeclaration" -> CLS (map toLexeme ms) (toLexeme nm) ext (map nameToPackage ipls) (map buildConstructor cons) (map buildField flds) (map buildMethod mtds) (CLSI (map extractASTInfo ms) (extractASTInfo nm) exti (map extractASTInfo ipls))
                 ---------------------- Interface to be done
-                "InterfaceDeclaration" -> ITF (map toLexeme ms) (toLexeme nm) exiplnames (map buildMethod ifcmtds) (ITFI (map extractASTInfo ms) (extractASTInfo nm) (map extractASTInfo exipls))
+                "InterfaceDeclaration" -> ITF (map toLexeme ms) (toLexeme nm) exiplNames (map buildMethod ifcmtds) (ITFI (map extractASTInfo ms) (extractASTInfo nm) (map extractASTInfo exipls))
         ------------------ specific for class
         m = filter (\ast -> name ast == "Modifiers") (production t)
         ms = case m of
@@ -236,7 +236,8 @@ buildAST prods = Comp (if length pk > 0 then Just (nameToPackage pkgn) else Noth
         ------------------ specific for interface
         exipl = filter (\ast -> name ast == "ExtendsInterfaces") (production t)
         exipls = reverse (concat (map (flatten "InterfaceType" ) exipl))
-        exiplnames = map nameToPackage exipls
+        exiplNames = if length exipls > 0 then (map nameToPackage exipls) else
+          if (toLexeme nm) == "ObjectInterface" then [] else [["java","lang","ObjectInterface"]]
 
         [ib] = filter (\ast -> name ast == "InterfaceBody") (production t)
         ifcmtds = reverse (flatten "InterfaceMemberDeclaration" ib)
@@ -431,7 +432,7 @@ data Expression = Unary { op :: String, expr :: Expression, depth :: Int}
                 deriving (Eq, Show)
 
 data Type = TypeByte | TypeShort | TypeInt | TypeChar | TypeBoolean | TypeString | TypeNull | TypeVoid
-          | Function [Type] Type
+          | Function Name [Type] Type
           | TypeClass Name
           | Object Name
           | Array Type
@@ -444,6 +445,7 @@ typeToName TypeBoolean = ["Boolean"]
 typeToName TypeString = ["String"]
 typeToName TypeNull = ["Null"]
 typeToName TypeVoid = ["Void"]
+typeToName (Function (Name nm) ps rt) = nm
 typeToName (Object (Name nm)) = nm
 typeToName (TypeClass (Name nm)) = nm
 typeToName (Array tp) = ["joosc native", "Array"]
