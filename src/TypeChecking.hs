@@ -3,51 +3,87 @@ module TypeChecking where
 import AST
 import Environment
 import TypeDatabase
-import TypeLinking
 import Hierarchy
 import Data.Maybe
 
-assignConversion :: TypeNode -> Type -> Type -> Bool
-
-assignConversion _ _ (Object (Name ["String"])) = True
-assignConversion _ TypeVoid t = t == TypeVoid
-assignConversion _ TypeNull (Object _) = True
-assignConversion _ TypeNull (Array _) = True
---assignConversion TypeNull TypeNull = True
-assignConversion _ TypeByte t = elem t [TypeByte, TypeShort, TypeInt]
-assignConversion _ TypeShort t = elem t [TypeShort, TypeInt]
-assignConversion _ TypeInt t = t == TypeInt
-assignConversion _ TypeBoolean t = t == TypeBoolean
-assignConversion _ TypeChar t = elem t [TypeChar, TypeInt]
-assignConversion _ TypeString t = t == TypeString
-assignConversion _ (Array _) (Object (Name ["Object"])) = True
-assignConversion _ (Array _) (Object (Name ["Cloneable"])) = True
-assignConversion _ (Array _) (Object (Name ["java", "io", "Serializable"])) = True
-assignConversion typeDB (Array x@(Object _)) (Array y@(Object _)) = assignConversion typeDB x y
-assignConversion _ (Array x) (Array y) = x == y && elem x [TypeByte, TypeShort, TypeInt, TypeBoolean, TypeChar, TypeString]
-assignConversion _ (Object _) (Object (Name ["Object"])) = True
-assignConversion unit typeDB (Object (Name x)) (Object (Name y))
-	| x == y = True
- 	| otherwise = 
- 	where
- 		symbolX = symbol . fromJust $ getTypeEntry typeDB x
- 		symbolY = symbol . fromJust $ getTypeEntry typeDB y
+conversion :: TypeNode -> Type -> Type -> [Type]
+conversion typeDB typeS typeT
+    | typeS == typeT = [typeT]
+    | typeT == TypeNull = []
+    | typeS == TypeNull = case typeT of
+                            (Object x) -> [(Object x)]
+                            TypeString -> [TypeString]
+                            _ -> []
+    | otherwise = case (isPrimitive typeS, isPrimitive typeT) of
+                            (True, True) ->  typeS:(primitiveConversion typeS typeT)
+                            (False, True) -> case (unboxed == typeT) of
+                                                True -> [typeS, typeT]
+                                                False -> if null nextUnbox then [] else [typeS, unboxed] ++ nextUnbox
+                            (False, False) -> typeS:(objectConversion typeDB typeS typeT)
+                            (True, False) -> case (boxed == typeT) of
+                                                True -> [typeS, typeT]
+                                                False -> if null nextBox then [] else [typeS, boxed] ++ nextBox
+    where
+        boxed = boxingType typeS
+        nextBox = objectConversion typeDB boxed typeT
+        unboxed = unboxingType typeS
+        nextUnbox = primitiveConversion unboxed typeT
 
 
+----------------------------------------------------------
 
-assignConversion _ _ _ = False
+primitiveConversion :: Type -> Type -> [Type]
+primitiveConversion TypeBoolean _ = []
+primitiveConversion TypeByte TypeShort = [TypeShort]
+primitiveConversion TypeByte TypeInt = [TypeInt]
+primitiveConversion TypeShort TypeInt = [TypeInt]
+primitiveConversion TypeChar TypeInt = [TypeInt]
+primitiveConversion _ _ = []
 
-castConversion :: TypeNode -> Type -> Type -> Bool
-castConversion _ TypeVoid t = False
-castConversion _ TypeBoolean t = t == TypeBoolean
-castConversion _ TypeNull t = t == TypeNull
-castConversion _ TypeByte t = elem t [TypeByte, TypeShort, TypeInt]
-castConversion _ TypeShort t = elem t [TypeShort, TypeInt]
-castConversion _ TypeInt t = t == TypeInt
-castConversion _ TypeChar t = elem t [TypeChar, TypeInt]
-castConversion _ TypeString t = t == TypeString
-castConversion typeDB x y = assignConversion typeDB x y
+objectConversion :: TypeNode -> Type -> Type -> [Type]
+objectConversion _ (Array _) (Object (Name ["java", "lang", "Object"])) = [(Object (Name ["java", "lang", "Object"]))]
+objectConversion _ (Array _) (Object (Name ["java", "lang", "Cloneable"])) = [(Object (Name ["java", "lang", "Cloneable"]))]
+objectConversion _ (Array _) (Object (Name ["java", "io", "Serializable"])) = [(Object (Name ["java", "io", "Serializable"]))]
+objectConversion typeDB (Array x@(Object _)) (Array y@(Object _)) = if null $ objectConversion typeDB x y then [] else [Array y]
+objectConversion _ (Array x) (Array y) = if isPrimitive x && isPrimitive y && x == y then [Array y] else []
+objectConversion _ (Object _) (Object (Name ["java", "lang", "Object"])) = [(Object (Name ["java", "lang", "Object"]))]
+objectConversion typeDB (Object (Name x)) (Object (Name y))
+    | x == y = [Object (Name x)]
+    | otherwise = if isJust $ higherInChain symbolX symbolY typeDB then [(Object (Name y))] else []
+    where
+        symbolX = symbol . fromJust $ getTypeEntry typeDB x
+        symbolY = symbol . fromJust $ getTypeEntry typeDB y
+objectConversion _ _ _ = []
 
+----------------------------------------------------------
+
+isPrimitive :: Type -> Bool
+isPrimitive x = elem x [TypeBoolean, TypeChar, TypeString, TypeByte, TypeShort, TypeInt]
+
+{-
+isObject :: Type -> Bool
+isObject (Object _) = True
+isObject (Array _) = True
+isObject _ = False
+-}
+
+----------------------------------------------------------
+
+boxingType :: Type -> Type
+boxingType TypeBoolean = Object (Name ["java", "lang", "Boolean"])
+boxingType TypeByte = Object (Name ["java", "lang", "Byte"])
+boxingType TypeShort = Object (Name ["java", "lang", "Short"])
+boxingType TypeInt = Object (Name ["java", "lang", "Integer"])
+boxingType TypeChar = Object (Name ["java", "lang", "Character"])
+boxingType TypeString = Object (Name ["java", "lang", "String"])
+
+unboxingType :: Type -> Type
+unboxingType (Object (Name ["java", "lang", "Boolean"])) = TypeBoolean
+unboxingType (Object (Name ["java", "lang", "Byte"])) = TypeByte
+unboxingType (Object (Name ["java", "lang", "Short"])) = TypeShort
+unboxingType (Object (Name ["java", "lang", "Integer"])) = TypeInt
+unboxingType (Object (Name ["java", "lang", "Character"])) = TypeChar
+unboxingType (Object (Name ["java", "lang", "String"])) = TypeString
 
 {-
 

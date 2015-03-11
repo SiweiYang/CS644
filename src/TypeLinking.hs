@@ -5,6 +5,7 @@ import Data.List
 import Environment
 import TypeDatabase
 import AST
+import TypeChecking
 
 typeLinkingCheck :: TypeNode -> [[String]] -> Environment -> [Type]
 typeLinkingCheck _ _ ENVE = [TypeVoid]
@@ -47,20 +48,33 @@ typeLinkingExpr :: TypeNode -> [[String]] -> SemanticUnit -> Expression -> [Type
 typeLinkingExpr db imps su Null = [TypeNull]
 typeLinkingExpr db imps su (Unary _ expr _) = typeLinkingExpr db imps su expr
 typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
-    |   elem op ["+", "-", "*", "/", "%"] = if elem typeL [TypeByte, TypeShort, TypeInt] && elem typeR [TypeByte, TypeShort, TypeInt] then [typeL] else report
-    |   elem op ["<", ">", "<=", ">="] = if elem typeL [TypeByte, TypeShort, TypeInt] && elem typeR [TypeByte, TypeShort, TypeInt] then [TypeBoolean] else report
-    |   elem op ["=="] = if (typeL == typeR) || typeL == TypeNull || typeR == TypeNull then [TypeInt] else report
-    |   elem op ["="] = if (typeL == typeR) || typeR == TypeNull then [typeL] else report
-	where
-		[typeL] = case filter filterNonFunction $ typeLinkingExpr db imps su exprL of
+    |   elem op ["+"] = 
+    |   elem op ["-", "*", "/", "%"] = if typeLInt && typeRInt then typeLR else []
+    |   elem op ["<", ">", "<=", ">="] = if typeLInt && typeRInt then [TypeBoolean] else []
+    |   elem op ["=="] = if null typeLR then [] else [TypeBoolean]
+    |   elem op ["="] = if assignRL then [typeL] else []
+    where
+        [typeL] = case filter filterNonFunction $ typeLinkingExpr db imps su exprL of
                             [] -> error $ "Binary: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show typeL) ++ (show exprR)
                             [l] -> [l]
                             a -> error $ "Binary: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show exprR) ++ (show a)
-		[typeR] = case filter filterNonFunction $ typeLinkingExpr db imps su exprR of
+
+        [typeR] = case filter filterNonFunction $ typeLinkingExpr db imps su exprR of
                             [] -> error $ "Binary: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show typeL) ++ (show exprR)
                             [r] -> [r]
                             a -> error $ "Binary: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show typeL) ++ (show exprR) ++ (show a)
-                report = (error $ "Binary: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show typeL) ++ (show exprR) ++ (show typeR))
+        report = (error $ "Binary: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show typeL) ++ (show exprR) ++ (show typeR))
+        assignRL = assignConversion db typeR typeL
+        castLR = castConversion db typeL typeR
+        castRL = castConversion db typeR typeL
+        typeLR = case (castLR, castRL) of
+                    (False, False) -> []
+                    (True, _) -> [typeR]
+                    (_, True) -> [typeL]
+        typeLInt = castConversion db typeL TypeInt
+        typeRInt = castConversion db typeR TypeInt
+
+
 typeLinkingExpr db imps su (ID nm _) = typeLinkingName db imps su nm
 typeLinkingExpr db imps su This = [lookUpThis su]
 typeLinkingExpr db imps su (Value tp _ _) = [tp]
@@ -107,9 +121,9 @@ typeLinkingExpr db imps su (ArrayAccess arr idx _) = case typeArr of
                                                                     [tp'] -> if elem tp' [TypeByte, TypeShort, TypeInt] then [tp] else error "Array: index is not an integer"
                                                                     _ -> []--error "Array Index Type error"
                                                         _ -> []--error "Array Type cannot be found"
-	where
-		typeArr = typeLinkingExpr db imps su arr 
-		typeIdx = typeLinkingExpr db imps su idx
+    where
+        typeArr = typeLinkingExpr db imps su arr 
+        typeIdx = typeLinkingExpr db imps su idx
                 
                 
 -- to check: allow use array of primitive type to cast
@@ -150,14 +164,14 @@ typeLinkingName db imps su (Name cname@(nm:remain)) = case syms' of
                                                                             [] -> lookUpDB db imps su (nm:remain)
                                                                             _ -> map (symbolToType . symbol) withThis
                                                                     _ -> syms'
-	where
-		syms = lookUpSymbolTable su nm
-                syms' = if remain == [] then map symbolToType syms else map (symbolToType . symbol) nodes
+    where
+        syms = lookUpSymbolTable su nm
+        syms' = if remain == [] then map symbolToType syms else map (symbolToType . symbol) nodes
                 
-                nodes = concat $ map (traverseInstanceEntry' db db) (map (\sym -> (typeToName . localType $ sym) ++ remain) syms)
+        nodes = concat $ map (traverseInstanceEntry' db db) (map (\sym -> (typeToName . localType $ sym) ++ remain) syms)
                 
-                Just thisNode = getTypeEntry db (typeToName . lookUpThis $ su)
-                withThis = traverseInstanceEntry' db thisNode cname
+        Just thisNode = getTypeEntry db (typeToName . lookUpThis $ su)
+        withThis = traverseInstanceEntry' db thisNode cname
 
 ---------------------------------------------------------------------------------------------------------
 
@@ -169,9 +183,9 @@ lookUpSymbolTable (Root _) str = []
 lookUpSymbolTable su nm = case cur of
                             [] -> lookUpSymbolTable parent nm
                             _ -> cur
-	where
-		(SU _ _ st parent) = su
-		cur = filter (\s -> (localName s) == nm) st
+    where
+        (SU _ _ st parent) = su
+        cur = filter (\s -> (localName s) == nm) st
 
 lookUpDB :: TypeNode -> [[String]] -> SemanticUnit -> [String] -> [Type]
 lookUpDB db imps su cname

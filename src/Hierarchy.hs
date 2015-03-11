@@ -218,3 +218,13 @@ higherInChain symA@(IT _ _ _ unitA) symB@(IT _ _ _ unitB) typeDB
   | otherwise = Nothing
   where hierarchyA = map symbol $ getInterfaceSupers unitA typeDB
         hierarchyB = map symbol $ getInterfaceSupers unitB typeDB
+
+higherInChain symA@(CL _ _ _ _) symB@(IT _ _ _ unitB) typeDB
+  | symA `elem` hierarchyB = Just symA
+  | otherwise = Nothing
+  where hierarchyB = map symbol $ getClassHierarchy unitB typeDB
+
+higherInChain symA@(IT _ _ _ unitA) symB@(CL _ _ _ _) typeDB
+  | symB `elem` hierarchyA = Just symB
+  | otherwise = Nothing
+  where hierarchyA = map symbol $ getClassHierarchy unitA typeDB
