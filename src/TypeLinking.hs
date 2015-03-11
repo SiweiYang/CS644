@@ -48,9 +48,13 @@ typeLinkingExpr :: TypeNode -> [[String]] -> SemanticUnit -> Expression -> [Type
 typeLinkingExpr db imps su Null = [TypeNull]
 typeLinkingExpr db imps su (Unary _ expr _) = typeLinkingExpr db imps su expr
 typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
-    |   elem op ["+"] = 
+    |   elem op ["+"] = case (typeL, typeR) of
+                            ((Object (Name ["java", "lang", "String"])), _) -> [(Object (Name ["java", "lang", "String"]))]
+                            (_, (Object (Name ["java", "lang", "String"]))) -> [(Object (Name ["java", "lang", "String"]))]
+                            (_, _) -> if typeLInt && typeRInt then typeLR else []
     |   elem op ["-", "*", "/", "%"] = if typeLInt && typeRInt then typeLR else []
     |   elem op ["<", ">", "<=", ">="] = if typeLInt && typeRInt then [TypeBoolean] else []
+    |   elem op ["&&", "||"] = if typeLBool && typeRBool then [TypeBoolean] else []
     |   elem op ["=="] = if null typeLR then [] else [TypeBoolean]
     |   elem op ["="] = if assignRL then [typeL] else []
     where
@@ -64,15 +68,15 @@ typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
                             [r] -> [r]
                             a -> error $ "Binary: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show typeL) ++ (show exprR) ++ (show a)
         report = (error $ "Binary: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show typeL) ++ (show exprR) ++ (show typeR))
-        assignRL = assignConversion db typeR typeL
-        castLR = castConversion db typeL typeR
-        castRL = castConversion db typeR typeL
-        typeLR = case (castLR, castRL) of
-                    (False, False) -> []
-                    (True, _) -> [typeR]
-                    (_, True) -> [typeL]
-        typeLInt = castConversion db typeL TypeInt
-        typeRInt = castConversion db typeR TypeInt
+        assignRL = not . null $ conversion db typeR typeL
+        typeLR = case (null $ conversion db typeL typeR, null $ conversion db typeR typeL) of
+                    (True, True) -> []
+                    (False, _) -> [typeR]
+                    (_, False) -> [typeL]
+        typeLInt = not . null $ conversion db typeL TypeInt
+        typeRInt = not . null $ conversion db typeR TypeInt
+        typeLBool= not . null $ conversion db typeL TypeBoolean
+        typeRBool = not . null $ conversion db typeR TypeBoolean
 
 
 typeLinkingExpr db imps su (ID nm _) = typeLinkingName db imps su nm

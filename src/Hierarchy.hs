@@ -47,7 +47,7 @@ checkImplements unit@(Comp _ _ (CLS modifiers clsName _ implemented _ _ _ _) _) 
         ownName = traverseTypeEntryWithImports typeDB unitImports [clsName]
         extendChain = getClassHierarchy unit typeDB
         implementedNames = map (traverseTypeEntryWithImports typeDB unitImports) implemented
-        directImplementedNodes = mapMaybe (getTypeEntry typeDB) (map head implementedNames)
+        directImplementedNodes = if  any null implementedNames then error $ "no implementedNames for " ++ (show implementedNames) else mapMaybe (getTypeEntry typeDB) (map head implementedNames)
         directImplementedSymbols = map symbol directImplementedNodes
         implementedClasses = filter isClass directImplementedSymbols
         implementedNodes = concat $ map (\n -> (getClassInterfaces (astUnit . symbol $ n) typeDB)) extendChain
@@ -94,7 +94,7 @@ checkExtends unit@(Comp _ _ (ITF _ itfName extended _ _) _) typeDB
         ownName = traverseTypeEntryWithImports typeDB unitImports [itfName]
         ownNode = if ownName == [] then error "checkImplements" else fromJust $ getTypeEntry typeDB (head ownName)
         extendedNames = map (traverseTypeEntryWithImports typeDB unitImports) extended
-        extendedNodes = mapMaybe (getTypeEntry typeDB) (map head extendedNames)
+        extendedNodes = if any null extendedNames then error $ "checkExtends: no extendedNames " ++ (show itfName) ++ (show extended) ++ (show extendedNames) else mapMaybe (getTypeEntry typeDB) (map head extendedNames)
         extendedSymbols = map symbol extendedNodes
         extendedClasses = filter isClass extendedSymbols
         hierarchyChain = getInterfaceSupers unit typeDB
@@ -122,14 +122,14 @@ getInterfaceSupers unit@(Comp _ _ (ITF _ itfName _ _ _) _) typeDB =
   in getInterfaceSupers' ownNode typeDB []
 
 getInterfaceSupers' :: TypeNode -> TypeNode -> [TypeNode] -> [TypeNode]
-getInterfaceSupers' node@(TN sym@(IT _ _ _ unit@(Comp _ _ (ITF _ _ extended _ _) _)) _) typeDB hierarchy
+getInterfaceSupers' node@(TN sym@(IT _ _ _ unit@(Comp _ _ (ITF _ itfName extended _ _) _)) _) typeDB hierarchy
   | null extended = [node]
   | node `elem` hierarchy = []
   | any null extendedInterfaceExtensions = []
   | otherwise = nub (node : (concat extendedInterfaceExtensions))
   where unitImports = visibleImports unit
         extendedNames = map (traverseTypeEntryWithImports typeDB unitImports) extended
-        extendedNodes = mapMaybe (getTypeEntry typeDB) (map head extendedNames)
+        extendedNodes = if any null extendedNames then error $ "no extendedNames " ++ (show itfName) ++ (show extendedNames) else mapMaybe (getTypeEntry typeDB) (map head extendedNames)
         newHierarchy = node : hierarchy
         extendedInterfaceExtensions = map (\x -> getInterfaceSupers' x typeDB newHierarchy) extendedNodes
 getInterfaceSupers' _ _ _ = []
@@ -164,7 +164,7 @@ getClassInterfaces unit@(Comp _ _ (CLS modifiers clsName _ implemented _ _ _ _) 
       ownName = traverseTypeEntryWithImports typeDB unitImports [clsName]
       ownNode = if ownName == [] then error "checkImplements" else fromJust $ getTypeEntry typeDB (head ownName)
       implementedNames = map (traverseTypeEntryWithImports typeDB unitImports) implemented
-      implementedNodes = mapMaybe (getTypeEntry typeDB) (map head implementedNames)
+      implementedNodes = if any null implementedNames then error $ "no implementedNames for " ++ (show implementedNames) else mapMaybe (getTypeEntry typeDB) (map head implementedNames)
       hierarchyChain = nub . concat $ map (\x -> getInterfaceSupers' x typeDB []) implementedNodes
   in hierarchyChain
 getClassInterfaces _ _ = []
