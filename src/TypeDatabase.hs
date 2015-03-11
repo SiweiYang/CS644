@@ -42,7 +42,12 @@ getTypeEntry tn name = case traverseTypeEntry tn name of
   Nothing -> Nothing
 
 inheritFromNodes :: TypeNode -> [TypeNode] -> TypeNode
-inheritFromNodes (TN sym ch) nodes = (TN sym (nub $ ch ++ (concat $ map subNodes nodes)))
+inheritFromNodes (TN sym ch) nodes = (TN sym (syms ++ cons ++ funcs))
+    where
+        inherits = (concat $ map subNodes nodes)
+        syms = nubBy (\(TN sym1 _) (TN sym2 _) -> localName sym1 == localName sym2) [TN sym ch | TN sym@(SYM _ _ _ _) ch <- ch ++ inherits]
+        cons = [TN sym ch | TN sym@(FUNC mds _ _ _ _) ch <- ch, elem "cons" mds]
+        funcs = nubBy (\(TN sym1 _) (TN sym2 _) -> (localName sym1, parameterTypes sym1) == (localName sym2, parameterTypes sym2)) [TN sym ch | TN sym@(FUNC mds _ _ _ _) ch <- ch ++ inherits, not $ elem "cons" mds]
 
 inheritFromTypes :: TypeNode -> [String] -> [[String]] -> Maybe TypeNode
 inheritFromTypes tn cname cnames = if and tycs then Just $ inheritFromNodes (fromJust mtar) (map fromJust msrcs) else Nothing

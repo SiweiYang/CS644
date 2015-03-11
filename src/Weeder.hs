@@ -34,6 +34,7 @@ weedTypeDec filename (CLS modifiers name _ _ constructors fields methods info)
         correctName = foldl (++) "" (take ((length fileNameSplit) - 1) fileNameSplit)
         shouldBeAbstract = any (\mthd -> "abstract" `elem` (methodModifiers mthd)) methods
 weedTypeDec filename (ITF modifiers name _ methods info)
+  | name == "ObjectInterface" = Nothing
   | "private" `elem` modifiers = Just $ "Interfaces cannot be private" ++ show info
   | (nub modifiers) /= modifiers = Just $ "Interface modifiers cannot be repeated" ++ show info
   | methodError /= Nothing = methodError
