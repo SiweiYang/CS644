@@ -11,6 +11,7 @@ data Kind = Package | Class | Interface | Method | Field | Statement | Var Expre
 
 data Symbol = SYM {
     symbolModifiers :: [String],
+    localScope :: [String],
     localName :: String,
     localType :: Type
 }           | PKG {
@@ -27,15 +28,22 @@ data Symbol = SYM {
     astUnit :: CompilationUnit
 }           | FUNC {
     symbolModifiers :: [String],
+    localScope :: [String],
     localName :: String,
     parameterTypes :: [Type],
     localType :: Type
 } deriving (Eq, Show)
 
+symbolToType :: Symbol -> Type
+symbolToType (SYM _ _ _ t) = t
+symbolToType (CL _ _ t _) = t
+symbolToType (IT _ _ t _) = t
+symbolToType (FUNC _ ls ln ps rt) = Function (Name (ls ++ [ln])) ps rt
+
 isClass (CL _ _ _ _) = True
 isClass _ = False
 
-isFunction (FUNC _ _ _ _) = True
+isFunction (FUNC _ _ _ _ _) = True
 isFunction _ = False
 
 data SemanticUnit = Root {
@@ -51,10 +59,10 @@ instance Show SemanticUnit where
   show (SU scope kind table from) = (show kind) ++ ": " ++ (show scope) ++ "\n" ++ (show table) ++ "\n"
   show (Root scope) = "ROOT: " ++ (show scope) ++ "\n"
 
-buildSymbolFromConstructor (Cons constructorModifiers constructorName constructorParameters constructorInvocation constructorDefinition consi) = FUNC constructorModifiers constructorName (map typeName constructorParameters) (Object (Name [constructorName]))
-buildSymbolFromField (FLD fieldModifiers (TV tp nm ai) fieldValue fldi) = SYM fieldModifiers nm tp
-buildSymbolFromMethod (MTD methodModifiers (TV tp nm ai) methodParameters methodDefinition mtdi) = FUNC methodModifiers nm (map typeName methodParameters) tp
-buildSymbolFromParameter (TV tp nm ai) = SYM [] nm tp
+buildSymbolFromConstructor cname (Cons constructorModifiers constructorName constructorParameters constructorInvocation constructorDefinition consi) = FUNC ("cons":constructorModifiers) cname constructorName (map typeName constructorParameters) (Object (Name [constructorName]))
+buildSymbolFromField cname (FLD fieldModifiers (TV tp nm ai) fieldValue fldi) = SYM fieldModifiers cname nm tp
+buildSymbolFromMethod cname (MTD methodModifiers (TV tp nm ai) methodParameters methodDefinition mtdi) = FUNC methodModifiers cname nm (map typeName methodParameters) tp
+buildSymbolFromParameter cname (TV tp nm ai) = SYM [] cname nm tp
 
 data Environment = ENVE | ENV {
     semantic :: SemanticUnit,
@@ -74,21 +82,17 @@ buildEnvironment comp@(Comp pkg imps def cui) = case pkg of
                                             Nothing -> buildEnvironmentWithPackage ["unnamed package"] (Root []) comp
                                             Just cname -> buildEnvironmentWithPackage cname (Root []) comp
 
-buildEnvironmentWithPackage [] parent unit = env
-    where
-        def = definition unit
-        cname' = [[]]
-        su = case def of
-                (CLS mds nm ext imps cons flds mtds clsi)   -> SU cname' Package [CL mds nm (TypeClass (Name [nm])) unit] parent
-                (ITF mds nm imps mtds itfi)                 -> SU cname' Package [IT mds nm (TypeClass (Name [nm])) unit] parent
-        env = case def of
+buildEnvironmentWithPackage [] parent unit = case def of
                 (CLS mds nm ext imps cons flds mtds clsi)   -> buildEnvironmentFromClass parent (CLS mds nm ext imps cons flds mtds clsi)
                 (ITF mds nm imps mtds itfi)                 -> buildEnvironmentFromInterface parent (ITF mds nm imps mtds itfi)
+    where
+        def = definition unit
 
 buildEnvironmentWithPackage (name:remain) parent unit = ENV su env
     where
         def = definition unit
         cname' = ((scope parent) ++ [name])
+        cname'' = cname' ++ [unitName def]
         su = case remain of
                 [] -> case def of
                           (CLS mds nm ext imps cons flds mtds clsi)   -> SU cname' Package [CL mds nm (TypeClass (Name [nm])) unit] parent
@@ -99,7 +103,7 @@ buildEnvironmentWithPackage (name:remain) parent unit = ENV su env
 buildEnvironmentFromClass parent (CLS mds nm ext imps cons flds mtds clsi) = env
     where
         cname' = ((scope parent) ++ [nm])
-        syms = (map buildSymbolFromConstructor cons) ++ (map buildSymbolFromField flds) ++ (map buildSymbolFromMethod mtds)
+        syms = (map (buildSymbolFromConstructor cname') cons) ++ (map (buildSymbolFromField cname') flds) ++ (map (buildSymbolFromMethod cname') mtds)
         su = (SU cname' Class syms parent)
         flds' = map (buildEnvironmentFromField su) flds
         cons' = map (buildEnvironmentFromConstructor su) cons
@@ -108,7 +112,7 @@ buildEnvironmentFromClass parent (CLS mds nm ext imps cons flds mtds clsi) = env
 buildEnvironmentFromInterface parent (ITF mds nm imps mtds itfi) = env
     where
         cname' = ((scope parent) ++ [nm])
-        syms = (map buildSymbolFromMethod mtds)
+        syms = (map (buildSymbolFromMethod cname') mtds)
         su = (SU cname' Interface syms parent)
         mtds' = map (buildEnvironmentFromMethod su) mtds
         env = ENV su (mtds')
@@ -122,7 +126,7 @@ buildEnvironmentFromMethod :: SemanticUnit -> Method -> Environment
 buildEnvironmentFromMethod parent (MTD methodModifiers methodVar methodParameters methodDefinition mtdi) = ENV su ch
     where
         cname' = ((scope parent) ++ [varName methodVar])
-        syms = (map buildSymbolFromParameter methodParameters)
+        syms = (map (buildSymbolFromParameter cname') methodParameters)
         su = (SU cname' Method syms parent)
         ch = if isNothing methodDefinition then [] else [buildEnvironmentFromStatements su (statements (fromJust methodDefinition))]
 
@@ -130,7 +134,7 @@ buildEnvironmentFromConstructor :: SemanticUnit -> Constructor -> Environment
 buildEnvironmentFromConstructor parent (Cons constructorModifiers constructorName constructorParameters constructorInvocation constructorDefinition consi) = ENV su ch
     where
         cname' = ((scope parent) ++ [constructorName])
-        syms = (map buildSymbolFromParameter constructorParameters)
+        syms = (map (buildSymbolFromParameter cname') constructorParameters)
         su = (SU cname' Method syms parent)
         stmts = if isNothing constructorInvocation then [] else [Expr (fromJust constructorInvocation)]
         stmts' = if isNothing constructorDefinition then stmts else stmts ++(statements (fromJust constructorDefinition))
@@ -142,7 +146,7 @@ buildEnvironmentFromStatements parent ((Empty):remain) = buildEnvironmentFromSta
 buildEnvironmentFromStatements parent ((LocalVar var val):remain) = ENV su [buildEnvironmentFromStatements su remain]
     where
         cname' = (scope parent)
-        su = (SU cname' (Var val) [buildSymbolFromParameter var] parent)
+        su = (SU cname' (Var val) [buildSymbolFromParameter cname' var] parent)
 buildEnvironmentFromStatements parent ((Expr expr):remain) = ENV su [buildEnvironmentFromStatements parent remain]
     where
         cname' = (scope parent)
@@ -166,7 +170,7 @@ buildEnvironmentFromStatements parent ((For mistmt mexpr msstmt sb):remain) = EN
     where
         cname' = ((scope parent) ++ [[]])
         syms = case mistmt of
-            Just (LocalVar var val) -> [buildSymbolFromParameter var]
+            Just (LocalVar var val) -> [buildSymbolFromParameter cname' var]
             _ -> []
         su = (SU cname' ForBlock syms parent)
         bld = buildEnvironmentFromStatements su

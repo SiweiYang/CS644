@@ -19,13 +19,14 @@ import Weeder
 main :: IO ()
 main = do
   -- Get the files to compile from the args
-  fileNames <- getArgs
+  givenFileNames <- getArgs
+  let allFileNames = givenFileNames ++ ["./res/ObjectInterface.java"]
 
   -- Read their contents
-  fileContents <- mapM readFile fileNames
+  fileContents <- mapM readFile allFileNames
 
   -- Create content/filename pairs
-  let files = zip fileContents fileNames
+  let files = zip fileContents allFileNames
 
   -- LEXER
   tokenByFiles <- mapM (scannerRunner 0 0) files
@@ -98,7 +99,7 @@ main = do
     hPutStrLn stderr "Environment DB: OK"
   let Just typeDB = mtypeDB
   
-  let listImpEnvFns = map (\(imp, env, fn) -> (imp, refineEnvironmentWithType (traverseTypeEntryWithImports typeDB imp) (Root []) env, fn)) fileEnvironmentWithImports
+  let listImpEnvFns = map (\(imp, env, fn) -> (imp, refineEnvironmentWithType typeDB imp (Root []) env, fn)) fileEnvironmentWithImports
   if length [Nothing | (_, Nothing, _) <- listImpEnvFns] > 0 then do
     hPutStrLn stderr "Environment Refine error!"
     exitWith (ExitFailure 42)
@@ -114,14 +115,14 @@ main = do
     hPutStrLn stderr "Scope Checking: OK"
 
   let mdb = (buildInstanceEntryFromEnvironments nativeTypes (map (\(imp, Just env, fn) -> env) listImpEnvFns))
-  
+
   if isNothing mdb then do
     hPutStrLn stderr "Instance DB building error!"
     exitWith (ExitFailure 42)
   else do
     hPutStrLn stderr "Instance DB: OK"
   let Just db = mdb
-  
+
   -- HIERARCHY CHECKING
   let hierarchyResults = checkHierarchies (map fst fileAsts) db
 
@@ -130,14 +131,14 @@ main = do
     hPutStrLn stderr $ fromJust hierarchyResults
     exitWith (ExitFailure 42)
   else do
-    hPutStrLn stderr "Hierarchy: OK"   
-  
+    hPutStrLn stderr "Hierarchy: OK"
+
   -- Update DB with inheritance relations
   --hPutStrLn stderr (show fileNames)
   let cn = dumpDBNodes db
   let relations = [((typeToName . localType . symbol) node, ["java","lang","Object"]:(map (typeToName . localType . symbol) (getClassHierarchyForSymbol node db))) | node <- cn]
   --hPutStrLn stderr (show relations)
-  
+
   let mdb' = updateDBWithInheritances db relations
   if isNothing mdb' then do
     hPutStrLn stderr "Inheritance DB building error!"
@@ -145,11 +146,12 @@ main = do
   else do
     hPutStrLn stderr "Inheritance DB: OK"
   let Just db' = mdb'
-  
+
   let failures = filter (\(imp, Just env, fn) ->  typeLinkingCheck db' imp env == []) listImpEnvFns
   if length failures > 0 then do
     hPutStrLn stderr "Type Linking error!"
-    hPutStrLn stderr (show failures)
+    --hPutStrLn stderr (show failures)
+    hPutStrLn stderr (show $ map (\(imp, Just env, fn) -> fn) failures)
     exitWith (ExitFailure 42)
   else do
     hPutStrLn stderr "Type Linking: OK"
