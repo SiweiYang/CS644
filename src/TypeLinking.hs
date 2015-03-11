@@ -12,7 +12,7 @@ typeLinkingCheck db imps (ENV su c) = if elem Nothing imps' then [] else tps
     where
         (SU cname kd st inhf) = su
         [sym] = [sym | sym <- symbolTable inhf, localName sym == last cname]
-        SYM mds ln lt = sym
+        SYM mds ls ln lt = sym
         
         imps' = map (traverseNodeEntry db) imps
         
@@ -39,7 +39,7 @@ typeLinkingPrefix db imps cname = concat tps
         tps = map (traverseTypeEntryWithImports db imps) ps
 
 
-filterNonFunction (Function _ _) = False
+filterNonFunction (Function _ _ _) = False
 filterNonFunction _ = True
 ---------------------------------------------------------------------------------------------------------
 
@@ -49,9 +49,13 @@ typeLinkingExpr db imps su (Unary _ expr _) = typeLinkingExpr db imps su expr
 typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
     |   elem op ["+", "-", "*", "/", "%"] = if elem typeL [TypeByte, TypeShort, TypeInt] && elem typeR [TypeByte, TypeShort, TypeInt] then [typeL] else report
     |   elem op ["<", ">", "<=", ">="] = if elem typeL [TypeByte, TypeShort, TypeInt] && elem typeR [TypeByte, TypeShort, TypeInt] then [TypeBoolean] else report
-    |   elem op ["=", "=="] = if (typeL == typeR) || typeL == TypeNull || typeR == TypeNull then [TypeInt] else report
+    |   elem op ["=="] = if (typeL == typeR) || typeL == TypeNull || typeR == TypeNull then [TypeInt] else report
+    |   elem op ["="] = if (typeL == typeR) || typeR == TypeNull then [typeL] else report
 	where
-		[typeL] = filter filterNonFunction $ typeLinkingExpr db imps su exprL
+		[typeL] = case filter filterNonFunction $ typeLinkingExpr db imps su exprL of
+                            [] -> error $ "Binary: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show typeL) ++ (show exprR)
+                            [l] -> [l]
+                            a -> error $ "Binary: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show exprR) ++ (show a)
 		[typeR] = case filter filterNonFunction $ typeLinkingExpr db imps su exprR of
                             [] -> error $ "Binary: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show typeL) ++ (show exprR)
                             [r] -> [r]
@@ -64,27 +68,28 @@ typeLinkingExpr db imps su (InstanceOf tp expr _) = if typeLinkingExpr db imps s
 
 typeLinkingExpr db imps su (FunctionCall exprf args _) = case fts' of
                                                             [] -> []--error ("func " ++ (show exprf) ++ (show fts) ++ (show args))
-                                                            (Function pt rt):_ -> [rt]
+                                                            (Function nm pt rt):_ -> [rt]
                                                             _ -> error ("func mul" ++ (show exprf) ++ (show args))
 --if and $ map (\(lt, lts) -> [lt] == lts) (zip pt ats) then [rt] else []
         where
                 --fts = [Function pt rt | Function pt rt <- typeLinkingExpr db imps su exprf]
                 fts = typeLinkingExpr db imps su exprf
-                fts' = [Function pt rt | ft@(Function pt rt) <- fts, length pt == length args]
+                fts' = [Function nm pt rt | ft@(Function nm pt rt) <- fts, length pt == length args]
                 ats = map (typeLinkingExpr db imps su) args
 
 typeLinkingExpr db imps su expr@(Attribute s m _) = case typeLinkingExpr db imps su s of
                                                         [] -> []-- error ("Attr " ++ (show s) ++ (show m))
-                                                        tp:_ -> if nodes /= [] then map (symbolToType . symbol) nodes else error ("Attr " ++ (show expr) ++ (show ((typeToName tp)++[m])))
-	where
-		[tp] = typeLinkingExpr db imps su s
-                --should handle Class and instance differently
-                nodes = traverseInstanceEntry' db db ((typeToName tp)++[m])
+                                                        --should handle Class and instance differently
+                                                        [tp] -> case traverseInstanceEntry' db db ((typeToName tp)++[m]) of
+                                                                    [] -> error ("Attr " ++ (show expr) ++ (show ((typeToName tp)++[m])))
+                                                                    --instance look up should not return multiple candidates
+                                                                    nodes -> map (symbolToType . symbol) nodes
+                                                        _ -> []-- error ("Attr " ++ (show s) ++ (show m))
 
 -- import rule plays here
-typeLinkingExpr db imps su (NewObject tp args dp) = case lookUpDB db imps su (typeToName tp) of
+typeLinkingExpr db imps su (NewObject tp args dp) = case [TypeClass (Name nm) | TypeClass (Name nm) <- lookUpDB db imps su (typeToName tp)] of
                                                         [] -> [] --error $ "New Object: " ++ (show tp) ++ (show args) ++ (show imps)
-                                                        tp':_ -> [tp']--let cname = typeToName tp' in map (symbolToType . symbol) (traverseFieldEntryWithImports db imps (cname ++ [last cname]))
+                                                        (TypeClass (Name nm)):_ -> [Object (Name nm)]--let cname = typeToName tp' in map (symbolToType . symbol) (traverseFieldEntryWithImports db imps (cname ++ [last cname]))
 -- to check param types
 
 typeLinkingExpr db imps su (NewArray tp exprd _ _) = if elem typeIdx [TypeByte, TypeShort, TypeInt] then [Array tp] else error "Array: index is not an integer"
@@ -142,7 +147,7 @@ typeLinkingExpr db imps su _ = [TypeVoid]
 typeLinkingName :: TypeNode -> [[String]] -> SemanticUnit -> Name -> [Type]
 typeLinkingName db imps su (Name cname@(nm:remain)) = case syms' of
                                                                     [] -> case withThis of
-                                                                            [] -> lookUpDB db imps su(nm:remain)
+                                                                            [] -> lookUpDB db imps su (nm:remain)
                                                                             _ -> map (symbolToType . symbol) withThis
                                                                     _ -> syms'
 	where
@@ -153,13 +158,6 @@ typeLinkingName db imps su (Name cname@(nm:remain)) = case syms' of
                 
                 Just thisNode = getTypeEntry db (typeToName . lookUpThis $ su)
                 withThis = traverseInstanceEntry' db thisNode cname
-                
-
-symbolToType :: Symbol -> Type
-symbolToType (SYM _ _ t) = t
-symbolToType (CL _ _ t _) = t
-symbolToType (IT _ _ t _) = t
-symbolToType (FUNC _ _ ps rt) = Function ps  rt
 
 ---------------------------------------------------------------------------------------------------------
 
@@ -177,18 +175,12 @@ lookUpSymbolTable su nm = case cur of
 
 lookUpDB :: TypeNode -> [[String]] -> SemanticUnit -> [String] -> [Type]
 lookUpDB db imps su cname
-    | length tpsExplicit > 0 = if length tpsFromPrefix > 0 then [] else map (Object . Name) $ tpsExplicit
-    | length tpsSamePackage > 0 = map (Object . Name) $ tpsSamePackage
-    | length tpsOnDemand > 1 = []
-    | otherwise = (map (symbolToType . symbol) $ nub tps) ++ (map (Object . Name) tps')
+    | length tps' > 0 = tps'
+    | otherwise = (map (symbolToType . symbol) $ nub tps)
         where
             ps = map (\i -> (take i cname, drop i cname)) [1..(length cname)]
             tps = concat $ map (\(pre, post) -> traverseInstanceEntry db (traverseFieldEntryWithImports db imps pre) post) ps
-            tps' = traverseTypeEntryWithImports db imps cname
-            tpsExplicit = nub [tp | tp <- tps', elem tp imps]
-            tpsFromPrefix = concat $ map (traverseTypeEntryWithImports db imps) (map fst (init ps))
-            tpsSamePackage = nub [tp | tp <- tps', (init tp) == (init ((typeToName . lookUpThis) su))]
-            tpsOnDemand = nub [tp | tp <- tps', not $ elem tp imps]
+            tps' = map (TypeClass . Name) (lookUpType db imps cname)
 
 ------------------------------------------------------------------------------------
 
@@ -208,12 +200,12 @@ checkSameNameUp su@(SU _ kd st parent) accst = if kd `elem` [Method, Interface, 
         
         functionCheck = length cons /= (length . nub) cons || length funcs /= (length . nub) funcs
         cname = lookUpThis su
-        cons = [(ln, pt) | f@(FUNC _ ln pt lt) <- st, (last . typeToName) lt == (last . typeToName) cname]
-        funcs = [(ln, pt) | f@(FUNC _ ln pt lt) <- st, (last . typeToName) lt /= (last . typeToName) cname]
+        cons = [(ln, pt) | f@(FUNC mds _ ln pt lt) <- st, elem "cons" mds]
+        funcs = [(ln, pt) | f@(FUNC mds _ ln pt lt) <- st, not $ elem "cons" mds]
 
 
 checkSameNameInSymbolTable :: [Symbol] -> Bool
 checkSameNameInSymbolTable st = length nms /= (length . nub) nms
     where
-        syms = [SYM modis nm tp | SYM modis nm tp <- st]
+        syms = [SYM mds ls nm tp | SYM mds ls nm tp <- st]
         nms = map localName syms

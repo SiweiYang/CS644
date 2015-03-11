@@ -182,6 +182,7 @@ unitName (ITF _ nm _ _ _) = nm
 isInterface (ITF _ _ _ _ _) = True
 isInterface _ = False
 
+-- first import is self
 visibleImports :: CompilationUnit -> [[String]]
 visibleImports unit =
     let (ownPackage, ownClass) = case package unit of
@@ -431,7 +432,7 @@ data Expression = Unary { op :: String, expr :: Expression, depth :: Int}
                 deriving (Eq, Show)
 
 data Type = TypeByte | TypeShort | TypeInt | TypeChar | TypeBoolean | TypeString | TypeNull | TypeVoid
-          | Function [Type] Type
+          | Function Name [Type] Type
           | TypeClass Name
           | Object Name
           | Array Type
@@ -444,6 +445,7 @@ typeToName TypeBoolean = ["Boolean"]
 typeToName TypeString = ["String"]
 typeToName TypeNull = ["Null"]
 typeToName TypeVoid = ["Void"]
+typeToName (Function (Name nm) ps rt) = nm
 typeToName (Object (Name nm)) = nm
 typeToName (TypeClass (Name nm)) = nm
 typeToName (Array tp) = ["joosc native", "Array"]

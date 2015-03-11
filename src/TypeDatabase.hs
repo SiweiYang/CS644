@@ -14,13 +14,13 @@ data TypeNode = TN {
 
 arrayClass = CLS ["public"] "Array" (Just ["Object"]) [[]] [] [] [] (CLSI [] (AI "" 0 0 0 0) Nothing [])
 arrayUnit = Comp (Just ["joosc native", "Array"]) [] arrayClass (CompI Nothing [])
-nativeTypes = TN (PKG []) [TN (PKG "joosc native") [TN (CL ["public"] "Array" (TypeClass (Name ["joosc native", "Array"])) arrayUnit) [TN (SYM ["public"] "length" TypeInt) []]]]
+nativeTypes = TN (PKG []) [TN (PKG "joosc native") [TN (CL ["public"] "Array" (TypeClass (Name ["joosc native", "Array"])) arrayUnit) [TN (SYM ["public"] ["joosc native", "Array"] "length" TypeInt) []]]]
 
 isVisibleClassNode tn = case symbol tn of
                             PKG _ -> True
                             CL _ _ _ _ -> True
                             IT _ _ _ _ -> True
-                            FUNC _ _ _ _ -> False
+                            FUNC _ _ _ _ _ -> False
                             _ -> True -- False -> True
 
 isConcreteNode tn = case symbol tn of
@@ -106,8 +106,8 @@ traverseFieldEntryWithImports tn imps query = nub . concat $ (flds ++ funcs)
         entries' = map (\(mnode, imp) -> (fromJust mnode, imp)) (filter (isJust . fst) (zip entries imps))
         results = map (\(node, imp) -> (traverseTypeEntry node (init query), (init imp) ++ (init query))) ((tn, ["*"]):entries')
         fld = if query == [] then error "traverseFieldEntryWithImports" else last query
-        flds = [[TN (SYM mds ln lt) ch | TN (SYM mds ln lt) ch <- subNodes node, elem "static" mds, ln == fld] | (Just (TN _ [node]), cname) <- results]
-        funcs = [[TN (FUNC mds ln ps rt) ch | TN (FUNC mds ln ps rt) ch <- subNodes node, ln == fld] | (Just (TN _ [node]), cname) <- results]
+        flds = [[TN (SYM mds ls ln lt) ch | TN (SYM mds ls ln lt) ch <- subNodes node, elem "static" mds, ln == fld] | (Just (TN _ [node]), cname) <- results]
+        funcs = [[TN (FUNC mds ls ln ps rt) ch | TN (FUNC mds ls ln ps rt) ch <- subNodes node, ln == fld] | (Just (TN _ [node]), cname) <- results]
 
 traverseTypeEntryWithImports :: TypeNode -> [[String]] -> [String] -> [[String]]
 traverseTypeEntryWithImports tn imps query = nub [cname | (Just node, cname) <- results]
@@ -123,7 +123,7 @@ traverseInstanceEntry root nodes cname = concat nodes'
 
 traverseInstanceEntry' :: TypeNode -> TypeNode -> [String] -> [TypeNode]
 traverseInstanceEntry' root cur [] = [cur]
-traverseInstanceEntry' root (TN (SYM mds ln lt) _) (nm:cname) = traverseInstanceEntry' root root ((typeToName lt) ++ (nm:cname))
+traverseInstanceEntry' root (TN (SYM mds ls ln lt) _) (nm:cname) = traverseInstanceEntry' root root ((typeToName lt) ++ (nm:cname))
 traverseInstanceEntry' root cur (nm:cname) = case [node | node <- subNodes cur, (localName . symbol) node == nm] of
                                         []            -> []
                                         targets      -> concat $ map (\target -> traverseInstanceEntry' root target cname) targets
@@ -199,49 +199,64 @@ buildEntry' sym env cond = case kind su of
     where
         ENV su ch = env
         syms = symbolTable su
-        funcs = [(FUNC mds ln params lt) | (FUNC mds ln params lt) <- syms]
-        sflds = [(SYM mds ln lt) | (SYM mds ln lt) <- syms, cond mds]
+        funcs = [(FUNC mds ls ln params lt) | (FUNC mds ls ln params lt) <- syms]
+        sflds = [(SYM mds ls ln lt) | (SYM mds ls ln lt) <- syms, cond mds]
 
-refineTypeWithType :: ([String] -> [[String]]) -> Type -> Maybe Type
-refineTypeWithType querier (Object (Name nm)) = case querier nm of
+lookUpType :: TypeNode -> [[String]] -> [String] -> [[String]]
+lookUpType db imps cname
+    | length tpsExplicit > 0 = if length tpsFromPrefix > 0 then [] else tpsExplicit
+    | length tpsSamePackage > 0 = tpsSamePackage
+    | length tpsOnDemand > 1 = []
+    | otherwise = tps'
+        where
+            self = head imps
+            ps = map (\i -> (take i cname, drop i cname)) [1..(length cname)]
+            tps' = traverseTypeEntryWithImports db imps cname
+            tpsExplicit = nub [tp | tp <- tps', (elem tp imps) || (not $ elem ((init tp) ++ ["*"]) imps)]
+            tpsFromPrefix = concat $ map (traverseTypeEntryWithImports db imps) (map fst (init ps))
+            tpsSamePackage = nub [tp | tp <- tps', (init tp) == (init self)]
+            tpsOnDemand = nub [tp | tp <- tps', not $ elem tp tpsExplicit]
+
+refineTypeWithType :: TypeNode -> [[String]] -> Type -> Maybe Type
+refineTypeWithType db imps (Object (Name nm)) = case lookUpType db imps nm of
                                                     [] -> Nothing
                                                     nm':_ -> Just (Object (Name nm'))
                                                     --r -> error (show (nm, r))
-refineTypeWithType querier (TypeClass (Name nm)) = case querier nm of
+refineTypeWithType db imps (TypeClass (Name nm)) = case lookUpType db imps nm of
                                                     [] -> Nothing
                                                     nm':_ -> Just (TypeClass (Name nm'))
                                                     --r -> error (show (nm, r))
-refineTypeWithType querier (Array t) = case refineTypeWithType querier t of
+refineTypeWithType db imps (Array t) = case refineTypeWithType db imps t of
                                         Nothing -> Nothing
                                         Just t' -> Just (Array t')
-refineTypeWithType querier t = Just t
+refineTypeWithType db imps t = Just t
 
-refineSymbolWithType :: ([String] -> [[String]]) -> Symbol -> Maybe Symbol
-refineSymbolWithType querier (SYM mds ln lt) = case refineTypeWithType querier lt of
+refineSymbolWithType :: TypeNode -> [[String]] -> Symbol -> Maybe Symbol
+refineSymbolWithType db imps (SYM mds ls ln lt) = case refineTypeWithType db imps lt of
                                                 Nothing -> Nothing
-                                                Just lt' -> Just (SYM mds ln lt')
-refineSymbolWithType querier (CL mds ln lt unit) = case refineTypeWithType querier lt of
+                                                Just lt' -> Just (SYM mds ls ln lt')
+refineSymbolWithType db imps (CL mds ln lt unit) = case refineTypeWithType db imps lt of
                                                 Nothing -> Nothing
                                                 Just lt' -> Just (CL mds ln lt' unit)
-refineSymbolWithType querier (IT mds ln lt unit) = case refineTypeWithType querier lt of
+refineSymbolWithType db imps (IT mds ln lt unit) = case refineTypeWithType db imps lt of
                                                 Nothing -> Nothing
                                                 Just lt' -> Just (IT mds ln lt' unit)
-refineSymbolWithType querier (FUNC mds ln params lt) = case (dropWhile isJust params', mlt') of
+refineSymbolWithType db imps (FUNC mds ls ln params lt) = case (dropWhile isJust params', mlt') of
                                                         (_, Nothing) -> Nothing
-                                                        ([], Just lt') -> Just (FUNC mds ln (map fromJust params') lt')
+                                                        ([], Just lt') -> Just (FUNC mds ls ln (map fromJust params') lt')
                                                         _ -> Nothing
     where
-        params' = map (refineTypeWithType querier) params
-        mlt' = refineTypeWithType querier lt
-refineSymbolWithType querier sym = Just sym
+        params' = map (refineTypeWithType db imps) params
+        mlt' = refineTypeWithType db imps lt
+refineSymbolWithType db imps sym = Just sym
 
-refineEnvironmentWithType :: ([String] -> [[String]]) -> SemanticUnit -> Environment -> Maybe Environment
-refineEnvironmentWithType querier _ ENVE = Just ENVE
-refineEnvironmentWithType querier parent (ENV su ch) = case (dropWhile isJust syms', dropWhile isJust ch') of
+refineEnvironmentWithType :: TypeNode -> [[String]] -> SemanticUnit -> Environment -> Maybe Environment
+refineEnvironmentWithType db imps _ ENVE = Just ENVE
+refineEnvironmentWithType db imps parent (ENV su ch) = case (dropWhile isJust syms', dropWhile isJust ch') of
                                                         ([], []) -> Just (ENV su' (map fromJust ch'))
                                                         _ -> Nothing
     where
         (SU cname k syms _) = su
-        syms' = map (refineSymbolWithType querier) syms
+        syms' = map (refineSymbolWithType db imps) syms
         su' = (SU cname k (map fromJust syms') parent)
-        ch' = map (refineEnvironmentWithType querier su') ch
+        ch' = map (refineEnvironmentWithType db imps su') ch

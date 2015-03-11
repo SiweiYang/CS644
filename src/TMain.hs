@@ -184,7 +184,7 @@ main' fileNames = do
   else do
     hPutStrLn stderr "Scope Checking: OK"
   
-  let listImpEnvFns = map (\(imp, env, fn) -> (imp, refineEnvironmentWithType (traverseTypeEntryWithImports typeDB imp) (Root []) env, fn)) fileEnvironmentWithImports
+  let listImpEnvFns = map (\(imp, env, fn) -> (imp, refineEnvironmentWithType typeDB imp (Root []) env, fn)) fileEnvironmentWithImports
   let mdb = (buildInstanceEntryFromEnvironments nativeTypes (map (\(imp, Just env, fn) -> env) listImpEnvFns))
   
   if isNothing mdb then do
@@ -224,7 +224,8 @@ main' fileNames = do
   hPutStrLn stderr (show relations)
   if length failures > 0 then do
     hPutStrLn stderr "Type Linking error!"
-    hPutStrLn stderr (show failures)
+    --hPutStrLn stderr (show failures)
+    hPutStrLn stderr (show $ map (\(imp, Just env, fn) -> fn) failures)
     exitWith (ExitFailure 42)
   else do
     hPutStrLn stderr "Type Linking: OK"

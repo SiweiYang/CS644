@@ -98,7 +98,7 @@ main = do
     hPutStrLn stderr "Environment DB: OK"
   let Just typeDB = mtypeDB
   
-  let listImpEnvFns = map (\(imp, env, fn) -> (imp, refineEnvironmentWithType (traverseTypeEntryWithImports typeDB imp) (Root []) env, fn)) fileEnvironmentWithImports
+  let listImpEnvFns = map (\(imp, env, fn) -> (imp, refineEnvironmentWithType typeDB imp (Root []) env, fn)) fileEnvironmentWithImports
   if length [Nothing | (_, Nothing, _) <- listImpEnvFns] > 0 then do
     hPutStrLn stderr "Environment Refine error!"
     exitWith (ExitFailure 42)
@@ -149,7 +149,8 @@ main = do
   let failures = filter (\(imp, Just env, fn) ->  typeLinkingCheck db' imp env == []) listImpEnvFns
   if length failures > 0 then do
     hPutStrLn stderr "Type Linking error!"
-    hPutStrLn stderr (show failures)
+    --hPutStrLn stderr (show failures)
+    hPutStrLn stderr (show $ map (\(imp, Just env, fn) -> fn) failures)
     exitWith (ExitFailure 42)
   else do
     hPutStrLn stderr "Type Linking: OK"
