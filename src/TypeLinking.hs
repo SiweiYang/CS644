@@ -54,20 +54,19 @@ typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
                             (_, _) -> if typeLInt && typeRInt then typeLR else []
     |   elem op ["-", "*", "/", "%"] = if typeLInt && typeRInt then typeLR else []
     |   elem op ["<", ">", "<=", ">="] = if typeLInt && typeRInt then [TypeBoolean] else []
-    |   elem op ["&&", "||"] = if typeLBool && typeRBool then [TypeBoolean] else []
+    |   elem op ["&&", "||", "&", "|"] = if typeLBool && typeRBool then [TypeBoolean] else []
     |   elem op ["=="] = if null typeLR then [] else [TypeBoolean]
     |   elem op ["="] = if assignRL then [typeL] else []
     where
         [typeL] = case filter filterNonFunction $ typeLinkingExpr db imps su exprL of
-                            [] -> error $ "Binary: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show typeL) ++ (show exprR)
+                            [] -> error $ "Binary typeL no match: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show exprR)
                             [l] -> [l]
-                            a -> error $ "Binary: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show exprR) ++ (show a)
+                            a -> error $ "Binary typeL multi match: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show exprR) ++ (show a)
 
         [typeR] = case filter filterNonFunction $ typeLinkingExpr db imps su exprR of
-                            [] -> error $ "Binary: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show typeL) ++ (show exprR)
+                            [] -> error $ "Binary typeR no match: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show exprR)
                             [r] -> [r]
-                            a -> error $ "Binary: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show typeL) ++ (show exprR) ++ (show a)
-        report = (error $ "Binary: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show typeL) ++ (show exprR) ++ (show typeR))
+                            a -> error $ "Binary typeR multi match: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show exprR) ++ (show a)
         assignRL = not . null $ conversion db typeR typeL
         typeLR = case (null $ conversion db typeL typeR, null $ conversion db typeR typeL) of
                     (True, True) -> []
@@ -163,19 +162,24 @@ typeLinkingExpr db imps su _ = [TypeVoid]
 ---------------------------------------------------------------------------------------------------------
 
 typeLinkingName :: TypeNode -> [[String]] -> SemanticUnit -> Name -> [Type]
-typeLinkingName db imps su (Name cname@(nm:remain)) = case syms' of
-                                                                    [] -> case withThis of
-                                                                            [] -> lookUpDB db imps su (nm:remain)
-                                                                            _ -> map (symbolToType . symbol) withThis
-                                                                    _ -> syms'
+typeLinkingName db imps su (Name cname@(nm:remain)) = case syms'' of
+                                                        [] -> lookUpDB db imps su (nm:remain)
+                                                        _ -> map symbolToType syms''
 	where
-		syms = if scopeStatic su then [sym | sym@(SYM mds _ _ _) <- lookUpSymbolTable su nm, elem "static" mds] else lookUpSymbolTable su nm
-                
-                nodes = concat $ map (traverseInstanceEntry' db db) (map (\sym -> (typeToName . localType $ sym) ++ remain) syms)
-                syms' = if remain == [] then map symbolToType syms else map (symbolToType . symbol) nodes
+		syms = [sym | sym <- lookUpSymbolTable su nm, not $ elem "cons" (symbolModifiers sym)]
+                symsStatic = [sym | sym@(SYM mds _ _ _) <- syms, elem "static" mds] ++ [func | func@(FUNC mds _ _ _ _) <- syms]
+                syms' = if scopeStatic su then symsStatic else syms
+                syms'' = if remain == []
+                            then syms'
+                            else map symbol $ concat $ map (traverseInstanceEntry' db db) [((typeToName . localType) sym) ++ remain | sym@(SYM mds _ _ _) <- syms']
                 
                 Just thisNode = getTypeEntry db (typeToName . lookUpThis $ su)
-                withThis = traverseInstanceEntry' db thisNode cname
+                symsInheritance = [sym | sym <- map symbol (traverseInstanceEntry' db thisNode [nm]), not $ elem "cons" (symbolModifiers sym)]
+                symsInheritanceStatic = [sym | sym@(SYM mds _ _ _) <- symsInheritance, elem "static" mds] ++ [func | func@(FUNC mds _ _ _ _) <- symsInheritance]
+                symsInheritance' = if scopeStatic su then symsInheritanceStatic else symsInheritance
+                symsInheritance'' = if remain == []
+                            then symsInheritance'
+                            else map symbol $ concat $ map (traverseInstanceEntry' db db) [((typeToName . localType) sym) ++ remain | sym@(SYM mds _ _ _) <- symsInheritance']
 
 ---------------------------------------------------------------------------------------------------------
 

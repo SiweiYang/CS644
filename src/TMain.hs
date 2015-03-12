@@ -96,14 +96,22 @@ testTD = do
     --env <- testENV
     --return (buildTypeEntry (TN (PKG []) []) env)
 
-main' :: [String] -> IO ()
-main' fileNames = do
+main :: IO ()
+main = do
+  -- Get the files to compile from the args
+  fileNames <- getArgs
   hPutStrLn stderr (show fileNames)
+  main' fileNames
+
+main' :: [String] -> IO ()
+main' givenFileNames = do
+  let allFileNames = givenFileNames ++ ["./res/ObjectInterface.java"]
+
   -- Read their contents
-  fileContents <- mapM readFile fileNames
+  fileContents <- mapM readFile allFileNames
 
   -- Create content/filename pairs
-  let files = zip fileContents fileNames
+  let files = zip fileContents allFileNames
 
   -- LEXER
   tokenByFiles <- mapM (scannerRunner 0 0) files
@@ -125,14 +133,13 @@ main' fileNames = do
     exitWith (ExitFailure 42)
 
   let astByFiles = map (\(tokens, file) -> (map tokenToAST tokens, file)) tokenByFilesValid
+
   -- PARSER
   dfa <- readLR1
-  --dfa <- readDFA
   let resultByFiles = map (\(ast, file) -> (run (dfa, ast ++ [AST "EOF" []]), file)) astByFiles
-  
-  hPutStrLn stderr (show (map (snd . fst) resultByFiles))
+
   let (validParsed, invalidParsed) = partition (\x -> (length . snd $ fst x)==0) resultByFiles
-  
+
   if null invalidParsed then do
     hPutStrLn stderr "Parsing OK"
   else do
@@ -140,6 +147,7 @@ main' fileNames = do
     hPutStrLn stderr "Parse error!"
     hPutStrLn stderr $ "Unexpected token following: " ++ (show (content . head . units . fst . fst $ head invalidParsed))
     exitWith (ExitFailure 42)
+
 
   -- AST GENERATION
   let fileAsts = map (\x -> ((buildAST . units . fst $ fst x), snd x)) validParsed
@@ -175,25 +183,31 @@ main' fileNames = do
   else do
     hPutStrLn stderr "Environment DB: OK"
   let Just typeDB = mtypeDB
-  
+
+  let listImpEnvFns = map (\(imp, env, fn) -> (imp, refineEnvironmentWithType typeDB imp (Root []) env, fn)) fileEnvironmentWithImports
+  if length [Nothing | (_, Nothing, _) <- listImpEnvFns] > 0 then do
+    hPutStrLn stderr "Environment Refine error!"
+    exitWith (ExitFailure 42)
+  else do
+    hPutStrLn stderr "Environment Refine: OK"
+
   -- Scope Checking
-  let scopeCheck = filter (checkSameNameInEnvironment . fst) validEnvironments
+  let scopeCheck = filter (\(imp, Just env, fn) -> checkSameNameInEnvironment env) listImpEnvFns
   if not $ null scopeCheck then do
-    hPutStrLn stderr $ "Scope checking error in file" ++ (snd $ head scopeCheck)
+    hPutStrLn stderr $ "Scope checking error in files: " ++ (show (map (\(imp, Just env, fn) -> fn) scopeCheck))
     exitWith (ExitFailure 42)
   else do
     hPutStrLn stderr "Scope Checking: OK"
-  
-  let listImpEnvFns = map (\(imp, env, fn) -> (imp, refineEnvironmentWithType typeDB imp (Root []) env, fn)) fileEnvironmentWithImports
+
   let mdb = (buildInstanceEntryFromEnvironments nativeTypes (map (\(imp, Just env, fn) -> env) listImpEnvFns))
-  
+
   if isNothing mdb then do
     hPutStrLn stderr "Instance DB building error!"
     exitWith (ExitFailure 42)
   else do
     hPutStrLn stderr "Instance DB: OK"
   let Just db = mdb
-  
+
   -- HIERARCHY CHECKING
   let hierarchyResults = checkHierarchies (map fst fileAsts) db
 
@@ -202,26 +216,23 @@ main' fileNames = do
     hPutStrLn stderr $ fromJust hierarchyResults
     exitWith (ExitFailure 42)
   else do
-    hPutStrLn stderr "Hierarchy: OK"   
-  
+    hPutStrLn stderr "Hierarchy: OK"
+
   -- Update DB with inheritance relations
-  hPutStrLn stderr (show fileNames)
+  --hPutStrLn stderr (show fileNames)
   let cn = dumpDBNodes db
   let relations = [((typeToName . localType . symbol) node, ["java","lang","Object"]:(map (typeToName . localType . symbol) (getClassHierarchyForSymbol node db))) | node <- cn]
-  
-  hPutStrLn stderr (show relations)
+  --hPutStrLn stderr (show relations)
+
   let mdb' = updateDBWithInheritances db relations
-  
   if isNothing mdb' then do
     hPutStrLn stderr "Inheritance DB building error!"
     exitWith (ExitFailure 42)
   else do
     hPutStrLn stderr "Inheritance DB: OK"
   let Just db' = mdb'
-  
-  --hPutStrLn stderr (show relations)
+
   let failures = filter (\(imp, Just env, fn) ->  typeLinkingCheck db' imp env == []) listImpEnvFns
-  hPutStrLn stderr (show relations)
   if length failures > 0 then do
     hPutStrLn stderr "Type Linking error!"
     --hPutStrLn stderr (show failures)
@@ -230,9 +241,3 @@ main' fileNames = do
   else do
     hPutStrLn stderr "Type Linking: OK"
 
-
-main :: IO ()
-main = do
-  -- Get the files to compile from the args
-  fileNames <- getArgs
-  main' fileNames
