@@ -160,7 +160,9 @@ typeLinkingExpr db imps su _ = [TypeVoid]
 
 typeLinkingName :: TypeNode -> [[String]] -> SemanticUnit -> Name -> [Type]
 typeLinkingName db imps su (Name cname@(nm:remain)) = case syms'' of
-                                                        [] -> lookUpDB db imps su (nm:remain)
+                                                        [] -> case symsInheritance'' of
+                                                                [] -> lookUpDB db imps su (nm:remain)
+                                                                _ -> map symbolToType symsInheritance''
                                                         _ -> map symbolToType syms''
 	where
                 baseName = (typeToName . lookUpThis) su

@@ -12,7 +12,6 @@ conversion typeDB typeS typeT
     | typeT == TypeNull = []
     | typeS == TypeNull = case typeT of
                             (Object x) -> [(Object x)]
-                            TypeString -> [TypeString]
                             _ -> []
     | otherwise = case (isPrimitive typeS, isPrimitive typeT) of
                             (True, True) ->  typeS:(primitiveConversion typeS typeT)
@@ -58,7 +57,7 @@ objectConversion _ _ _ = []
 ----------------------------------------------------------
 
 isPrimitive :: Type -> Bool
-isPrimitive x = elem x [TypeBoolean, TypeChar, TypeString, TypeByte, TypeShort, TypeInt]
+isPrimitive x = elem x [TypeBoolean, TypeChar, TypeByte, TypeShort, TypeInt]
 
 {-
 isObject :: Type -> Bool
@@ -75,7 +74,6 @@ boxingType TypeByte = Object (Name ["java", "lang", "Byte"])
 boxingType TypeShort = Object (Name ["java", "lang", "Short"])
 boxingType TypeInt = Object (Name ["java", "lang", "Integer"])
 boxingType TypeChar = Object (Name ["java", "lang", "Character"])
-boxingType TypeString = Object (Name ["java", "lang", "String"])
 
 unboxingType :: Type -> Maybe Type
 unboxingType (Object (Name ["java", "lang", "Boolean"])) = Just TypeBoolean
@@ -83,7 +81,6 @@ unboxingType (Object (Name ["java", "lang", "Byte"])) = Just TypeByte
 unboxingType (Object (Name ["java", "lang", "Short"])) = Just TypeShort
 unboxingType (Object (Name ["java", "lang", "Integer"])) = Just TypeInt
 unboxingType (Object (Name ["java", "lang", "Character"])) = Just TypeChar
-unboxingType (Object (Name ["java", "lang", "String"])) = Just TypeString
 unboxingType _ = Nothing
 
 

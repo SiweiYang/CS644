@@ -431,7 +431,7 @@ data Expression = Unary { op :: String, expr :: Expression, depth :: Int}
                 | Null
                 deriving (Eq, Show)
 
-data Type = TypeByte | TypeShort | TypeInt | TypeChar | TypeBoolean | TypeString | TypeNull | TypeVoid
+data Type = TypeByte | TypeShort | TypeInt | TypeChar | TypeBoolean | TypeNull | TypeVoid
           | Function Name [Type] Type
           | TypeClass Name
           | Object Name
@@ -442,7 +442,6 @@ typeToName TypeShort = ["Short"]
 typeToName TypeInt = ["Int"]
 typeToName TypeChar = ["Char"]
 typeToName TypeBoolean = ["Boolean"]
-typeToName TypeString = ["String"]
 typeToName TypeNull = ["Null"]
 typeToName TypeVoid = ["Void"]
 typeToName (Function (Name nm) ps rt) = nm
@@ -599,6 +598,6 @@ literalToType ast = case (name ast) of
                           "LITERAL_INT" -> TypeInt
                           "LITERAL_BOOL" -> TypeBoolean
                           "LITERAL_CHAR" -> TypeChar
-                          "LITERAL_STRING" -> TypeString
+                          "LITERAL_STRING" -> Object (Name ["java", "lang", "String"])
                           "LITERAL_NULL" -> TypeNull
 
