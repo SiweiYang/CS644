@@ -12,6 +12,7 @@ conversion typeDB typeS typeT
     | typeT == TypeNull = []
     | typeS == TypeNull = case typeT of
                             (Object x) -> [(Object x)]
+                            (Array x) -> [(Array x)]
                             _ -> []
     | otherwise = case (isPrimitive typeS, isPrimitive typeT) of
                             (True, True) ->  typeS:(primitiveConversion typeS typeT)

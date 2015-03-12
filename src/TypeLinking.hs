@@ -9,6 +9,7 @@ import TypeChecking
 
 typeLinkingFailure :: String -> [Type]
 typeLinkingFailure msg = error msg
+--typeLinkingFailure msg = []
 
 typeLinkingCheck :: TypeNode -> [[String]] -> Environment -> [Type]
 typeLinkingCheck _ _ ENVE = [TypeVoid]
@@ -118,12 +119,14 @@ typeLinkingExpr db imps su (NewObject tp args dp) = case [TypeClass (Name nm) | 
                                                         (TypeClass (Name nm)):_ -> let Just tn = getTypeEntry db nm in if elem "abstract" ((symbolModifiers . symbol) tn) then [] else [Object (Name nm)]
 -- to check param types
 
-typeLinkingExpr db imps su (NewArray tp exprd _ _) = if elem typeIdx [TypeByte, TypeShort, TypeInt] then [Array tp] else typeLinkingFailure "Array: index is not an integer"
+typeLinkingExpr db imps su (NewArray tp exprd _ _) = if not . null $ conversion db typeIdx TypeInt then [Array tp] else typeLinkingFailure "Array: index is not an integer"
         where
-                [typeIdx] = typeLinkingExpr db imps su exprd
+                [typeIdx] = case typeLinkingExpr db imps su exprd of
+                                [tp] -> [tp]
+                                tps -> typeLinkingFailure $ "Array Index multi: " ++ (show exprd) ++ (show tps)
 
 typeLinkingExpr db imps su (Dimension _ expr _) = case typeIdx of
-                                                        [tp] -> if elem tp [TypeByte, TypeShort, TypeInt] then [tp] else []--typeLinkingFailure "Array: index is not an integer"
+                                                        [tp] -> if elem tp [TypeByte, TypeShort, TypeInt, TypeChar] then [tp] else []--typeLinkingFailure "Array: index is not an integer"
                                                         _ -> typeLinkingFailure "Array Index Type typeLinkingFailure"
         where
                 typeIdx = typeLinkingExpr db imps su expr
