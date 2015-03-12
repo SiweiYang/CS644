@@ -133,29 +133,26 @@ typeLinkingExpr db imps su (ArrayAccess arr idx _) = case typeArr of
 -- to check: allow use array of primitive type to cast
 typeLinkingExpr db imps su (CastA casttp dim expr _) = case typeExpr of
                                                         [] -> []--error "CastA: cannot type linking the expression"
-                                                        _ -> if dim == Null then [casttp] else [Array casttp]
+                                                        _ -> if null casting then [] else [targetType]
         where
             typeExpr = typeLinkingExpr db imps su expr
+            targetType = if dim == Null then casttp else (Array casttp)
+            casting = conversion db (head typeExpr) targetType
 
 -- to do: is it possible cast from A to B?
-typeLinkingExpr db imps su (CastB castexpr expr _) = case typeExpr of
-                                                        [] -> []--error "CastB: cannot type linking the expression"
-                                                        _ -> case typeCastExpr of
-                                                                [] -> []--error "CastB: cannot type linking the cast expression"
-                                                                _ -> typeCastExpr
+typeLinkingExpr db imps su (CastB castexpr expr _) = if null typeCastExpr || null typeExpr || null casting then [] else typeCastExpr
         where
             typeCastExpr = typeLinkingExpr db imps su castexpr
             typeExpr = typeLinkingExpr db imps su expr
+            casting = conversion db (head typeExpr) (head typeCastExpr)
 
 -- to check: must be (Name [])?
-typeLinkingExpr db imps su (CastC castnm _ expr _) = case typeExpr of
-                                                        [] -> []--error "CastC: cannot type linking the expression"
-                                                        _-> case tps of
-                                                                [] -> []
-                                                                tp:_ -> [Array tp]
+typeLinkingExpr db imps su (CastC castnm _ expr _) = if null tps || null typeExpr || null casting then [] else [targetType]
         where
             tps = typeLinkingName db imps su castnm
             typeExpr = typeLinkingExpr db imps su expr
+            targetType = Array (head tps) -- BUG?
+            casting = conversion db (head typeExpr) targetType
             
 
 typeLinkingExpr db imps su _ = [TypeVoid]

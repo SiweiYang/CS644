@@ -16,9 +16,9 @@ conversion typeDB typeS typeT
                             _ -> []
     | otherwise = case (isPrimitive typeS, isPrimitive typeT) of
                             (True, True) ->  typeS:(primitiveConversion typeS typeT)
-                            (False, True) -> case (unboxed == typeT) of
-                                                True -> [typeS, typeT]
-                                                False -> if null nextUnbox then [] else [typeS, unboxed] ++ nextUnbox
+                            (False, True) -> case unboxed of
+                                                Nothing -> []
+                                                Just t -> if t == typeT then [typeS, typeT] else (if null nextUnbox then [] else [typeS, t] ++ nextUnbox)
                             (False, False) -> typeS:(objectConversion typeDB typeS typeT)
                             (True, False) -> case (boxed == typeT) of
                                                 True -> [typeS, typeT]
@@ -27,7 +27,7 @@ conversion typeDB typeS typeT
         boxed = boxingType typeS
         nextBox = objectConversion typeDB boxed typeT
         unboxed = unboxingType typeS
-        nextUnbox = primitiveConversion unboxed typeT
+        nextUnbox = primitiveConversion (fromJust unboxed) typeT
 
 
 ----------------------------------------------------------
@@ -77,13 +77,15 @@ boxingType TypeInt = Object (Name ["java", "lang", "Integer"])
 boxingType TypeChar = Object (Name ["java", "lang", "Character"])
 boxingType TypeString = Object (Name ["java", "lang", "String"])
 
-unboxingType :: Type -> Type
-unboxingType (Object (Name ["java", "lang", "Boolean"])) = TypeBoolean
-unboxingType (Object (Name ["java", "lang", "Byte"])) = TypeByte
-unboxingType (Object (Name ["java", "lang", "Short"])) = TypeShort
-unboxingType (Object (Name ["java", "lang", "Integer"])) = TypeInt
-unboxingType (Object (Name ["java", "lang", "Character"])) = TypeChar
-unboxingType (Object (Name ["java", "lang", "String"])) = TypeString
+unboxingType :: Type -> Maybe Type
+unboxingType (Object (Name ["java", "lang", "Boolean"])) = Just TypeBoolean
+unboxingType (Object (Name ["java", "lang", "Byte"])) = Just TypeByte
+unboxingType (Object (Name ["java", "lang", "Short"])) = Just TypeShort
+unboxingType (Object (Name ["java", "lang", "Integer"])) = Just TypeInt
+unboxingType (Object (Name ["java", "lang", "Character"])) = Just TypeChar
+unboxingType (Object (Name ["java", "lang", "String"])) = Just TypeString
+unboxingType _ = Nothing
+
 
 {-
 
