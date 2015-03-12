@@ -29,7 +29,7 @@ typeLinkingCheck db imps (ENV su c) = if elem Nothing imps' then [] else tps
                 
                 Class -> case typeLinkingPrefix db imps (scope su) of
                             _ -> cts'
-                Method -> cts'
+                Method _ -> cts'
                 _ -> cts'
 
 typeLinkingPrefix :: TypeNode -> [[String]] -> [String] -> [[String]]
@@ -50,6 +50,7 @@ typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
     |   elem op ["+", "-", "*", "/", "%"] = if elem typeL [TypeByte, TypeShort, TypeInt] && elem typeR [TypeByte, TypeShort, TypeInt] then [typeL] else report
     |   elem op ["<", ">", "<=", ">="] = if elem typeL [TypeByte, TypeShort, TypeInt] && elem typeR [TypeByte, TypeShort, TypeInt] then [TypeBoolean] else report
     |   elem op ["=="] = if (typeL == typeR) || typeL == TypeNull || typeR == TypeNull then [TypeInt] else report
+--    |   elem op ["|", "||", "&", "&&"] = if elem typeL [TypeByte, TypeShort, TypeInt, TypeBool] && elem typeR [TypeByte, TypeShort, TypeInt, TypeBool] then [TypeBool] else report
     |   elem op ["="] = if (typeL == typeR) || typeR == TypeNull then [typeL] else report
 	where
 		[typeL] = case filter filterNonFunction $ typeLinkingExpr db imps su exprL of
@@ -62,7 +63,7 @@ typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
                             a -> error $ "Binary: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show typeL) ++ (show exprR) ++ (show a)
                 report = (error $ "Binary: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show typeL) ++ (show exprR) ++ (show typeR))
 typeLinkingExpr db imps su (ID nm _) = typeLinkingName db imps su nm
-typeLinkingExpr db imps su This = [lookUpThis su]
+typeLinkingExpr db imps su This = if scopeStatic su then [] else [lookUpThis su]
 typeLinkingExpr db imps su (Value tp _ _) = [tp]
 typeLinkingExpr db imps su (InstanceOf tp expr _) = if typeLinkingExpr db imps su expr == [] then [] else [tp]
 
@@ -89,7 +90,7 @@ typeLinkingExpr db imps su expr@(Attribute s m _) = case typeLinkingExpr db imps
 -- import rule plays here
 typeLinkingExpr db imps su (NewObject tp args dp) = case [TypeClass (Name nm) | TypeClass (Name nm) <- lookUpDB db imps su (typeToName tp)] of
                                                         [] -> [] --error $ "New Object: " ++ (show tp) ++ (show args) ++ (show imps)
-                                                        (TypeClass (Name nm)):_ -> [Object (Name nm)]--let cname = typeToName tp' in map (symbolToType . symbol) (traverseFieldEntryWithImports db imps (cname ++ [last cname]))
+                                                        (TypeClass (Name nm)):_ -> let Just tn = getTypeEntry db nm in if elem "abstract" ((symbolModifiers . symbol) tn) then [] else [Object (Name nm)]
 -- to check param types
 
 typeLinkingExpr db imps su (NewArray tp exprd _ _) = if elem typeIdx [TypeByte, TypeShort, TypeInt] then [Array tp] else error "Array: index is not an integer"
@@ -151,10 +152,11 @@ typeLinkingName db imps su (Name cname@(nm:remain)) = case syms' of
                                                                             _ -> map (symbolToType . symbol) withThis
                                                                     _ -> syms'
 	where
-		syms = lookUpSymbolTable su nm
-                syms' = if remain == [] then map symbolToType syms else map (symbolToType . symbol) nodes
+		syms = if scopeStatic su then [sym | sym@(SYM mds _ _ _) <- lookUpSymbolTable su nm, elem "static" mds] else lookUpSymbolTable su nm
                 
                 nodes = concat $ map (traverseInstanceEntry' db db) (map (\sym -> (typeToName . localType $ sym) ++ remain) syms)
+                
+                syms' = if remain == [] then map symbolToType syms else map (symbolToType . symbol) nodes
                 
                 Just thisNode = getTypeEntry db (typeToName . lookUpThis $ su)
                 withThis = traverseInstanceEntry' db thisNode cname
@@ -163,6 +165,17 @@ typeLinkingName db imps su (Name cname@(nm:remain)) = case syms' of
 
 lookUpThis :: SemanticUnit -> Type
 lookUpThis su = if elem (kind su) [Class, Interface] then Object (Name (scope su)) else lookUpThis (inheritFrom su)
+
+scopeStatic:: SemanticUnit -> Bool
+scopeStatic su
+    | elem kd [Package, Class, Interface] = True
+    | otherwise = rst
+    where
+        kd = kind su
+        rst = case kd of
+                Method (FUNC mds _ _ _ _) -> elem "static" mds
+                _ -> scopeStatic (inheritFrom su)
+                    
 
 lookUpSymbolTable :: SemanticUnit -> String -> [Symbol]
 lookUpSymbolTable (Root _) str = []
@@ -193,7 +206,11 @@ checkSameNameInEnvironment (ENV su chs) = or $ map checkSameNameInEnvironment ch
 
 checkSameNameUp :: SemanticUnit -> [Symbol] -> Bool
 checkSameNameUp (Root _) accst = checkSameNameInSymbolTable accst
-checkSameNameUp su@(SU _ kd st parent) accst = if kd `elem` [Method, Interface, Class] then (res || checkSameNameUp parent []) else checkSameNameUp parent nextst
+checkSameNameUp su@(SU _ kd st parent) accst = case kd of
+                                                Method _ -> res || checkSameNameUp parent []
+                                                Interface -> res || checkSameNameUp parent []
+                                                Class -> res || checkSameNameUp parent []
+                                                _ -> checkSameNameUp parent nextst
     where
         nextst = accst ++ st
         res = functionCheck || checkSameNameInSymbolTable nextst

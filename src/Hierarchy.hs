@@ -203,5 +203,18 @@ functionImplemented definitions fun =
                      (not $ "abstract" `elem` (symbolModifiers b))
   in any (funEqual fun) definitions
 
--- Symbol
--- Class -> Class -> TypeNode -> Maybe super Or NOTHING
+-- Class -> Class -> Type Database -> highest || Nothing if symbols are unrelated
+higherInChain :: Symbol -> Symbol -> TypeNode -> Maybe Symbol
+higherInChain symA@(CL _ _ _ unitA) symB@(CL _ _ _ unitB) typeDB
+  | symA `elem` hierarchyB = Just symA
+  | symB `elem` hierarchyA = Just symB
+  | otherwise = Nothing
+  where hierarchyA = map symbol $ getClassHierarchy unitA typeDB
+        hierarchyB = map symbol $ getClassHierarchy unitB typeDB
+
+higherInChain symA@(IT _ _ _ unitA) symB@(IT _ _ _ unitB) typeDB
+  | symA `elem` hierarchyB = Just symA
+  | symB `elem` hierarchyA = Just symB
+  | otherwise = Nothing
+  where hierarchyA = map symbol $ getInterfaceSupers unitA typeDB
+        hierarchyB = map symbol $ getInterfaceSupers unitB typeDB

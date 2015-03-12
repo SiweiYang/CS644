@@ -2,18 +2,35 @@
 
 make
 
+testSuite=a3
+if [ $# -eq 1 ]
+  then
+    testSuite=$1
+fi
+
+function joosc_run {
+  ./joosc `find $1 | grep "\.java$"` assignment_testcases/stdlib2/*.java
+  status=$?
+  if [ $status -ne 0 ]; then
+    echo "Exit code: $status"
+  fi
+}
+export -f joosc_run
+
 function run_test {
     ./joosc $1 assignment_testcases/stdlib2/*.java 2>/dev/null
-    if [ $? -ne 0 ]; then
-        echo $1
+    status=$?
+    if [ $status -ne 0 ]; then
+      echo "$1 ($status)"
     fi
 }
 export -f run_test
 
 function run_test_dir {
     ./joosc `find $1 -type f` assignment_testcases/stdlib2/*.java 2>/dev/null
-    if [ $? -ne 0 ]; then
-        echo $1
+    status=$?
+    if [ $status -ne 0 ]; then
+      echo "$1 ($status)"
     fi
 }
 export -f run_test_dir
@@ -39,41 +56,31 @@ export -f run_bad_test_dir
 echo "Running tests..."
 echo "Failures:"
 
-echo "Negatives Single File"
-for file in $( echo assignment_testcases/a2/Je*.java ); do
-    run_bad_test $file
-done
 
-echo "Positive Folder"
-for dir in $( ls -d assignment_testcases/a2/J[!e]*/ ); do
-    run_test_dir $dir
-done
+which parallel > /dev/null
+if [ $? -ne 0 ]; then
+  echo "Negatives Single File"
+  for file in $( echo assignment_testcases/${testSuite}/Je*.java ); do
+      run_bad_test $file
+  done
 
-echo "Negatives Folder"
-for dir in $( ls -d assignment_testcases/a2/Je*/ ); do
-    run_bad_test_dir $dir
-done
+  echo "Positive Folder"
+  for dir in $( ls -d assignment_testcases/${testSuite}/J[!e]*/ ); do
+      run_test_dir $dir
+  done
 
-echo "Positive Single File"
-for file in $( echo assignment_testcases/a2/J[!e]*.java ); do
-    run_test ${file}
-done
-  
+  echo "Negatives Folder"
+  for dir in $( ls -d assignment_testcases/${testSuite}/Je*/ ); do
+      run_bad_test_dir $dir
+  done
 
-#function joosc_run {
-#  ./joosc `find $1 | grep "\.java$"` assignment_testcases/stdlib2/*.java
-#  status=$?
-#  if [ $status -ne 0 ]; then
-#    echo "Exit code: $status"
-#  fi
-#}
-#export -f joosc_run
-
-#which parallel > /dev/null
-#if [ $? -ne 0 ]; then
-#else
-#  parallel run_test ::: assignment_testcases/a2/J[!e]*.java
-#  parallel run_test_dir ::: `ls -d assignment_testcases/a2/J[!e]*/`
-#  parallel run_bad_test ::: assignment_testcases/a2/Je*.java
-#  parallel run_bad_test_dir ::: `ls -d assignment_testcases/a2/Je*/`
-#fi
+  echo "Positive Single File"
+  for file in $( echo assignment_testcases/${testSuite}/J[!e]*.java ); do
+      run_test ${file}
+  done
+else
+  parallel --timeout 1000% run_test ::: assignment_testcases/${testSuite}/J[!e]*.java
+  parallel --timeout 1000% run_test_dir ::: `ls -d assignment_testcases/${testSuite}/J[!e]*/`
+  parallel --timeout 1000% run_bad_test ::: assignment_testcases/${testSuite}/Je*.java
+  parallel --timeout 1000% run_bad_test_dir ::: `ls -d assignment_testcases/${testSuite}/Je*/`
+fi

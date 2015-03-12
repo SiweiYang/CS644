@@ -1,6 +1,6 @@
 .PHONY: joosc
 joosc: grammar
-	cd src; ulimit -s 10240; ghc A2.hs; mv A2 ../joosc
+	cd src; ulimit -s 10240; ghc A3.hs; mv A3 ../joosc
 
 .PHONY: grammar
 grammar: tools/jlalr/Jlr1.class tools/joos1w.bnf

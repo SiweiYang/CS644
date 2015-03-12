@@ -7,7 +7,7 @@ import Data.Maybe
 import AST
 import Util
 
-data Kind = Package | Class | Interface | Method | Field | Statement | Var Expression | Exp Expression | Ret Expression | WhileBlock Expression | IfBlock Expression | ForBlock deriving (Eq, Show)
+data Kind = Package | Class | Interface | Method Symbol | Field | Statement | Var Expression | Exp Expression | Ret Expression | WhileBlock Expression | IfBlock Expression | ForBlock deriving (Eq, Show)
 
 data Symbol = SYM {
     symbolModifiers :: [String],
@@ -123,19 +123,21 @@ buildEnvironmentFromField parent (FLD fieldModifiers fieldVar fieldValue fldi) =
         cname' = ((scope parent) ++ [varName fieldVar])
 
 buildEnvironmentFromMethod :: SemanticUnit -> Method -> Environment
-buildEnvironmentFromMethod parent (MTD methodModifiers methodVar methodParameters methodDefinition mtdi) = ENV su ch
+buildEnvironmentFromMethod parent mtd@(MTD methodModifiers methodVar methodParameters methodDefinition mtdi) = ENV su ch
     where
         cname' = ((scope parent) ++ [varName methodVar])
+        sym = buildSymbolFromMethod (scope parent) mtd
         syms = (map (buildSymbolFromParameter cname') methodParameters)
-        su = (SU cname' Method syms parent)
+        su = (SU cname' (Method sym) syms parent)
         ch = if isNothing methodDefinition then [] else [buildEnvironmentFromStatements su (statements (fromJust methodDefinition))]
 
 buildEnvironmentFromConstructor :: SemanticUnit -> Constructor -> Environment
-buildEnvironmentFromConstructor parent (Cons constructorModifiers constructorName constructorParameters constructorInvocation constructorDefinition consi) = ENV su ch
+buildEnvironmentFromConstructor parent con@(Cons constructorModifiers constructorName constructorParameters constructorInvocation constructorDefinition consi) = ENV su ch
     where
         cname' = ((scope parent) ++ [constructorName])
+        sym = buildSymbolFromConstructor (scope parent) con
         syms = (map (buildSymbolFromParameter cname') constructorParameters)
-        su = (SU cname' Method syms parent)
+        su = (SU cname' (Method sym) syms parent)
         stmts = if isNothing constructorInvocation then [] else [Expr (fromJust constructorInvocation)]
         stmts' = if isNothing constructorDefinition then stmts else stmts ++(statements (fromJust constructorDefinition))
         ch = [buildEnvironmentFromStatements su stmts']
