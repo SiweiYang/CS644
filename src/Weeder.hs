@@ -135,6 +135,7 @@ weedExpression (CastB (ID _ depthA) expression depthB)
   | depthA > depthB + 11 = Just "Invalid cast"
   | otherwise = Nothing
 weedExpression (CastB castExpression expression _) = Just "Invalid Cast"
+weedExpression (CastC _ _ _ _) = Nothing
 weedExpression (InstanceOf refType expression _) = Nothing
 weedExpression (ID identifier _) = Nothing
 weedExpression (Value TypeInt value depth)

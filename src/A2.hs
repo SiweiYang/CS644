@@ -16,13 +16,8 @@ import TypeDatabase
 import TypeLinking
 import Weeder
 
-main :: IO ()
-main = do
-  -- Get the files to compile from the args
-  givenFileNames <- getArgs
-  let allFileNames = givenFileNames ++ ["./res/ObjectInterface.java"]
-
-  -- Read their contents
+main' allFileNames = do
+-- Read their contents
   fileContents <- mapM readFile allFileNames
 
   -- Create content/filename pairs
@@ -98,6 +93,8 @@ main = do
   else do
     hPutStrLn stderr "Environment DB: OK"
   let Just typeDB = mtypeDB
+
+  hPutStrLn stderr (show typeDB)
   
   let listImpEnvFns = map (\(imp, env, fn) -> (imp, refineEnvironmentWithType typeDB imp (Root []) env, fn)) fileEnvironmentWithImports
   if length [Nothing | (_, Nothing, _) <- listImpEnvFns] > 0 then do
@@ -156,5 +153,11 @@ main = do
   else do
     hPutStrLn stderr "Type Linking: OK"
 
+main :: IO ()
+main = do
+  -- Get the files to compile from the args
+  givenFileNames <- getArgs
+  let allFileNames = givenFileNames ++ ["./res/ObjectInterface.java"]
+  main' allFileNames
 
-
+  
