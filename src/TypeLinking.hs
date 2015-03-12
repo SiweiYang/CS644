@@ -166,8 +166,9 @@ typeLinkingName db imps su (Name cname@(nm:remain)) = case syms'' of
                                                         [] -> lookUpDB db imps su (nm:remain)
                                                         _ -> map symbolToType syms''
 	where
+                baseName = (typeToName . lookUpThis) su
 		syms = [sym | sym <- lookUpSymbolTable su nm, not $ elem "cons" (symbolModifiers sym)]
-                symsStatic = [sym | sym@(SYM mds _ _ _) <- syms, elem "static" mds] ++ [func | func@(FUNC mds _ _ _ _) <- syms]
+                symsStatic = [sym | sym@(SYM mds scope _ _) <- syms, (init scope /= baseName) || (not $ elem "static" mds)] ++ [func | func@(FUNC mds _ _ _ _) <- syms]
                 syms' = if scopeStatic su then symsStatic else syms
                 syms'' = if remain == []
                             then syms'
