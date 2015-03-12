@@ -20,8 +20,9 @@ typeLinkingCheck db imps (ENV su c) = if elem Nothing imps' then [] else tps
         cts = map (\env -> typeLinkingCheck db imps env) c
         cts' = if and $ map (\tps -> tps /= []) cts then [TypeVoid] else []
         
+        [varsym] = st
         tps = case kd of
-                Var expr -> if typeLinkingExpr db imps su expr /= [] then [TypeVoid] else []
+                Var expr -> if typeLinkingExpr db imps su (Binary "=" (ID (Name ([localName varsym])) 0) expr 0) == [] then [] else cts'
                 Exp expr -> typeLinkingExpr db imps su expr
                 
                 Ret expr -> if typeLinkingExpr db imps su expr == [] then [] else cts'
@@ -46,7 +47,11 @@ filterNonFunction _ = True
 
 typeLinkingExpr :: TypeNode -> [[String]] -> SemanticUnit -> Expression -> [Type]
 typeLinkingExpr db imps su Null = [TypeNull]
-typeLinkingExpr db imps su (Unary _ expr _) = typeLinkingExpr db imps su expr
+typeLinkingExpr db imps su (Unary op expr _) = case op of
+                                                "!" -> if null $ conversion db tp TypeBoolean then [] else [tp]
+                                                "-" -> if null $ conversion db tp TypeInt then [] else [tp]
+    where
+        [tp] = typeLinkingExpr db imps su expr
 typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
     |   elem op ["+"] = case (typeL, typeR) of
                             ((Object (Name ["java", "lang", "String"])), _) -> [(Object (Name ["java", "lang", "String"]))]
@@ -81,7 +86,8 @@ typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
 typeLinkingExpr db imps su (ID nm _) = typeLinkingName db imps su nm
 typeLinkingExpr db imps su This = if scopeStatic su then [] else [lookUpThis su]
 typeLinkingExpr db imps su (Value tp _ _) = [tp]
-typeLinkingExpr db imps su (InstanceOf tp expr _) = if typeLinkingExpr db imps su expr == [] then [] else [tp]
+--ToDO: check if instance of is legit
+typeLinkingExpr db imps su (InstanceOf tp expr _) = if typeLinkingExpr db imps su expr == [] then [] else [TypeBoolean]
 
 typeLinkingExpr db imps su (FunctionCall exprf args _) = case fts' of
                                                             [] -> []--error ("func " ++ (show exprf) ++ (show fts) ++ (show args))
