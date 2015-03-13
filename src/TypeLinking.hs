@@ -37,25 +37,31 @@ typeLinkingCheck db imps (ENV su c) = if elem Nothing imps' then [] else tps
                                                 
                 Exp expr -> typeLinkingExpr db imps su expr
                 
-                Ret expr -> let rtp = scopeReturnType su
-                            in if rtp == TypeVoid then typeLinkingFailure $ "Return in a void method: " ++ (show expr)
+                Ret expr -> let rtp = scopeReturnType su in
+                            if rtp == TypeVoid then typeLinkingFailure $ "Return in a void method: " ++ (show expr)
                             else case filter filterNonFunction $ typeLinkingExpr db imps su expr of
                                 [] -> typeLinkingFailure $ "Return type no match: " ++ (show expr)
                                 [tp] -> if not . null $ assignConversion db tp rtp then [TypeVoid] else typeLinkingFailure $ "Return assign conversion failure: " ++ (show tp) ++ (show rtp)
                                 a -> typeLinkingFailure $ "Return type multi match: " ++ (show expr) ++ (show a)
 
+                ForBlock -> let typeCond = cts !! 1
+                                casting = castConversion db (head typeCond) TypeBoolean in
+                            if (null typeCond) || (null casting) then typeLinkingFailure $ "For condition: " ++ (show typeCond) else cts'
+
+
                 WhileBlock expr -> let typeExpr = typeLinkingExpr db imps su expr
-                                       condition = (not . null $ typeExpr) && (length typeExpr == 1) && (not . null $ castConversion db (head typeExpr) TypeBoolean)
-                                    in if condition then cts' else typeLinkingFailure $ "While condition: " ++ (show typeExpr)
+                                       condition = (not . null $ typeExpr) && (length typeExpr == 1) && (not . null $ castConversion db (head typeExpr) TypeBoolean) in
+                                    if condition then cts' else typeLinkingFailure $ "While condition: " ++ (show typeExpr)
 
                 IfBlock expr -> let typeExpr = typeLinkingExpr db imps su expr
-                                    condition = (not . null $ typeExpr) && (length typeExpr == 1) && (not . null $ castConversion db (head typeExpr) TypeBoolean)
-                                    in if condition then cts' else typeLinkingFailure $ "If condition: " ++ (show typeExpr) ++ (show expr)
+                                    condition = (not . null $ typeExpr) && (length typeExpr == 1) && (not . null $ castConversion db (head typeExpr) TypeBoolean) in
+                                    if condition then cts' else typeLinkingFailure $ "If condition: " ++ (show typeExpr) ++ (show expr)
 
                 Class -> case typeLinkingPrefix db imps (scope su) of
                             _ -> cts' -- ToDo: double check here!
 
                 Method _ -> cts'
+
                 _ -> cts'
         
 
