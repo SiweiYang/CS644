@@ -124,16 +124,18 @@ typeLinkingExpr db imps su (Value tp _ _) = [tp]
 typeLinkingExpr db imps su (InstanceOf tp expr _) = let typeExpr = typeLinkingExpr db imps su expr
                                                     in if (isPrimitive tp) || (length typeExpr /= 1) || (isPrimitive (head typeExpr)) then typeLinkingFailure "InstanceOf illegal use" else [TypeBoolean]
 
-typeLinkingExpr db imps su (FunctionCall exprf args _) = case fts' of
-                                                            [] -> typeLinkingFailure ("func " ++ (show exprf) ++ (show fts) ++ (show args))
-                                                            (Function nm pt rt):_ -> [rt]
-                                                            _ -> typeLinkingFailure ("func mul" ++ (show exprf) ++ (show args))
+typeLinkingExpr db imps su (FunctionCall exprf args _) = if atsFailed then typeLinkingFailure $ "Function types of Args " ++ (show ats) else
+                                                            case fts' of
+                                                                [] -> typeLinkingFailure ("Function cannot find " ++ (show exprf) ++ (show fts) ++ (show args))
+                                                                [(Function nm pt rt)] -> [rt]
+                                                                _ -> typeLinkingFailure ("Function find multi " ++ (show exprf) ++ (show args))
 --if and $ map (\(lt, lts) -> [lt] == lts) (zip pt ats) then [rt] else []
         where
                 --fts = [Function pt rt | Function pt rt <- typeLinkingExpr db imps su exprf]
-                fts = typeLinkingExpr db imps su exprf
-                fts' = [Function nm pt rt | ft@(Function nm pt rt) <- fts, length pt == length args]
                 ats = map (typeLinkingExpr db imps su) args
+                atsFailed = or $ map null ats
+                fts = typeLinkingExpr db imps su exprf
+                fts' = [Function nm pt rt | ft@(Function nm pt rt) <- fts, argsMatching (concat ats) pt]
 
 typeLinkingExpr db imps su expr@(Attribute s m _) = case typeLinkingExpr db imps su s of
                                                         [] -> []-- typeLinkingFailure ("Attr " ++ (show s) ++ (show m))
@@ -223,6 +225,15 @@ typeLinkingExpr db imps su (CastC castnm _ expr _) = if null tps || null typeExp
             casting = castConversion db (head typeExpr) targetType
 
 typeLinkingExpr db imps su _ = [TypeVoid]
+
+---------------------------------------------------------------------------------------------------------
+
+argsMatching :: [Type] -> [Type] -> Bool
+argsMatching x y
+    | length x /= length y = False
+    | (null x) && (null y) = True
+    | (head x) /= (head y) = False
+    | otherwise = argsMatching (tail x) (tail y)
 
 ---------------------------------------------------------------------------------------------------------
 
