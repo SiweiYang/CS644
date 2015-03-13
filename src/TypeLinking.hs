@@ -147,15 +147,20 @@ typeLinkingExpr db imps su expr@(Attribute s m _) = case typeLinkingExpr db imps
                                                         _ -> typeLinkingFailure ("Attr " ++ (show s) ++ (show m))
 
 -- import rule plays here
-typeLinkingExpr db imps su (NewObject tp args dp) = case [TypeClass (Name nm) | TypeClass (Name nm) <- lookUpDB db imps su (typeToName tp)] of
-                                                        [] -> typeLinkingFailure $ "New Object: " ++ (show tp) ++ (show args) ++ (show imps)
-                                                        (TypeClass (Name nm)):_ -> let Just tn = getTypeEntry db nm
-                                                                                       cons = [node | node@(TN (FUNC mds _ _ pt _) _) <- subNodes tn, elem "cons" mds, length pt == length args]
+typeLinkingExpr db imps su (NewObject tp args dp) = if atsFailed then typeLinkingFailure $ "NewObject types of Args " ++ (show ats) else
+                                                    case [TypeClass (Name nm) | TypeClass (Name nm) <- lookUpDB db imps su (typeToName tp)] of
+                                                        [] -> typeLinkingFailure $ "New Object []: " ++ (show tp) ++ (show args) ++ (show imps)
+                                                        [(TypeClass (Name nm))]-> let Just tn = getTypeEntry db nm
+                                                                                      cons = [node | node@(TN (FUNC mds _ _ pt _) _) <- subNodes tn, elem "cons" mds, argsMatching (concat ats) pt]
                                                                                    in if elem "abstract" ((symbolModifiers . symbol) tn)
                                                                                         then typeLinkingFailure $ "New Object: cannot create abstract class object" ++ (show nm)
                                                                                         else if cons == []
-                                                                                                then typeLinkingFailure $ "New Object: no matching constructor for " ++ (show (map (typeLinkingExpr db imps su) args))
+                                                                                                then typeLinkingFailure $ "New Object: no matching constructor for " ++ (show ats) ++ (show [node | node@(TN (FUNC mds _ _ pt _) _) <- subNodes tn, elem "cons" mds])
                                                                                                 else [Object (Name nm)]
+                                                        tcs -> typeLinkingFailure $ "New Object multi: " ++ (show tcs) ++ (show tp) ++ (show args)
+    where
+        ats = map (typeLinkingExpr db imps su) args
+        atsFailed = or $ map null ats
 -- to check param types
 
 typeLinkingExpr db imps su (NewArray tp exprd _ _) = if (not . null $ typeIdx) && (not . null $ castConversion db (head typeIdx) TypeInt)
@@ -232,8 +237,15 @@ argsMatching :: [Type] -> [Type] -> Bool
 argsMatching x y
     | length x /= length y = False
     | (null x) && (null y) = True
-    | (head x) /= (head y) = False
+    | casting == False = False
     | otherwise = argsMatching (tail x) (tail y)
+    where
+        xHead = head x
+        yHead = head y
+        casting = case (isPrimitive xHead, isPrimitive yHead) of
+                    (True, False) -> (boxingType xHead) == yHead
+                    (False, True) -> (boxingType yHead) == xHead
+                    _ -> xHead == yHead
 
 ---------------------------------------------------------------------------------------------------------
 
