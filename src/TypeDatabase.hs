@@ -13,7 +13,7 @@ data TypeNode = TN {
 } deriving (Eq)
 
 arrayClass = CLS ["public"] "Array" (Just ["Object"]) [[]] [] [] [] (CLSI [] (AI "" 0 0 0 0) Nothing [])
-arrayUnit = Comp (Just ["joosc native", "Array"]) [] arrayClass (CompI Nothing [])
+arrayUnit = Comp (Just ["joosc native"]) [] arrayClass (CompI Nothing [])
 nativeTypes = TN (PKG []) [TN (PKG "joosc native") [TN (CL ["public"] "Array" (TypeClass (Name ["joosc native", "Array"])) arrayUnit) [TN (SYM ["public"] ["joosc native", "Array"] "length" TypeInt) []]]]
 
 isVisibleClassNode tn = case symbol tn of
@@ -109,16 +109,6 @@ traverseTypeEntry (TN sym nodes) (nm:remain) = case [node | node <- nodes, (loca
                                                 [node] -> traverseTypeEntry node remain
                                                 _ -> Nothing
 
-traverseFieldEntryWithImports :: TypeNode -> [[String]] -> [String] -> [TypeNode]
-traverseFieldEntryWithImports tn imps query = nub . concat $ (flds ++ funcs)
-    where
-        entries = map (traverseTypeEntry tn) imps
-        entries' = map (\(mnode, imp) -> (fromJust mnode, imp)) (filter (isJust . fst) (zip entries imps))
-        results = map (\(node, imp) -> (traverseTypeEntry node (init query), (init imp) ++ (init query))) ((tn, ["*"]):entries')
-        fld = if query == [] then error "traverseFieldEntryWithImports" else last query
-        flds = [[TN (SYM mds ls ln lt) ch | TN (SYM mds ls ln lt) ch <- subNodes node, elem "static" mds, ln == fld] | (Just (TN _ [node]), cname) <- results]
-        funcs = [[TN (FUNC mds ls ln ps rt) ch | TN (FUNC mds ls ln ps rt) ch <- subNodes node, elem "static" mds, ln == fld] | (Just (TN _ [node]), cname) <- results]
-
 traverseTypeEntryWithImports :: TypeNode -> [[String]] -> [String] -> [[String]]
 traverseTypeEntryWithImports tn imps query = nub [cname | (Just node, cname) <- results]
     where
@@ -126,18 +116,16 @@ traverseTypeEntryWithImports tn imps query = nub [cname | (Just node, cname) <- 
         entries' = map (\(mnode, imp) -> (fromJust mnode, imp)) (filter (isJust . fst) (zip entries imps))
         results = map (\(node, imp) -> (traverseTypeEntry node query, (init imp) ++ query)) ((tn, ["*"]):entries')
 
-traverseInstanceEntry :: TypeNode -> [TypeNode] -> [String] -> [TypeNode]
-traverseInstanceEntry root nodes cname = concat nodes'
-    where
-        nodes' = map (\cur -> traverseInstanceEntry' root cur cname) nodes
-
-traverseInstanceEntry' :: TypeNode -> TypeNode -> [String] -> [TypeNode]
-traverseInstanceEntry' root cur [] = [cur]
-traverseInstanceEntry' root (TN (SYM mds ls ln lt) _) (nm:cname) = traverseInstanceEntry' root root ((typeToName lt) ++ (nm:cname))
-traverseInstanceEntry' root cur (nm:cname) = case [node | node <- subNodes cur, (localName . symbol) node == nm, (not $ isSYMFUNCNode node) || (not $ elem "static" ((symbolModifiers . symbol) node))] of
+{-
+traverseInstanceEntryTrace :: TypeNode -> TypeNode -> [String] -> [[TypeNode]]
+traverseInstanceEntryTrace root tn@(TN (SYM _ _ _ _) _) [] = [[tn]]
+traverseInstanceEntryTrace root tn@(TN (FUNC _ _ _ _ _) _) [] = [[tn]]
+traverseInstanceEntryTrace root tn [] = []
+traverseInstanceEntryTrace root tn@(TN (SYM mds ls ln lt) _) (nm:cname) = map (tn:) (traverseInstanceEntryTrace root root ((typeToName lt) ++ (nm:cname)))
+traverseInstanceEntryTrace root cur (nm:cname) = case [node | node <- subNodes cur, (localName . symbol) node == nm, (not $ isSYMFUNCNode node) || (not $ elem "static" ((symbolModifiers . symbol) node))] of
                                         []            -> []
-                                        targets      -> concat $ map (\target -> traverseInstanceEntry' root target cname) targets
-
+                                        targets      -> concat $ map (\target -> traverseInstanceEntryTrace root target cname) targets
+-}
 buildTypeEntryFromSymbol :: Symbol -> TypeNode
 buildTypeEntryFromSymbol sym = TN sym []
 
