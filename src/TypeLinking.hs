@@ -37,7 +37,12 @@ typeLinkingCheck db imps (ENV su c) = if elem Nothing imps' then [] else tps
                                                 
                 Exp expr -> typeLinkingExpr db imps su expr
                 
-                Ret expr -> if null $ typeLinkingExpr db imps su expr then typeLinkingFailure $ "Return: " ++ (show expr) else cts' -- TODO: check return type
+                Ret expr -> let rtp = scopeReturnType su
+                            in if rtp == TypeVoid then typeLinkingFailure $ "Return in a void method: " ++ (show expr)
+                            else case filter filterNonFunction $ typeLinkingExpr db imps su expr of
+                                [] -> typeLinkingFailure $ "Return type no match: " ++ (show expr)
+                                [tp] -> if not . null $ assignConversion db tp rtp then [TypeVoid] else typeLinkingFailure $ "Return assign conversion failure: " ++ (show tp) ++ (show rtp)
+                                a -> typeLinkingFailure $ "Return type multi match: " ++ (show expr) ++ (show a)
 
                 WhileBlock expr -> let typeExpr = typeLinkingExpr db imps su expr
                                        condition = (not . null $ typeExpr) && (length typeExpr == 1) && (not . null $ castConversion db (head typeExpr) TypeBoolean)
@@ -52,6 +57,7 @@ typeLinkingCheck db imps (ENV su c) = if elem Nothing imps' then [] else tps
 
                 Method _ -> cts'
                 _ -> cts'
+        
 
 typeLinkingPrefix :: TypeNode -> [[String]] -> [String] -> [[String]]
 typeLinkingPrefix db imps cname = concat tps
@@ -188,7 +194,8 @@ typeLinkingExpr db imps su (CastB castexpr expr _) = if null typeCastExpr || nul
             typeCastExpr = case typeLinkingExpr db imps su castexpr of
                             [] -> typeLinkingFailure $ "CastB no match " ++ (show castexpr)
                             [TypeClass tp] -> [Object tp]
-                            tps -> typeLinkingFailure $ "CastB multi match " ++ (show castexpr) ++ (show tps)
+                            [tp] -> [tp]
+                            tps -> typeLinkingFailure $ "CastB multi match " ++ (show castexpr) ++ (show tps) ++ (show db)
             typeExpr = typeLinkingExpr db imps su expr
             casting = castConversion db (head typeExpr) (head typeCastExpr)
 
@@ -198,11 +205,11 @@ typeLinkingExpr db imps su (CastC castnm _ expr _) = if null tps || null typeExp
             tps = case typeLinkingName db imps su castnm of
                     [] -> typeLinkingFailure "CastC no match"
                     [TypeClass tp] -> [Object tp]
+                    [tp] -> [tp]
                     tpss -> typeLinkingFailure $ "CastC multi match: " ++ (show tpss)
             typeExpr = typeLinkingExpr db imps su expr
             targetType = Array (head tps) -- BUG?
             casting = castConversion db (head typeExpr) targetType
-            
 
 typeLinkingExpr db imps su _ = [TypeVoid]
 
@@ -265,6 +272,14 @@ scopeLocal su
         rst = case kd of
                 Method (FUNC mds _ _ _ _) -> True
                 _ -> scopeLocal (inheritFrom su)
+
+scopeReturnType:: SemanticUnit -> Type
+scopeReturnType su = rst
+    where
+        kd = kind su
+        rst = case kd of
+                Method (FUNC mds _ _ _ lt) -> lt
+                _ -> scopeReturnType (inheritFrom su)
 
 lookUpSymbolTable :: SemanticUnit -> String -> [Symbol]
 lookUpSymbolTable (Root _) str = []

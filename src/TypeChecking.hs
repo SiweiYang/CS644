@@ -14,7 +14,6 @@ assignConversion typeDB typeS typeT
                             (Object x) -> [(Object x)]
                             (Array x) -> [(Array x)]
                             _ -> []
-    | typeT == (Object (Name ["java", "lang", "String"])) = if typeS == typeT then [typeT] else []
     | otherwise = case (isPrimitive typeS, isPrimitive typeT) of
                             (True, True) ->  if null (primitiveConversionA typeS typeT) then [] else typeS:(primitiveConversionA typeS typeT)
                             (False, True) -> case unboxed of
@@ -86,7 +85,7 @@ objectConversionA _ (Array x) (Array y) = if isPrimitive x && isPrimitive y && x
 objectConversionA _ (Object _) (Object (Name ["java", "lang", "Object"])) = [(Object (Name ["java", "lang", "Object"]))]
 objectConversionA typeDB (Object (Name x)) (Object (Name y))
     | x == y = [Object (Name x)]
-    | otherwise = if isJust $ higherInChain symbolX symbolY typeDB then [(Object (Name y))] else []
+    | otherwise = if isJust msymbolH && Just symbolY == msymbolH  then [(Object (Name y))] else []
     where
         symbolX = case getTypeEntry typeDB x of
                         Nothing -> error ("XXX" ++ show x)
@@ -94,6 +93,7 @@ objectConversionA typeDB (Object (Name x)) (Object (Name y))
         symbolY = case getTypeEntry typeDB y of
                         Nothing -> error ("YYY" ++ show y)
                         _ -> symbol . fromJust $ getTypeEntry typeDB y
+        msymbolH = higherInChain symbolX symbolY typeDB
 objectConversionA _ _ _ = []
 
 -- for casting
