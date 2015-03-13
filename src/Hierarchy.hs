@@ -54,9 +54,10 @@ checkImplements unit@(Comp _ _ (CLS modifiers clsName _ implemented _ _ _ _) _) 
         implementedSymbols = map symbol implementedNodes
         abstractMethods = filter isFunction (map symbol (concat $ map subNodes implementedNodes))
         definedMethods = filter isFunction (map symbol (concat $ map subNodes extendChain))
+        concreteDefinedMethods = filter (\x -> not $ "abstract" `elem` symbolModifiers x) definedMethods
         isAbstract = "abstract" `elem` modifiers
         (implementedMethods, unimplementedMethods) = partition (functionImplemented definedMethods) abstractMethods
-        clobberedMethods = filter (functionClobbered definedMethods) abstractMethods
+        clobberedMethods = filter (functionClobbered concreteDefinedMethods) abstractMethods
         interfaceConflicts = filter (functionClobbered abstractMethods) abstractMethods
 checkImplements _ _ = Nothing
 
@@ -206,7 +207,6 @@ functionImplemented :: [Symbol] -> Symbol -> Bool
 functionImplemented definitions fun =
   let funEqual a b = (localName a == localName b) &&
                      (parameterTypes a == parameterTypes b) &&
-                     ("public" `elem` (symbolModifiers a)) == ("public" `elem` (symbolModifiers b)) &&
                      (localType a == localType b) &&
                      (not $ "abstract" `elem` (symbolModifiers b))
   in any (funEqual fun) definitions
