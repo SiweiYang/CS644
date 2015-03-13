@@ -92,7 +92,7 @@ typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
     |   elem op ["-", "*", "/", "%"] = if typeLInt && typeRInt then typeLR else typeLinkingFailure "Binary arithematic op"
     |   elem op ["<", ">", "<=", ">="] = if typeLInt && typeRInt then [TypeBoolean] else typeLinkingFailure "Binary comparision op"
     |   elem op ["&&", "||", "&", "|"] = if typeLBool && typeRBool then [TypeBoolean] else typeLinkingFailure "Binary logical op"
-    |   elem op ["==", "!="] = if null typeLR then typeLinkingFailure $ "Binary " ++ op else [TypeBoolean]
+    |   elem op ["==", "!="] = if null equality then typeLinkingFailure $ "Binary " ++ (show typeL) ++ op ++ (show typeR) else [TypeBoolean]
     |   elem op ["="] = if assignRL then [typeL] else typeLinkingFailure $ "Binary =" ++ (show typeL) ++ (show typeR) ++ (show $ assignConversion db typeR typeL)
     where
         typeLs = case filter filterNonFunction $ typeLinkingExpr db imps su exprL of
@@ -115,6 +115,7 @@ typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
         typeRInt = not . null $ castConversion db typeR TypeInt
         typeLBool= not . null $ castConversion db typeL TypeBoolean
         typeRBool = not . null $ castConversion db typeR TypeBoolean
+        equality = equalityCheck db typeL typeR
 
 
 typeLinkingExpr db imps su (ID nm _) = typeLinkingName db imps su nm
