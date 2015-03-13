@@ -6,54 +6,108 @@ import TypeDatabase
 import Hierarchy
 import Data.Maybe
 
-conversion :: TypeNode -> Type -> Type -> [Type]
-conversion typeDB typeS typeT
+assignConversion :: TypeNode -> Type -> Type -> [Type]
+assignConversion typeDB typeS typeT
     | typeS == typeT = [typeT]
     | typeT == TypeNull = []
     | typeS == TypeNull = case typeT of
                             (Object x) -> [(Object x)]
                             (Array x) -> [(Array x)]
                             _ -> []
+    | typeT == (Object (Name ["java", "lang", "String"])) = if typeS == typeT then [typeT] else []
     | otherwise = case (isPrimitive typeS, isPrimitive typeT) of
-                            (True, True) ->  if null (primitiveConversion typeS typeT) then [] else typeS:(primitiveConversion typeS typeT)
+                            (True, True) ->  if null (primitiveConversionA typeS typeT) then [] else typeS:(primitiveConversionA typeS typeT)
                             (False, True) -> case unboxed of
                                                 Nothing -> []
                                                 Just t -> if t == typeT then [typeS, typeT] else (if null nextUnbox then [] else [typeS, t] ++ nextUnbox)
-                            (False, False) -> typeS:(objectConversion typeDB typeS typeT)
+                            (False, False) -> if null (objectConversionA typeDB typeS typeT) then [] else typeS:(objectConversionA typeDB typeS typeT)
                             (True, False) -> case (boxed == typeT) of
                                                 True -> [typeS, typeT]
                                                 False -> if null nextBox then [] else [typeS, boxed] ++ nextBox
     where
         boxed = boxingType typeS
-        nextBox = objectConversion typeDB boxed typeT
+        nextBox = objectConversionA typeDB boxed typeT
         unboxed = unboxingType typeS
-        nextUnbox = primitiveConversion (fromJust unboxed) typeT
+        nextUnbox = primitiveConversionA (fromJust unboxed) typeT
+
+
+castConversion :: TypeNode -> Type -> Type -> [Type]
+castConversion typeDB typeS typeT
+    | typeS == typeT = [typeT]
+    | typeT == TypeNull = []
+    | typeS == TypeNull = case typeT of
+                            (Object x) -> [(Object x)]
+                            (Array x) -> [(Array x)]
+                            _ -> []
+    | typeT == (Object (Name ["java", "lang", "String"])) = [(Object (Name ["java", "lang", "String"]))]
+    | otherwise = case (isPrimitive typeS, isPrimitive typeT) of
+                            (True, True) ->  if null (primitiveConversionB typeS typeT) then [] else typeS:(primitiveConversionB typeS typeT)
+                            (False, True) -> case unboxed of
+                                                Nothing -> []
+                                                Just t -> if t == typeT then [typeS, typeT] else (if null nextUnbox then [] else [typeS, t] ++ nextUnbox)
+                            (False, False) -> if null (objectConversionB typeDB typeS typeT) then [] else typeS:(objectConversionB typeDB typeS typeT)
+                            (True, False) -> case (boxed == typeT) of
+                                                True -> [typeS, typeT]
+                                                False -> if null nextBox then [] else [typeS, boxed] ++ nextBox
+    where
+        boxed = boxingType typeS
+        nextBox = objectConversionB typeDB boxed typeT
+        unboxed = unboxingType typeS
+        nextUnbox = primitiveConversionB (fromJust unboxed) typeT
 
 
 ----------------------------------------------------------
 
-primitiveConversion :: Type -> Type -> [Type]
-primitiveConversion TypeBoolean _ = []
-primitiveConversion TypeByte TypeShort = [TypeShort]
-primitiveConversion TypeByte TypeInt = [TypeInt]
-primitiveConversion TypeShort TypeInt = [TypeInt]
-primitiveConversion TypeChar TypeInt = [TypeInt]
-primitiveConversion _ _ = []
+-- for assignment
+primitiveConversionA :: Type -> Type -> [Type]
+primitiveConversionA TypeBoolean _ = []
+primitiveConversionA TypeByte TypeShort = [TypeShort]
+primitiveConversionA TypeByte TypeInt = [TypeInt]
+primitiveConversionA TypeShort TypeInt = [TypeInt]
+primitiveConversionA TypeChar TypeInt = [TypeInt]
+primitiveConversionA _ _ = []
 
-objectConversion :: TypeNode -> Type -> Type -> [Type]
-objectConversion _ (Array _) (Object (Name ["java", "lang", "Object"])) = [(Object (Name ["java", "lang", "Object"]))]
-objectConversion _ (Array _) (Object (Name ["java", "lang", "Cloneable"])) = [(Object (Name ["java", "lang", "Cloneable"]))]
-objectConversion _ (Array _) (Object (Name ["java", "io", "Serializable"])) = [(Object (Name ["java", "io", "Serializable"]))]
-objectConversion typeDB (Array x@(Object _)) (Array y@(Object _)) = if null $ objectConversion typeDB x y then [] else [Array y]
-objectConversion _ (Array x) (Array y) = if isPrimitive x && isPrimitive y && x == y then [Array y] else []
-objectConversion _ (Object _) (Object (Name ["java", "lang", "Object"])) = [(Object (Name ["java", "lang", "Object"]))]
-objectConversion typeDB (Object (Name x)) (Object (Name y))
+-- for casting
+primitiveConversionB :: Type -> Type -> [Type]
+primitiveConversionB TypeBoolean TypeBoolean = [TypeBoolean]
+primitiveConversionB TypeByte t = if elem t [TypeByte, TypeShort, TypeInt, TypeChar] then [t] else []
+primitiveConversionB TypeShort t = if elem t [TypeByte, TypeShort, TypeInt, TypeChar] then [t] else []
+primitiveConversionB TypeInt t = if elem t [TypeByte, TypeShort, TypeInt, TypeChar] then [t] else []
+primitiveConversionB TypeChar t = if elem t [TypeByte, TypeShort, TypeInt, TypeChar] then [t] else []
+primitiveConversionB _ _ = []
+
+-- for assignment
+objectConversionA :: TypeNode -> Type -> Type -> [Type]
+objectConversionA _ (Array _) (Object (Name ["java", "lang", "Object"])) = [(Object (Name ["java", "lang", "Object"]))]
+objectConversionA _ (Array _) (Object (Name ["java", "lang", "Cloneable"])) = [(Object (Name ["java", "lang", "Cloneable"]))]
+objectConversionA _ (Array _) (Object (Name ["java", "io", "Serializable"])) = [(Object (Name ["java", "io", "Serializable"]))]
+objectConversionA typeDB (Array x@(Object _)) (Array y@(Object _)) = if null $ objectConversionA typeDB x y then [] else [Array y]
+objectConversionA _ (Array x) (Array y) = if isPrimitive x && isPrimitive y && x == y then [Array y] else []
+objectConversionA _ (Object _) (Object (Name ["java", "lang", "Object"])) = [(Object (Name ["java", "lang", "Object"]))]
+objectConversionA typeDB (Object (Name x)) (Object (Name y))
     | x == y = [Object (Name x)]
     | otherwise = if isJust $ higherInChain symbolX symbolY typeDB then [(Object (Name y))] else []
     where
         symbolX = symbol . fromJust $ getTypeEntry typeDB x
         symbolY = symbol . fromJust $ getTypeEntry typeDB y
-objectConversion _ _ _ = []
+objectConversionA _ _ _ = []
+
+-- for casting
+objectConversionB :: TypeNode -> Type -> Type -> [Type]
+objectConversionB _ (Object (Name ["java", "lang", "Object"])) (Array x) = [(Array x)]
+objectConversionB _ (Array _) (Object (Name ["java", "lang", "Object"])) = [(Object (Name ["java", "lang", "Object"]))]
+objectConversionB _ (Array _) (Object (Name ["java", "lang", "Cloneable"])) = [(Object (Name ["java", "lang", "Cloneable"]))]
+objectConversionB _ (Array _) (Object (Name ["java", "io", "Serializable"])) = [(Object (Name ["java", "io", "Serializable"]))]
+objectConversionB typeDB (Array x@(Object _)) (Array y@(Object _)) = if null $ objectConversionB typeDB x y then [] else [Array y]
+objectConversionB _ (Array x) (Array y) = if isPrimitive x && isPrimitive y && x == y then [Array y] else []
+objectConversionB _ (Object _) (Object (Name ["java", "lang", "Object"])) = [(Object (Name ["java", "lang", "Object"]))]
+objectConversionB typeDB (Object (Name x)) (Object (Name y))
+    | x == y = [Object (Name x)]
+    | otherwise = if isJust $ higherInChain symbolX symbolY typeDB then [(Object (Name y))] else []
+    where
+        symbolX = symbol . fromJust $ getTypeEntry typeDB x
+        symbolY = symbol . fromJust $ getTypeEntry typeDB y
+objectConversionB _ _ _ = []
 
 ----------------------------------------------------------
 

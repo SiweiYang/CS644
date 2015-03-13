@@ -8,8 +8,8 @@ import AST
 import TypeChecking
 
 typeLinkingFailure :: String -> [Type]
-typeLinkingFailure msg = error msg
---typeLinkingFailure msg = []
+--typeLinkingFailure msg = error msg
+typeLinkingFailure msg = []
 
 typeLinkingCheck :: TypeNode -> [[String]] -> Environment -> [Type]
 typeLinkingCheck _ _ ENVE = [TypeVoid]
@@ -27,16 +27,24 @@ typeLinkingCheck db imps (ENV su c) = if elem Nothing imps' then [] else tps
         [varsym] = st
         tps = case kd of
                 Var expr -> if typeLinkingExpr db imps su (Binary "=" (ID (Name ([localName varsym])) 0) expr 0) == [] then [] else cts'
+
                 Field varsym (Just expr) -> if typeLinkingExpr db imps su (Binary "=" (ID (Name ([localName varsym])) 0) expr 0) == [] then [] else cts'
                 
                 Exp expr -> typeLinkingExpr db imps su expr
                 
-                Ret expr -> if typeLinkingExpr db imps su expr == [] then [] else cts'
-                WhileBlock expr -> if typeLinkingExpr db imps su expr == [] then [] else cts'
-                IfBlock expr -> if typeLinkingExpr db imps su expr == [] then [] else cts'
-                
+                Ret expr -> if null $ typeLinkingExpr db imps su expr then typeLinkingFailure $ "Return: " ++ (show expr) else cts' -- TODO: check return type
+
+                WhileBlock expr -> let typeExpr = typeLinkingExpr db imps su expr
+                                       condition = (not . null $ typeExpr) && (length typeExpr == 1) && (not . null $ castConversion db (head typeExpr) TypeBoolean)
+                                    in if condition then cts' else typeLinkingFailure $ "While condition: " ++ (show typeExpr)
+
+                IfBlock expr -> let typeExpr = typeLinkingExpr db imps su expr
+                                    condition = (not . null $ typeExpr) && (length typeExpr == 1) && (not . null $ castConversion db (head typeExpr) TypeBoolean)
+                                    in if condition then cts' else typeLinkingFailure $ "If condition: " ++ (show typeExpr) ++ (show expr)
+
                 Class -> case typeLinkingPrefix db imps (scope su) of
-                            _ -> cts'
+                            _ -> cts' -- ToDo: double check here!
+
                 Method _ -> cts'
                 _ -> cts'
 
@@ -54,8 +62,8 @@ filterNonFunction _ = True
 typeLinkingExpr :: TypeNode -> [[String]] -> SemanticUnit -> Expression -> [Type]
 typeLinkingExpr db imps su Null = [TypeNull]
 typeLinkingExpr db imps su (Unary op expr _) = case op of
-                                                "!" -> if null $ conversion db tp TypeBoolean then typeLinkingFailure "Unary !" else [tp]
-                                                "-" -> if null $ conversion db tp TypeInt then typeLinkingFailure "Unary -" else [tp]
+                                                "!" -> if null $ castConversion db tp TypeBoolean then typeLinkingFailure "Unary !" else [tp]
+                                                "-" -> if null $ castConversion db tp TypeInt then typeLinkingFailure "Unary -" else [tp]
     where
         [tp] = typeLinkingExpr db imps su expr
 typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
@@ -67,8 +75,8 @@ typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
     |   elem op ["-", "*", "/", "%"] = if typeLInt && typeRInt then typeLR else typeLinkingFailure "Binary arithematic op"
     |   elem op ["<", ">", "<=", ">="] = if typeLInt && typeRInt then [TypeBoolean] else typeLinkingFailure "Binary comparision op"
     |   elem op ["&&", "||", "&", "|"] = if typeLBool && typeRBool then [TypeBoolean] else typeLinkingFailure "Binary logical op"
-    |   elem op ["=="] = if null typeLR then typeLinkingFailure "Binary ==" else [TypeBoolean]
-    |   elem op ["="] = if assignRL then [typeL] else typeLinkingFailure $ "Binary =" ++ (show typeL) ++ (show typeR) ++ (show $ conversion db typeR typeL)
+    |   elem op ["==", "!="] = if null typeLR then typeLinkingFailure $ "Binary " ++ op else [TypeBoolean]
+    |   elem op ["="] = if assignRL then [typeL] else typeLinkingFailure $ "Binary =" ++ (show typeL) ++ (show typeR) ++ (show $ assignConversion db typeR typeL)
     where
         typeLs = case filter filterNonFunction $ typeLinkingExpr db imps su exprL of
                             [] -> typeLinkingFailure $ "Binary typeL no match: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show exprR)
@@ -81,22 +89,23 @@ typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
                             a -> typeLinkingFailure $ "Binary typeR multi match: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show exprR) ++ (show a)
         [typeR] = typeRs
         
-        assignRL = not . null $ conversion db typeR typeL
-        typeLR = case (null $ conversion db typeL typeR, null $ conversion db typeR typeL) of
+        assignRL = not . null $ assignConversion db typeR typeL
+        typeLR = case (null $ castConversion db typeL typeR, null $ castConversion db typeR typeL) of
                     (True, True) -> []
                     (False, _) -> [typeR]
                     (_, False) -> [typeL]
-        typeLInt = not . null $ conversion db typeL TypeInt
-        typeRInt = not . null $ conversion db typeR TypeInt
-        typeLBool= not . null $ conversion db typeL TypeBoolean
-        typeRBool = not . null $ conversion db typeR TypeBoolean
+        typeLInt = not . null $ castConversion db typeL TypeInt
+        typeRInt = not . null $ castConversion db typeR TypeInt
+        typeLBool= not . null $ castConversion db typeL TypeBoolean
+        typeRBool = not . null $ castConversion db typeR TypeBoolean
 
 
 typeLinkingExpr db imps su (ID nm _) = typeLinkingName db imps su nm
 typeLinkingExpr db imps su This = if scopeStatic su then typeLinkingFailure "This not accessible from static scope" else [lookUpThis su]
 typeLinkingExpr db imps su (Value tp _ _) = [tp]
 --ToDO: check if instance of is legit
-typeLinkingExpr db imps su (InstanceOf tp expr _) = if typeLinkingExpr db imps su expr == [] then typeLinkingFailure "InstanceOf illegal use" else [TypeBoolean]
+typeLinkingExpr db imps su (InstanceOf tp expr _) = let typeExpr = typeLinkingExpr db imps su expr
+                                                    in if (isPrimitive tp) || (length typeExpr /= 1) || (isPrimitive (head typeExpr)) then typeLinkingFailure "InstanceOf illegal use" else [TypeBoolean]
 
 typeLinkingExpr db imps su (FunctionCall exprf args _) = case fts' of
                                                             [] -> typeLinkingFailure ("func " ++ (show exprf) ++ (show fts) ++ (show args))
@@ -124,7 +133,7 @@ typeLinkingExpr db imps su (NewObject tp args dp) = case [TypeClass (Name nm) | 
                                                         (TypeClass (Name nm)):_ -> let Just tn = getTypeEntry db nm in if elem "abstract" ((symbolModifiers . symbol) tn) then [] else [Object (Name nm)]
 -- to check param types
 
-typeLinkingExpr db imps su (NewArray tp exprd _ _) = if not . null $ conversion db typeIdx TypeInt then [Array tp] else typeLinkingFailure "Array: index is not an integer"
+typeLinkingExpr db imps su (NewArray tp exprd _ _) = if not . null $ castConversion db typeIdx TypeInt then [Array tp] else typeLinkingFailure "Array: index is not an integer"
         where
                 [typeIdx] = case typeLinkingExpr db imps su exprd of
                                 [tp] -> [tp]
@@ -149,7 +158,7 @@ typeLinkingExpr db imps su (ArrayAccess arr idx _) = case typeArr of
 -- to check: allow use array of primitive type to cast
 typeLinkingExpr db imps su (CastA casttp dim expr _) = case typeExpr of
                                                         [] -> typeLinkingFailure $ "CastA: cannot type linking the expression " ++ (show expr)
-                                                        [tp] -> if null $ conversion db tp targetType then typeLinkingFailure $ "CastA: cannot make the cast " ++ (show tp) ++ (show targetType) else [targetType]
+                                                        [tp] -> if null $ castConversion db tp targetType then typeLinkingFailure $ "CastA: cannot make the cast " ++ (show tp) ++ (show targetType) else [targetType]
                                                         tps -> typeLinkingFailure $ "CastA: expression have multi types " ++ (show expr) ++ (show tps)
         where
             typeExpr = typeLinkingExpr db imps su expr
@@ -160,7 +169,7 @@ typeLinkingExpr db imps su (CastB castexpr expr _) = if null typeCastExpr || nul
         where
             typeCastExpr = typeLinkingExpr db imps su castexpr
             typeExpr = typeLinkingExpr db imps su expr
-            casting = conversion db (head typeExpr) (head typeCastExpr)
+            casting = castConversion db (head typeExpr) (head typeCastExpr)
 
 -- to check: must be (Name [])?
 typeLinkingExpr db imps su (CastC castnm _ expr _) = if null tps || null typeExpr || null casting then typeLinkingFailure "CastC: cannot type linking the expression" else [targetType]
@@ -168,7 +177,7 @@ typeLinkingExpr db imps su (CastC castnm _ expr _) = if null tps || null typeExp
             tps = typeLinkingName db imps su castnm
             typeExpr = typeLinkingExpr db imps su expr
             targetType = Array (head tps) -- BUG?
-            casting = conversion db (head typeExpr) targetType
+            casting = castConversion db (head typeExpr) targetType
             
 
 typeLinkingExpr db imps su _ = [TypeVoid]
