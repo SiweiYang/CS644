@@ -260,13 +260,22 @@ refineSymbolWithType db imps (FUNC mds ls ln params lt) = case (dropWhile isJust
         mlt' = refineTypeWithType db imps lt
 refineSymbolWithType db imps sym = Just sym
 
+refineKindWithType  db imps (Method sym) = case refineSymbolWithType db imps sym of
+                                            Nothing -> Nothing
+                                            Just sym' -> Just (Method sym')
+refineKindWithType  db imps (Field sym mexpr) = case refineSymbolWithType db imps sym of
+                                            Nothing -> Nothing
+                                            Just sym' -> Just (Field sym' mexpr)
+refineKindWithType  db imps kd = Just kd
+
 refineEnvironmentWithType :: TypeNode -> [[String]] -> SemanticUnit -> Environment -> Maybe Environment
 refineEnvironmentWithType db imps _ ENVE = Just ENVE
-refineEnvironmentWithType db imps parent (ENV su ch) = case (dropWhile isJust syms', dropWhile isJust ch') of
-                                                        ([], []) -> Just (ENV su' (map fromJust ch'))
+refineEnvironmentWithType db imps parent (ENV su ch) = case (isJust k', dropWhile isJust syms', dropWhile isJust ch') of
+                                                        (True, [], []) -> Just (ENV su' (map fromJust ch'))
                                                         _ -> Nothing
     where
         (SU cname k syms _) = su
+        k' = refineKindWithType db imps k
         syms' = map (refineSymbolWithType db imps) syms
-        su' = (SU cname k (map fromJust syms') parent)
+        su' = (SU cname (fromJust k') (map fromJust syms') parent)
         ch' = map (refineEnvironmentWithType db imps su') ch

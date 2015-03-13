@@ -88,8 +88,12 @@ objectConversionA typeDB (Object (Name x)) (Object (Name y))
     | x == y = [Object (Name x)]
     | otherwise = if isJust $ higherInChain symbolX symbolY typeDB then [(Object (Name y))] else []
     where
-        symbolX = symbol . fromJust $ getTypeEntry typeDB x
-        symbolY = symbol . fromJust $ getTypeEntry typeDB y
+        symbolX = case getTypeEntry typeDB x of
+                        Nothing -> error ("XXX" ++ show x)
+                        _ -> symbol . fromJust $ getTypeEntry typeDB x
+        symbolY = case getTypeEntry typeDB y of
+                        Nothing -> error ("YYY" ++ show y)
+                        _ -> symbol . fromJust $ getTypeEntry typeDB y
 objectConversionA _ _ _ = []
 
 -- for casting

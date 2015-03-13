@@ -16,6 +16,7 @@ typeLinkingCheck _ _ ENVE = [TypeVoid]
 typeLinkingCheck db imps (ENV su c) = if elem Nothing imps' then [] else tps
     where
         (SU cname kd st inhf) = su
+        (SU cnamei kdi sti inhfi) = inhf
         [sym] = [sym | sym <- symbolTable inhf, localName sym == last cname]
         SYM mds ls ln lt = sym
         
@@ -28,8 +29,12 @@ typeLinkingCheck db imps (ENV su c) = if elem Nothing imps' then [] else tps
         tps = case kd of
                 Var expr -> if typeLinkingExpr db imps su (Binary "=" (ID (Name ([localName varsym])) 0) expr 0) == [] then [] else cts'
 
-                Field varsym (Just expr) -> if typeLinkingExpr db imps su (Binary "=" (ID (Name ([localName varsym])) 0) expr 0) == [] then [] else cts'
-                
+                Field varsym (Just expr) -> let syms = dropWhile (varsym /=) [sym | sym@(SYM mds _ _ _) <- sti, not $ elem "static" mds]
+                                                forward = or (map (\sym -> forwardSYMInExpr (localName sym) expr) syms)
+                                            in if forward
+                                                then typeLinkingFailure $ "forward use of syms " ++ (show varsym) ++ (show expr)
+                                                else if typeLinkingExpr db imps su (Binary "=" (ID (Name ([localName varsym])) 0) expr 0) == [] then typeLinkingFailure $ "field type mis match expression " ++ (show varsym) ++ (show expr) else cts'
+                                                
                 Exp expr -> typeLinkingExpr db imps su expr
                 
                 Ret expr -> if null $ typeLinkingExpr db imps su expr then typeLinkingFailure $ "Return: " ++ (show expr) else cts' -- TODO: check return type
@@ -130,11 +135,24 @@ typeLinkingExpr db imps su expr@(Attribute s m _) = case typeLinkingExpr db imps
 -- import rule plays here
 typeLinkingExpr db imps su (NewObject tp args dp) = case [TypeClass (Name nm) | TypeClass (Name nm) <- lookUpDB db imps su (typeToName tp)] of
                                                         [] -> typeLinkingFailure $ "New Object: " ++ (show tp) ++ (show args) ++ (show imps)
-                                                        (TypeClass (Name nm)):_ -> let Just tn = getTypeEntry db nm in if elem "abstract" ((symbolModifiers . symbol) tn) then [] else [Object (Name nm)]
+                                                        (TypeClass (Name nm)):_ -> let Just tn = getTypeEntry db nm
+                                                                                       cons = [node | node@(TN (FUNC mds _ _ pt _) _) <- subNodes tn, elem "cons" mds, length pt == length args]
+                                                                                   in if elem "abstract" ((symbolModifiers . symbol) tn)
+                                                                                        then typeLinkingFailure $ "New Object: cannot create abstract class object" ++ (show nm)
+                                                                                        else if cons == []
+                                                                                                then typeLinkingFailure $ "New Object: no matching constructor for " ++ (show (map (typeLinkingExpr db imps su) args))
+                                                                                                else [Object (Name nm)]
 -- to check param types
 
-typeLinkingExpr db imps su (NewArray tp exprd _ _) = if not . null $ castConversion db typeIdx TypeInt then [Array tp] else typeLinkingFailure "Array: index is not an integer"
+typeLinkingExpr db imps su (NewArray tp exprd _ _) = if not . null $ castConversion db typeIdx TypeInt
+                                                        then if isPrimitive tp then [Array tp] else
+                                                            case [Object (Name nm) | TypeClass (Name nm) <- lookUpDB db imps su (typeToName tp)] of
+                                                            [] -> typeLinkingFailure $ "NewArray: []" ++ (show tp) ++ (show $ lookUpDB db imps su (typeToName tp))
+                                                            [tp] -> [Array tp]
+                                                            tps' -> typeLinkingFailure (show tps')
+                                                        else typeLinkingFailure "Array: index is not an integer"
         where
+
                 [typeIdx] = case typeLinkingExpr db imps su exprd of
                                 [tp] -> [tp]
                                 tps -> typeLinkingFailure $ "Array Index multi: " ++ (show exprd) ++ (show tps)
@@ -167,14 +185,20 @@ typeLinkingExpr db imps su (CastA casttp dim expr _) = case typeExpr of
 -- to do: is it possible cast from A to B?
 typeLinkingExpr db imps su (CastB castexpr expr _) = if null typeCastExpr || null typeExpr || null casting then typeLinkingFailure "CastB: cannot type linking the expression" else typeCastExpr
         where
-            typeCastExpr = typeLinkingExpr db imps su castexpr
+            typeCastExpr = case typeLinkingExpr db imps su castexpr of
+                            [] -> typeLinkingFailure $ "CastB no match " ++ (show castexpr)
+                            [TypeClass tp] -> [Object tp]
+                            tps -> typeLinkingFailure $ "CastB multi match " ++ (show castexpr) ++ (show tps)
             typeExpr = typeLinkingExpr db imps su expr
             casting = castConversion db (head typeExpr) (head typeCastExpr)
 
 -- to check: must be (Name [])?
-typeLinkingExpr db imps su (CastC castnm _ expr _) = if null tps || null typeExpr || null casting then typeLinkingFailure "CastC: cannot type linking the expression" else [targetType]
+typeLinkingExpr db imps su (CastC castnm _ expr _) = if null tps || null typeExpr || null casting then typeLinkingFailure $ "CastC: cannot type linking the expression" ++ (show expr) ++ (show tps) else [targetType]
         where
-            tps = typeLinkingName db imps su castnm
+            tps = case typeLinkingName db imps su castnm of
+                    [] -> typeLinkingFailure "CastC no match"
+                    [TypeClass tp] -> [Object tp]
+                    tpss -> typeLinkingFailure $ "CastC multi match: " ++ (show tpss)
             typeExpr = typeLinkingExpr db imps su expr
             targetType = Array (head tps) -- BUG?
             casting = castConversion db (head typeExpr) targetType
@@ -191,7 +215,7 @@ typeLinkingName db imps su (Name cname@(nm:remain)) = case typeLinkingName' db i
 
 typeLinkingName' :: TypeNode -> [[String]] -> SemanticUnit -> Name -> [Type]
 typeLinkingName' db imps su (Name cname@(nm:remain)) = case syms'' of
-                                                        [] -> case symsInheritance'' of
+                                                        [] -> case symsInheritance''' of
                                                                 [] -> lookUpDB db imps su (nm:remain)
                                                                 _ -> map symbolToType symsInheritance''
                                                         _ -> map symbolToType syms''
@@ -214,6 +238,7 @@ typeLinkingName' db imps su (Name cname@(nm:remain)) = case syms'' of
                 symsInheritance'' = if remain == []
                             then symsInheritance'
                             else map symbol $ concat $ map (traverseInstanceEntry' db db) [((typeToName . localType) sym) ++ remain | sym@(SYM mds _ _ _) <- symsInheritance']
+                symsInheritance''' = if scopeLocal su then symsInheritance'' else []
 
 ---------------------------------------------------------------------------------------------------------
 
@@ -230,7 +255,16 @@ scopeStatic su
                 Method (FUNC mds _ _ _ _) -> elem "static" mds
                 Field (SYM mds _ _ _) _ -> elem "static" mds
                 _ -> scopeStatic (inheritFrom su)
-                    
+
+scopeLocal:: SemanticUnit -> Bool
+scopeLocal su
+    | elem kd [Package, Class, Interface] = False
+    | otherwise = rst
+    where
+        kd = kind su
+        rst = case kd of
+                Method (FUNC mds _ _ _ _) -> True
+                _ -> scopeLocal (inheritFrom su)
 
 lookUpSymbolTable :: SemanticUnit -> String -> [Symbol]
 lookUpSymbolTable (Root _) str = []
@@ -281,3 +315,26 @@ checkSameNameInSymbolTable st = length nms /= (length . nub) nms
     where
         syms = [SYM mds ls nm tp | SYM mds ls nm tp <- st]
         nms = map localName syms
+
+------------------------------------------------------------------------------
+forwardSYMInExpr :: String -> Expression -> Bool
+forwardSYMInExpr nm (Unary op expr _) = forwardSYMInExpr nm expr
+forwardSYMInExpr nm expr@(Binary op exprL exprR _)
+    |   elem op ["="] = case exprL of
+                            ID exprL' _ -> forwardSYMInExpr nm exprR
+                            _ -> or [forwardSYMInExpr nm exprL, forwardSYMInExpr nm exprR]
+    |   otherwise = or [forwardSYMInExpr nm exprL, forwardSYMInExpr nm exprR]
+forwardSYMInExpr nm (ID (Name cname) _) = nm == head cname
+forwardSYMInExpr nm This = False
+forwardSYMInExpr nm (Value tp _ _) = False
+forwardSYMInExpr nm (InstanceOf tp expr _) = forwardSYMInExpr nm expr
+forwardSYMInExpr nm (FunctionCall exprf args _) = or ((forwardSYMInExpr nm exprf):(map (forwardSYMInExpr nm) args))
+forwardSYMInExpr nm expr@(Attribute s m _) = forwardSYMInExpr nm s
+forwardSYMInExpr nm (NewObject tp args dp) = or (map (forwardSYMInExpr nm) args)
+forwardSYMInExpr nm (NewArray tp expr _ _) = forwardSYMInExpr nm expr
+forwardSYMInExpr nm (Dimension _ exprd _) = forwardSYMInExpr nm exprd
+forwardSYMInExpr nm (ArrayAccess arr idx _) = or [forwardSYMInExpr nm arr, forwardSYMInExpr nm idx]
+forwardSYMInExpr nm (CastA casttp dim expr _) = forwardSYMInExpr nm expr
+forwardSYMInExpr nm (CastB castexpr expr _) = forwardSYMInExpr nm expr
+forwardSYMInExpr nm (CastC castnm _ expr _) = forwardSYMInExpr nm expr
+forwardSYMInExpr nm _ = False
