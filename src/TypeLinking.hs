@@ -8,14 +8,15 @@ import AST
 import TypeChecking
 
 typeLinkingFailure :: String -> [Type]
-typeLinkingFailure msg = error msg
---typeLinkingFailure msg = []
+--typeLinkingFailure msg = error msg
+typeLinkingFailure msg = []
 
 typeLinkingCheck :: TypeNode -> [[String]] -> Environment -> [Type]
 typeLinkingCheck _ _ ENVE = [TypeVoid]
 typeLinkingCheck db imps (ENV su c) = if elem Nothing imps' then [] else tps
     where
         (SU cname kd st inhf) = su
+        (SU cnamei kdi sti inhfi) = inhf
         [sym] = [sym | sym <- symbolTable inhf, localName sym == last cname]
         SYM mds ls ln lt = sym
         
@@ -27,7 +28,10 @@ typeLinkingCheck db imps (ENV su c) = if elem Nothing imps' then [] else tps
         [varsym] = st
         tps = case kd of
                 Var expr -> if typeLinkingExpr db imps su (Binary "=" (ID (Name ([localName varsym])) 0) expr 0) == [] then [] else cts'
-                Field varsym (Just expr) -> if typeLinkingExpr db imps su (Binary "=" (ID (Name ([localName varsym])) 0) expr 0) == [] then [] else cts'
+                Field varsym (Just expr) -> let syms = takeWhile (varsym /=) [sym | sym@(SYM _ _ _ _) <- sti]
+                                                funcs = [sym | sym@(FUNC _ _ _ _ _) <- sti]
+                                                sui = (SU cnamei kdi ((varsym:syms) ++ funcs) inhfi)
+                                            in if typeLinkingExpr db imps (SU cname kd st sui) (Binary "=" (ID (Name ([localName varsym])) 0) expr 0) == [] then [] else cts'
                 
                 Exp expr -> typeLinkingExpr db imps su expr
                 
@@ -121,7 +125,13 @@ typeLinkingExpr db imps su expr@(Attribute s m _) = case typeLinkingExpr db imps
 -- import rule plays here
 typeLinkingExpr db imps su (NewObject tp args dp) = case [TypeClass (Name nm) | TypeClass (Name nm) <- lookUpDB db imps su (typeToName tp)] of
                                                         [] -> typeLinkingFailure $ "New Object: " ++ (show tp) ++ (show args) ++ (show imps)
-                                                        (TypeClass (Name nm)):_ -> let Just tn = getTypeEntry db nm in if elem "abstract" ((symbolModifiers . symbol) tn) then [] else [Object (Name nm)]
+                                                        (TypeClass (Name nm)):_ -> let Just tn = getTypeEntry db nm
+                                                                                       cons = [node | node@(TN (FUNC mds _ _ pt _) _) <- subNodes tn, elem "cons" mds, length pt == length args]
+                                                                                   in if elem "abstract" ((symbolModifiers . symbol) tn)
+                                                                                        then typeLinkingFailure $ "New Object: cannot create abstract class object" ++ (show nm)
+                                                                                        else if cons == []
+                                                                                                then typeLinkingFailure $ "New Object: no matching constructor for " ++ (show (map (typeLinkingExpr db imps su) args))
+                                                                                                else [Object (Name nm)]
 -- to check param types
 
 typeLinkingExpr db imps su (NewArray tp exprd _ _) = if not . null $ conversion db typeIdx TypeInt then [Array tp] else typeLinkingFailure "Array: index is not an integer"
@@ -182,7 +192,7 @@ typeLinkingName db imps su (Name cname@(nm:remain)) = case typeLinkingName' db i
 
 typeLinkingName' :: TypeNode -> [[String]] -> SemanticUnit -> Name -> [Type]
 typeLinkingName' db imps su (Name cname@(nm:remain)) = case syms'' of
-                                                        [] -> case symsInheritance'' of
+                                                        [] -> case symsInheritance''' of
                                                                 [] -> lookUpDB db imps su (nm:remain)
                                                                 _ -> map symbolToType symsInheritance''
                                                         _ -> map symbolToType syms''
@@ -205,6 +215,7 @@ typeLinkingName' db imps su (Name cname@(nm:remain)) = case syms'' of
                 symsInheritance'' = if remain == []
                             then symsInheritance'
                             else map symbol $ concat $ map (traverseInstanceEntry' db db) [((typeToName . localType) sym) ++ remain | sym@(SYM mds _ _ _) <- symsInheritance']
+                symsInheritance''' = if scopeLocal su then symsInheritance'' else []
 
 ---------------------------------------------------------------------------------------------------------
 
@@ -221,7 +232,16 @@ scopeStatic su
                 Method (FUNC mds _ _ _ _) -> elem "static" mds
                 Field (SYM mds _ _ _) _ -> elem "static" mds
                 _ -> scopeStatic (inheritFrom su)
-                    
+
+scopeLocal:: SemanticUnit -> Bool
+scopeLocal su
+    | elem kd [Package, Class, Interface] = False
+    | otherwise = rst
+    where
+        kd = kind su
+        rst = case kd of
+                Method (FUNC mds _ _ _ _) -> True
+                _ -> scopeLocal (inheritFrom su)
 
 lookUpSymbolTable :: SemanticUnit -> String -> [Symbol]
 lookUpSymbolTable (Root _) str = []

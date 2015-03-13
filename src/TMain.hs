@@ -232,7 +232,7 @@ main' givenFileNames = do
     hPutStrLn stderr "Inheritance DB: OK"
   let Just db' = mdb'
 
-  let failures = filter (\(imp, Just env, fn) ->  typeLinkingCheck db' imp env == []) (filter (\(imp, Just env, fn) -> (reverse (take 19 (reverse fn))) == "NonstaticField.java") listImpEnvFns)
+  let failures = filter (\(imp, Just env, fn) ->  typeLinkingCheck db' imp env == []) (filter (\(imp, Just env, fn) -> (reverse (take 16 (reverse fn))) == "ArrayLength.java") listImpEnvFns)
   if length failures > 0 then do
     hPutStrLn stderr "Type Linking error!"
     --hPutStrLn stderr (show failures)
