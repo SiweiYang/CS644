@@ -7,7 +7,7 @@ import Data.Maybe
 import AST
 import Util
 
-data Kind = Package | Class | Interface | Method Symbol | Field | Statement | Var Expression | Exp Expression | Ret Expression | WhileBlock Expression | IfBlock Expression | ForBlock deriving (Eq, Show)
+data Kind = Package | Class | Interface | Method Symbol | Field Symbol (Maybe Expression) | Statement | Var Expression | Exp Expression | Ret Expression | WhileBlock Expression | IfBlock Expression | ForBlock deriving (Eq, Show)
 
 data Symbol = SYM {
     symbolModifiers :: [String],
@@ -118,9 +118,10 @@ buildEnvironmentFromInterface parent (ITF mds nm imps mtds itfi) = env
         env = ENV su (mtds')
 
 buildEnvironmentFromField :: SemanticUnit -> Field -> Environment
-buildEnvironmentFromField parent (FLD fieldModifiers fieldVar fieldValue fldi) = ENV (SU cname' Field [] parent) []
+buildEnvironmentFromField parent fld@(FLD fieldModifiers fieldVar fieldValue fldi) = ENV (SU cname' (Field (buildSymbolFromField cname fld) fieldValue) [] parent) []
     where
-        cname' = ((scope parent) ++ [varName fieldVar])
+        cname = (scope parent)
+        cname' = (cname ++ [varName fieldVar])
 
 buildEnvironmentFromMethod :: SemanticUnit -> Method -> Environment
 buildEnvironmentFromMethod parent mtd@(MTD methodModifiers methodVar methodParameters methodDefinition mtdi) = ENV su ch

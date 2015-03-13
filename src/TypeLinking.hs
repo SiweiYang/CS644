@@ -27,6 +27,8 @@ typeLinkingCheck db imps (ENV su c) = if elem Nothing imps' then [] else tps
         [varsym] = st
         tps = case kd of
                 Var expr -> if typeLinkingExpr db imps su (Binary "=" (ID (Name ([localName varsym])) 0) expr 0) == [] then [] else cts'
+                Field varsym (Just expr) -> if typeLinkingExpr db imps su (Binary "=" (ID (Name ([localName varsym])) 0) expr 0) == [] then [] else cts'
+                
                 Exp expr -> typeLinkingExpr db imps su expr
                 
                 Ret expr -> if typeLinkingExpr db imps su expr == [] then [] else cts'
@@ -57,6 +59,7 @@ typeLinkingExpr db imps su (Unary op expr _) = case op of
     where
         [tp] = typeLinkingExpr db imps su expr
 typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
+    |   length typeLs /= 1 || length typeRs /= 1 = []
     |   elem op ["+"] = case (typeL, typeR) of
                             ((Object (Name ["java", "lang", "String"])), _) -> [(Object (Name ["java", "lang", "String"]))]
                             (_, (Object (Name ["java", "lang", "String"]))) -> [(Object (Name ["java", "lang", "String"]))]
@@ -67,15 +70,17 @@ typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
     |   elem op ["=="] = if null typeLR then typeLinkingFailure "Binary ==" else [TypeBoolean]
     |   elem op ["="] = if assignRL then [typeL] else typeLinkingFailure $ "Binary =" ++ (show typeL) ++ (show typeR) ++ (show $ conversion db typeR typeL)
     where
-        [typeL] = case filter filterNonFunction $ typeLinkingExpr db imps su exprL of
+        typeLs = case filter filterNonFunction $ typeLinkingExpr db imps su exprL of
                             [] -> typeLinkingFailure $ "Binary typeL no match: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show exprR)
                             [l] -> [l]
                             a -> typeLinkingFailure $ "Binary typeL multi match: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show exprR) ++ (show a)
-
-        [typeR] = case filter filterNonFunction $ typeLinkingExpr db imps su exprR of
+        [typeL] = typeLs
+        typeRs = case filter filterNonFunction $ typeLinkingExpr db imps su exprR of
                             [] -> typeLinkingFailure $ "Binary typeR no match: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show exprR)
                             [r] -> [r]
                             a -> typeLinkingFailure $ "Binary typeR multi match: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show exprR) ++ (show a)
+        [typeR] = typeRs
+        
         assignRL = not . null $ conversion db typeR typeL
         typeLR = case (null $ conversion db typeL typeR, null $ conversion db typeR typeL) of
                     (True, True) -> []
@@ -143,12 +148,12 @@ typeLinkingExpr db imps su (ArrayAccess arr idx _) = case typeArr of
                 
 -- to check: allow use array of primitive type to cast
 typeLinkingExpr db imps su (CastA casttp dim expr _) = case typeExpr of
-                                                        [] -> typeLinkingFailure "CastA: cannot type linking the expression"
-                                                        _ -> if null casting then [] else [targetType]
+                                                        [] -> typeLinkingFailure $ "CastA: cannot type linking the expression " ++ (show expr)
+                                                        [tp] -> if null $ conversion db tp targetType then typeLinkingFailure $ "CastA: cannot make the cast " ++ (show tp) ++ (show targetType) else [targetType]
+                                                        tps -> typeLinkingFailure $ "CastA: expression have multi types " ++ (show expr) ++ (show tps)
         where
             typeExpr = typeLinkingExpr db imps su expr
             targetType = if dim == Null then casttp else (Array casttp)
-            casting = conversion db (head typeExpr) targetType
 
 -- to do: is it possible cast from A to B?
 typeLinkingExpr db imps su (CastB castexpr expr _) = if null typeCastExpr || null typeExpr || null casting then typeLinkingFailure "CastB: cannot type linking the expression" else typeCastExpr
@@ -184,16 +189,19 @@ typeLinkingName' db imps su (Name cname@(nm:remain)) = case syms'' of
 	where
                 baseName = (typeToName . lookUpThis) su
 		syms = [sym | sym <- lookUpSymbolTable su nm, not $ elem "cons" (symbolModifiers sym)]
-                symsStatic = [sym | sym@(SYM mds scope _ _) <- syms, (init scope /= baseName) || (not $ elem "static" mds)] ++ [func | func@(FUNC mds _ _ _ _) <- syms]
-                syms' = if scopeStatic su then symsStatic else syms
+                symsLocal = [sym | sym@(SYM mds scope _ _) <- syms, (scope /= baseName)]
+                symsStatic = symsLocal ++ [sym | sym@(SYM mds scope _ _) <- syms, elem "static" mds] ++ [func | func@(FUNC mds _ _ _ _) <- syms, elem "static" mds]
+                symsNStatic = symsLocal ++ [sym | sym <- syms, not $ elem sym symsStatic]
+                syms' = if scopeStatic su then symsStatic else symsNStatic
                 syms'' = if remain == []
                             then syms'
                             else map symbol $ concat $ map (traverseInstanceEntry' db db) [((typeToName . localType) sym) ++ remain | sym@(SYM mds _ _ _) <- syms']
                 
                 Just thisNode = getTypeEntry db (typeToName . lookUpThis $ su)
                 symsInheritance = [sym | sym <- map symbol (traverseInstanceEntry' db thisNode [nm]), not $ elem "cons" (symbolModifiers sym)]
-                symsInheritanceStatic = [sym | sym@(SYM mds _ _ _) <- symsInheritance, elem "static" mds] ++ [func | func@(FUNC mds _ _ _ _) <- symsInheritance]
-                symsInheritance' = if scopeStatic su then symsInheritanceStatic else symsInheritance
+                symsInheritanceStatic = [sym | sym@(SYM mds _ _ _) <- symsInheritance, elem "static" mds] ++ [func | func@(FUNC mds _ _ _ _) <- symsInheritance, elem "static" mds]
+                symsInheritanceNStatic = [sym | sym <- symsInheritance, not $ elem sym symsInheritanceStatic]
+                symsInheritance' = if scopeStatic su then symsInheritanceStatic else symsInheritanceNStatic
                 symsInheritance'' = if remain == []
                             then symsInheritance'
                             else map symbol $ concat $ map (traverseInstanceEntry' db db) [((typeToName . localType) sym) ++ remain | sym@(SYM mds _ _ _) <- symsInheritance']
@@ -211,6 +219,7 @@ scopeStatic su
         kd = kind su
         rst = case kd of
                 Method (FUNC mds _ _ _ _) -> elem "static" mds
+                Field (SYM mds _ _ _) _ -> elem "static" mds
                 _ -> scopeStatic (inheritFrom su)
                     
 

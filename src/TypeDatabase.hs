@@ -28,6 +28,11 @@ isConcreteNode tn = case symbol tn of
                             IT _ _ _ _ -> True
                             _ -> False
 
+isSYMFUNCNode tn = case symbol tn of
+                            FUNC _ _ _ _ _ -> True
+                            SYM _ _ _ _ -> True
+                            _ -> False
+
 instance Show TypeNode where
     show (TN sym nodes) =   "{\n" ++
                             "  " ++ (show sym) ++ "\n" ++
@@ -112,7 +117,7 @@ traverseFieldEntryWithImports tn imps query = nub . concat $ (flds ++ funcs)
         results = map (\(node, imp) -> (traverseTypeEntry node (init query), (init imp) ++ (init query))) ((tn, ["*"]):entries')
         fld = if query == [] then error "traverseFieldEntryWithImports" else last query
         flds = [[TN (SYM mds ls ln lt) ch | TN (SYM mds ls ln lt) ch <- subNodes node, elem "static" mds, ln == fld] | (Just (TN _ [node]), cname) <- results]
-        funcs = [[TN (FUNC mds ls ln ps rt) ch | TN (FUNC mds ls ln ps rt) ch <- subNodes node, ln == fld] | (Just (TN _ [node]), cname) <- results]
+        funcs = [[TN (FUNC mds ls ln ps rt) ch | TN (FUNC mds ls ln ps rt) ch <- subNodes node, elem "static" mds, ln == fld] | (Just (TN _ [node]), cname) <- results]
 
 traverseTypeEntryWithImports :: TypeNode -> [[String]] -> [String] -> [[String]]
 traverseTypeEntryWithImports tn imps query = nub [cname | (Just node, cname) <- results]
@@ -129,7 +134,7 @@ traverseInstanceEntry root nodes cname = concat nodes'
 traverseInstanceEntry' :: TypeNode -> TypeNode -> [String] -> [TypeNode]
 traverseInstanceEntry' root cur [] = [cur]
 traverseInstanceEntry' root (TN (SYM mds ls ln lt) _) (nm:cname) = traverseInstanceEntry' root root ((typeToName lt) ++ (nm:cname))
-traverseInstanceEntry' root cur (nm:cname) = case [node | node <- subNodes cur, (localName . symbol) node == nm] of
+traverseInstanceEntry' root cur (nm:cname) = case [node | node <- subNodes cur, (localName . symbol) node == nm, (not $ isSYMFUNCNode node) || (not $ elem "static" ((symbolModifiers . symbol) node))] of
                                         []            -> []
                                         targets      -> concat $ map (\target -> traverseInstanceEntry' root target cname) targets
 

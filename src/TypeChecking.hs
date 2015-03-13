@@ -15,7 +15,7 @@ conversion typeDB typeS typeT
                             (Array x) -> [(Array x)]
                             _ -> []
     | otherwise = case (isPrimitive typeS, isPrimitive typeT) of
-                            (True, True) ->  typeS:(primitiveConversion typeS typeT)
+                            (True, True) ->  if null (primitiveConversion typeS typeT) then [] else typeS:(primitiveConversion typeS typeT)
                             (False, True) -> case unboxed of
                                                 Nothing -> []
                                                 Just t -> if t == typeT then [typeS, typeT] else (if null nextUnbox then [] else [typeS, t] ++ nextUnbox)

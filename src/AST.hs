@@ -594,8 +594,13 @@ expandSingle (AST nm prod) = expandSingle a
         [a] = prod
 
 literalToType :: AST -> Type
-literalToType ast = case (name ast) of
-                          "LITERAL_INT" -> TypeInt
+literalToType (ASTT nm (Token _ content, _)) = case nm of
+                          -- TODO: could check the value range to further classify literal type
+                          "LITERAL_INT" -> let val = read content :: Int in if val > -2^7 + 1 && val < 2^7
+                                                                                then TypeByte
+                                                                                else if val > -2^15 + 1 && val < 2^15
+                                                                                then TypeShort
+                                                                                else TypeInt
                           "LITERAL_BOOL" -> TypeBoolean
                           "LITERAL_CHAR" -> TypeChar
                           "LITERAL_STRING" -> Object (Name ["java", "lang", "String"])
