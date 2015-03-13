@@ -107,10 +107,14 @@ objectConversionB _ (Array x) (Array y) = if isPrimitive x && isPrimitive y && x
 objectConversionB _ (Object _) (Object (Name ["java", "lang", "Object"])) = [(Object (Name ["java", "lang", "Object"]))]
 objectConversionB typeDB (Object (Name x)) (Object (Name y))
     | x == y = [Object (Name x)]
-    | otherwise = if isJust $ higherInChain symbolX symbolY typeDB then [(Object (Name y))] else []
+    | otherwise = if casting then [(Object (Name y))] else []
     where
         symbolX = symbol . fromJust $ getTypeEntry typeDB x
         symbolY = symbol . fromJust $ getTypeEntry typeDB y
+        casting = case higherInChain symbolX symbolY typeDB of
+                    Nothing -> False --error $ (show x) ++ (show y) ++ (show symbolX) ++ (show symbolY)--False
+                    Just x -> True
+
 objectConversionB _ _ _ = []
 
 ----------------------------------------------------------

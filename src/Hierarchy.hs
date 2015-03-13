@@ -141,6 +141,14 @@ getClassHierarchy unit@(Comp _ _ (CLS _ clsName _ _ _ _ _ _) _) typeDB =
       ownNode = if ownName == [] then error "getClassHierarchy" else fromJust $ getTypeEntry typeDB (head ownName)
   in getClassHierarchyForSymbol ownNode typeDB
 
+{- this function should not be called
+getClassHierarchy unit@(Comp _ _ (ITF _ itfName _ _ _ ) _) typeDB =
+  let unitImports = visibleImports unit
+      ownName = traverseTypeEntryWithImports typeDB unitImports [itfName]
+      ownNode = if ownName == [] then error "getClassHierarchy" else fromJust $ getTypeEntry typeDB (head ownName)
+  in getClassHierarchyForSymbol ownNode typeDB
+-}
+
 getClassHierarchyForSymbol :: TypeNode -> TypeNode -> [TypeNode]
 getClassHierarchyForSymbol node typeDB = getClassHierarchy' node typeDB [node]
 
@@ -219,12 +227,16 @@ higherInChain symA@(IT _ _ _ unitA) symB@(IT _ _ _ unitB) typeDB
   where hierarchyA = map symbol $ getInterfaceSupers unitA typeDB
         hierarchyB = map symbol $ getInterfaceSupers unitB typeDB
 
-higherInChain symA@(CL _ _ _ _) symB@(IT _ _ _ unitB) typeDB
+higherInChain symA@(CL _ _ _ unitA) symB@(IT _ _ _ _) typeDB
+  | symB `elem` hierarchyInterface = Just symB
+  | otherwise = Nothing
+  where hierarchyClass = map symbol $ getClassHierarchy unitA typeDB
+        hierarchyInterface = map symbol $ concat $ map (\x -> getClassInterfaces (astUnit x) typeDB) hierarchyClass
+
+higherInChain _ _ _ = error "higherInChain: casting an interface to a class"
+{-
+higherInChain symA@(IT _ _ _ _) symB@(CL _ _ _ unitB) typeDB
   | symA `elem` hierarchyB = Just symA
   | otherwise = Nothing
   where hierarchyB = map symbol $ getClassHierarchy unitB typeDB
-
-higherInChain symA@(IT _ _ _ unitA) symB@(CL _ _ _ _) typeDB
-  | symB `elem` hierarchyA = Just symB
-  | otherwise = Nothing
-  where hierarchyA = map symbol $ getClassHierarchy unitA typeDB
+-}

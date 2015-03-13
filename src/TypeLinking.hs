@@ -8,8 +8,8 @@ import AST
 import TypeChecking
 
 typeLinkingFailure :: String -> [Type]
---typeLinkingFailure msg = error msg
-typeLinkingFailure msg = []
+typeLinkingFailure msg = error msg
+--typeLinkingFailure msg = []
 
 typeLinkingCheck :: TypeNode -> [[String]] -> Environment -> [Type]
 typeLinkingCheck _ _ ENVE = [TypeVoid]
@@ -150,24 +150,24 @@ typeLinkingExpr db imps su (NewObject tp args dp) = case [TypeClass (Name nm) | 
                                                                                                 else [Object (Name nm)]
 -- to check param types
 
-typeLinkingExpr db imps su (NewArray tp exprd _ _) = if not . null $ castConversion db typeIdx TypeInt
+typeLinkingExpr db imps su (NewArray tp exprd _ _) = if (not . null $ typeIdx) && (not . null $ castConversion db (head typeIdx) TypeInt)
                                                         then if isPrimitive tp then [Array tp] else
                                                             case [Object (Name nm) | TypeClass (Name nm) <- lookUpDB db imps su (typeToName tp)] of
                                                             [] -> typeLinkingFailure $ "NewArray: []" ++ (show tp) ++ (show $ lookUpDB db imps su (typeToName tp))
                                                             [tp] -> [Array tp]
                                                             tps' -> typeLinkingFailure (show tps')
                                                         else typeLinkingFailure "Array: index is not an integer"
-        where
-
-                [typeIdx] = case typeLinkingExpr db imps su exprd of
-                                [tp] -> [tp]
-                                tps -> typeLinkingFailure $ "Array Index multi: " ++ (show exprd) ++ (show tps)
+    where
+        typeIdx = case typeLinkingExpr db imps su exprd of
+                        [] -> typeLinkingFailure $ "Array Index type []: " ++ (show exprd)
+                        [tp] -> [tp]
+                        tps -> typeLinkingFailure $ "Array Index multi: " ++ (show exprd) ++ (show tps)
 
 typeLinkingExpr db imps su (Dimension _ expr _) = case typeIdx of
-                                                        [tp] -> if elem tp [TypeByte, TypeShort, TypeInt, TypeChar] then [tp] else []--typeLinkingFailure "Array: index is not an integer"
+                                                        [tp] -> if elem tp [TypeByte, TypeShort, TypeInt, TypeChar] then [tp] else typeLinkingFailure "Array: index is not an integer"
                                                         _ -> typeLinkingFailure "Array Index Type typeLinkingFailure"
-        where
-                typeIdx = typeLinkingExpr db imps su expr
+    where
+        typeIdx = typeLinkingExpr db imps su expr
 
 typeLinkingExpr db imps su (ArrayAccess arr idx _) = case typeArr of
                                                         [Array tp] -> case typeIdx of
@@ -192,12 +192,17 @@ typeLinkingExpr db imps su (CastA casttp dim expr _) = case typeExpr of
 typeLinkingExpr db imps su (CastB castexpr expr _) = if null typeCastExpr || null typeExpr || null casting then typeLinkingFailure "CastB: cannot type linking the expression" else typeCastExpr
         where
             typeCastExpr = case typeLinkingExpr db imps su castexpr of
-                            [] -> typeLinkingFailure $ "CastB no match " ++ (show castexpr)
+                            [] -> typeLinkingFailure $ "CastB CastExpr no match " ++ (show castexpr)
                             [TypeClass tp] -> [Object tp]
                             [tp] -> [tp]
-                            tps -> typeLinkingFailure $ "CastB multi match " ++ (show castexpr) ++ (show tps) ++ (show db)
-            typeExpr = typeLinkingExpr db imps su expr
-            casting = castConversion db (head typeExpr) (head typeCastExpr)
+                            tps -> typeLinkingFailure $ "CastB CastExpr multi match " ++ (show castexpr) ++ (show tps) ++ (show db)
+            typeExpr = case typeLinkingExpr db imps su expr of
+                            [] -> typeLinkingFailure $ "CastB Expr no match " ++ (show expr) 
+                            [tp] -> [tp]
+                            tps -> typeLinkingFailure $ "CastB Expr multi match " ++ (show expr) ++ (show tps) ++ (show db)
+            casting = case castConversion db (head typeExpr) (head typeCastExpr) of
+                            [] -> typeLinkingFailure $ "CastB Casting " ++ (show typeExpr) ++ (show typeCastExpr)
+                            tps -> tps
 
 -- to check: must be (Name [])?
 typeLinkingExpr db imps su (CastC castnm _ expr _) = if null tps || null typeExpr || null casting then typeLinkingFailure $ "CastC: cannot type linking the expression" ++ (show expr) ++ (show tps) else [targetType]
