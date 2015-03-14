@@ -29,10 +29,25 @@ unreachableTest reachable (x:xs) =
   let
     unreachables = case x of
       (Block stmts) -> unreachableBlock reachable stmts
+      (Return _) -> xs
       (While expr stmts) -> case conditionConstant expr of
         (Left _) -> unreachableBlock reachable stmts
         (Right True) -> xs
         (Right False) -> x:statements stmts
+      (For _ (Just expr) _ stmts) -> case conditionConstant expr of
+        (Left _) -> unreachableBlock reachable stmts
+        (Right True) -> xs
+        (Right False) -> x:statements stmts
+      (For _ Nothing _ _) -> xs
+      (If _ stmts Nothing) -> unreachableBlock reachable stmts
+      (If _ stmts (Just eStmts)) ->
+        let trueUnreach = unreachableBlock reachable stmts
+            falseUnreach = unreachableBlock reachable eStmts
+        in
+          if null trueUnreach then []
+          else if null falseUnreach then []
+          else if length trueUnreach > 0 then trueUnreach
+          else falseUnreach
       _ -> if reachable then [] else [x]
     completable = null unreachables
   in
