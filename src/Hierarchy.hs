@@ -47,16 +47,17 @@ checkImplements unit@(Comp _ _ (CLS modifiers clsName _ implemented _ _ _ _) _) 
         ownName = traverseTypeEntryWithImports typeDB unitImports [clsName]
         extendChain = getClassHierarchy unit typeDB
         implementedNames = map (traverseTypeEntryWithImports typeDB unitImports) implemented
-        directImplementedNodes = mapMaybe (getTypeEntry typeDB) (map head implementedNames)
+        directImplementedNodes = if  any null implementedNames then error $ "no implementedNames for " ++ (show implementedNames) else mapMaybe (getTypeEntry typeDB) (map head implementedNames)
         directImplementedSymbols = map symbol directImplementedNodes
         implementedClasses = filter isClass directImplementedSymbols
         implementedNodes = concat $ map (\n -> (getClassInterfaces (astUnit . symbol $ n) typeDB)) extendChain
         implementedSymbols = map symbol implementedNodes
         abstractMethods = filter isFunction (map symbol (concat $ map subNodes implementedNodes))
         definedMethods = filter isFunction (map symbol (concat $ map subNodes extendChain))
+        concreteDefinedMethods = filter (\x -> not $ "abstract" `elem` symbolModifiers x) definedMethods
         isAbstract = "abstract" `elem` modifiers
         (implementedMethods, unimplementedMethods) = partition (functionImplemented definedMethods) abstractMethods
-        clobberedMethods = filter (functionClobbered definedMethods) abstractMethods
+        clobberedMethods = filter (functionClobbered concreteDefinedMethods) abstractMethods
         interfaceConflicts = filter (functionClobbered abstractMethods) abstractMethods
 checkImplements _ _ = Nothing
 
@@ -71,11 +72,13 @@ checkExtends unit@(Comp _ _ (CLS clsMods clsName (Just extendee) _ _ _ _ _) _) t
   | any (\x -> "static" `elem` symbolModifiers x) overridenMethods = Just $ "Class " ++ clsName ++ " redeclared a static method"
   | (not isAbstract) && (any (\x -> "abstract" `elem` symbolModifiers x) nonoverridenMethods) = Just $ "Class " ++ clsName ++ " doesn't define all abstract methods"
   | (length clobberedMethods) > 0 = Just $ "Class " ++ clsName ++ " overwrites a final or static method"
+  | (length hierarchyNoDefault) > 0 = Just $ "Class " ++ (show $ head hierarchyNoDefault) ++ " has no default constructor"
   | otherwise = Nothing
   where extendedNodeMaybe = getClassSuper unit typeDB
         extendedUnit = astUnit . symbol . fromJust $ extendedNodeMaybe
         extendedClass = definition extendedUnit
         hierarchyChain = getClassHierarchy unit typeDB
+        hierarchyNoDefault = filter (not . hasDefaultConstructor) (tail hierarchyChain)
         ownNode = if hierarchyChain == [] then error "checkExtends" else head hierarchyChain
         extendeeMethods = filter isFunction (map symbol (concat $ map subNodes (tail hierarchyChain)))
         ownMethods = filter isFunction (map symbol (subNodes ownNode))
@@ -94,7 +97,7 @@ checkExtends unit@(Comp _ _ (ITF _ itfName extended _ _) _) typeDB
         ownName = traverseTypeEntryWithImports typeDB unitImports [itfName]
         ownNode = if ownName == [] then error "checkImplements" else fromJust $ getTypeEntry typeDB (head ownName)
         extendedNames = map (traverseTypeEntryWithImports typeDB unitImports) extended
-        extendedNodes = mapMaybe (getTypeEntry typeDB) (map head extendedNames)
+        extendedNodes = if any null extendedNames then error $ "checkExtends: no extendedNames " ++ (show itfName) ++ (show extended) ++ (show extendedNames) else mapMaybe (getTypeEntry typeDB) (map head extendedNames)
         extendedSymbols = map symbol extendedNodes
         extendedClasses = filter isClass extendedSymbols
         hierarchyChain = getInterfaceSupers unit typeDB
@@ -122,24 +125,32 @@ getInterfaceSupers unit@(Comp _ _ (ITF _ itfName _ _ _) _) typeDB =
   in getInterfaceSupers' ownNode typeDB []
 
 getInterfaceSupers' :: TypeNode -> TypeNode -> [TypeNode] -> [TypeNode]
-getInterfaceSupers' node@(TN sym@(IT _ _ _ unit@(Comp _ _ (ITF _ _ extended _ _) _)) _) typeDB hierarchy
+getInterfaceSupers' node@(TN sym@(IT _ _ _ unit@(Comp _ _ (ITF _ itfName extended _ _) _)) _) typeDB hierarchy
   | null extended = [node]
   | node `elem` hierarchy = []
   | any null extendedInterfaceExtensions = []
   | otherwise = nub (node : (concat extendedInterfaceExtensions))
   where unitImports = visibleImports unit
         extendedNames = map (traverseTypeEntryWithImports typeDB unitImports) extended
-        extendedNodes = mapMaybe (getTypeEntry typeDB) (map head extendedNames)
+        extendedNodes = if any null extendedNames then error $ "no extendedNames " ++ (show itfName) ++ (show extendedNames) else mapMaybe (getTypeEntry typeDB) (map head extendedNames)
         newHierarchy = node : hierarchy
         extendedInterfaceExtensions = map (\x -> getInterfaceSupers' x typeDB newHierarchy) extendedNodes
 getInterfaceSupers' _ _ _ = []
 
 getClassHierarchy :: CompilationUnit -> TypeNode -> [TypeNode]
-getClassHierarchy unit@(Comp _ _ (CLS _ clsName _ _ _ _ _ _) _) typeDB =
+getClassHierarchy unit@(Comp _ _ cls@(CLS _ clsName _ _ _ _ _ _) _) typeDB =
   let unitImports = visibleImports unit
       ownName = traverseTypeEntryWithImports typeDB unitImports [clsName]
+      ownNode = if ownName == [] then error $ "getClassHierarchy error with imports " ++ (show unitImports) ++ (show unit) else fromJust $ getTypeEntry typeDB (head ownName)
+  in getClassHierarchyForSymbol ownNode typeDB
+
+{- this function should not be called
+getClassHierarchy unit@(Comp _ _ (ITF _ itfName _ _ _ ) _) typeDB =
+  let unitImports = visibleImports unit
+      ownName = traverseTypeEntryWithImports typeDB unitImports [itfName]
       ownNode = if ownName == [] then error "getClassHierarchy" else fromJust $ getTypeEntry typeDB (head ownName)
   in getClassHierarchyForSymbol ownNode typeDB
+-}
 
 getClassHierarchyForSymbol :: TypeNode -> TypeNode -> [TypeNode]
 getClassHierarchyForSymbol node typeDB = getClassHierarchy' node typeDB [node]
@@ -164,7 +175,7 @@ getClassInterfaces unit@(Comp _ _ (CLS modifiers clsName _ implemented _ _ _ _) 
       ownName = traverseTypeEntryWithImports typeDB unitImports [clsName]
       ownNode = if ownName == [] then error "checkImplements" else fromJust $ getTypeEntry typeDB (head ownName)
       implementedNames = map (traverseTypeEntryWithImports typeDB unitImports) implemented
-      implementedNodes = mapMaybe (getTypeEntry typeDB) (map head implementedNames)
+      implementedNodes = if any null implementedNames then error $ "no implementedNames for " ++ (show implementedNames) else mapMaybe (getTypeEntry typeDB) (map head implementedNames)
       hierarchyChain = nub . concat $ map (\x -> getInterfaceSupers' x typeDB []) implementedNodes
   in hierarchyChain
 getClassInterfaces _ _ = []
@@ -198,7 +209,6 @@ functionImplemented :: [Symbol] -> Symbol -> Bool
 functionImplemented definitions fun =
   let funEqual a b = (localName a == localName b) &&
                      (parameterTypes a == parameterTypes b) &&
-                     ("public" `elem` (symbolModifiers a)) == ("public" `elem` (symbolModifiers b)) &&
                      (localType a == localType b) &&
                      (not $ "abstract" `elem` (symbolModifiers b))
   in any (funEqual fun) definitions
@@ -218,3 +228,21 @@ higherInChain symA@(IT _ _ _ unitA) symB@(IT _ _ _ unitB) typeDB
   | otherwise = Nothing
   where hierarchyA = map symbol $ getInterfaceSupers unitA typeDB
         hierarchyB = map symbol $ getInterfaceSupers unitB typeDB
+
+higherInChain symA@(CL _ _ _ unitA) symB@(IT _ _ _ _) typeDB
+  | symB `elem` hierarchyInterface = Just symB
+  | otherwise = Nothing
+  where hierarchyClass = map symbol $ getClassHierarchy unitA typeDB
+        hierarchyInterface = map symbol $ concat $ map (\x -> getClassInterfaces (astUnit x) typeDB) hierarchyClass
+
+higherInChain _ _ _ = error "higherInChain: casting an interface to a class"
+{-
+higherInChain symA@(IT _ _ _ _) symB@(CL _ _ _ unitB) typeDB
+  | symA `elem` hierarchyB = Just symA
+  | otherwise = Nothing
+  where hierarchyB = map symbol $ getClassHierarchy unitB typeDB
+-}
+
+hasDefaultConstructor :: TypeNode -> Bool
+hasDefaultConstructor node@(TN sym@(CL _ _ _ unit@(Comp _ _ (CLS _ _ _ _ constructors _ _ _) _)) _) =
+  any (\c -> (length . constructorParameters $ c) == 0) constructors

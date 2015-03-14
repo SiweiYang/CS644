@@ -13,8 +13,9 @@ data TypeNode = TN {
 } deriving (Eq)
 
 arrayClass = CLS ["public"] "Array" (Just ["Object"]) [[]] [] [] [] (CLSI [] (AI "" 0 0 0 0) Nothing [])
-arrayUnit = Comp (Just ["joosc native", "Array"]) [] arrayClass (CompI Nothing [])
-nativeTypes = TN (PKG []) [TN (PKG "joosc native") [TN (CL ["public"] "Array" (TypeClass (Name ["joosc native", "Array"])) arrayUnit) [TN (SYM ["public"] ["joosc native", "Array"] "length" TypeInt) []]]]
+arrayUnit = Comp (Just ["joosc native"]) [] arrayClass (CompI Nothing [])
+nativeTypes = TN (PKG []) [TN (PKG "joosc native") [TN (CL ["public"] "Array" (TypeClass (Name ["joosc native", "Array"])) arrayUnit) [TN (SYM ["public", "final"] ["joosc native", "Array"] "length" TypeInt) []]]]
+
 
 isVisibleClassNode tn = case symbol tn of
                             PKG _ -> True
@@ -26,6 +27,11 @@ isVisibleClassNode tn = case symbol tn of
 isConcreteNode tn = case symbol tn of
                             CL  _ _ _ _ -> True
                             IT _ _ _ _ -> True
+                            _ -> False
+
+isSYMFUNCNode tn = case symbol tn of
+                            FUNC _ _ _ _ _ -> True
+                            SYM _ _ _ _ -> True
                             _ -> False
 
 instance Show TypeNode where
@@ -104,16 +110,6 @@ traverseTypeEntry (TN sym nodes) (nm:remain) = case [node | node <- nodes, (loca
                                                 [node] -> traverseTypeEntry node remain
                                                 _ -> Nothing
 
-traverseFieldEntryWithImports :: TypeNode -> [[String]] -> [String] -> [TypeNode]
-traverseFieldEntryWithImports tn imps query = nub . concat $ (flds ++ funcs)
-    where
-        entries = map (traverseTypeEntry tn) imps
-        entries' = map (\(mnode, imp) -> (fromJust mnode, imp)) (filter (isJust . fst) (zip entries imps))
-        results = map (\(node, imp) -> (traverseTypeEntry node (init query), (init imp) ++ (init query))) ((tn, ["*"]):entries')
-        fld = if query == [] then error "traverseFieldEntryWithImports" else last query
-        flds = [[TN (SYM mds ls ln lt) ch | TN (SYM mds ls ln lt) ch <- subNodes node, elem "static" mds, ln == fld] | (Just (TN _ [node]), cname) <- results]
-        funcs = [[TN (FUNC mds ls ln ps rt) ch | TN (FUNC mds ls ln ps rt) ch <- subNodes node, ln == fld] | (Just (TN _ [node]), cname) <- results]
-
 traverseTypeEntryWithImports :: TypeNode -> [[String]] -> [String] -> [[String]]
 traverseTypeEntryWithImports tn imps query = nub [cname | (Just node, cname) <- results]
     where
@@ -121,18 +117,16 @@ traverseTypeEntryWithImports tn imps query = nub [cname | (Just node, cname) <- 
         entries' = map (\(mnode, imp) -> (fromJust mnode, imp)) (filter (isJust . fst) (zip entries imps))
         results = map (\(node, imp) -> (traverseTypeEntry node query, (init imp) ++ query)) ((tn, ["*"]):entries')
 
-traverseInstanceEntry :: TypeNode -> [TypeNode] -> [String] -> [TypeNode]
-traverseInstanceEntry root nodes cname = concat nodes'
-    where
-        nodes' = map (\cur -> traverseInstanceEntry' root cur cname) nodes
-
-traverseInstanceEntry' :: TypeNode -> TypeNode -> [String] -> [TypeNode]
-traverseInstanceEntry' root cur [] = [cur]
-traverseInstanceEntry' root (TN (SYM mds ls ln lt) _) (nm:cname) = traverseInstanceEntry' root root ((typeToName lt) ++ (nm:cname))
-traverseInstanceEntry' root cur (nm:cname) = case [node | node <- subNodes cur, (localName . symbol) node == nm] of
+{-
+traverseInstanceEntryTrace :: TypeNode -> TypeNode -> [String] -> [[TypeNode]]
+traverseInstanceEntryTrace root tn@(TN (SYM _ _ _ _) _) [] = [[tn]]
+traverseInstanceEntryTrace root tn@(TN (FUNC _ _ _ _ _) _) [] = [[tn]]
+traverseInstanceEntryTrace root tn [] = []
+traverseInstanceEntryTrace root tn@(TN (SYM mds ls ln lt) _) (nm:cname) = map (tn:) (traverseInstanceEntryTrace root root ((typeToName lt) ++ (nm:cname)))
+traverseInstanceEntryTrace root cur (nm:cname) = case [node | node <- subNodes cur, (localName . symbol) node == nm, (not $ isSYMFUNCNode node) || (not $ elem "static" ((symbolModifiers . symbol) node))] of
                                         []            -> []
-                                        targets      -> concat $ map (\target -> traverseInstanceEntry' root target cname) targets
-
+                                        targets      -> concat $ map (\target -> traverseInstanceEntryTrace root target cname) targets
+-}
 buildTypeEntryFromSymbol :: Symbol -> TypeNode
 buildTypeEntryFromSymbol sym = TN sym []
 
@@ -255,13 +249,22 @@ refineSymbolWithType db imps (FUNC mds ls ln params lt) = case (dropWhile isJust
         mlt' = refineTypeWithType db imps lt
 refineSymbolWithType db imps sym = Just sym
 
+refineKindWithType  db imps (Method sym) = case refineSymbolWithType db imps sym of
+                                            Nothing -> Nothing
+                                            Just sym' -> Just (Method sym')
+refineKindWithType  db imps (Field sym mexpr) = case refineSymbolWithType db imps sym of
+                                            Nothing -> Nothing
+                                            Just sym' -> Just (Field sym' mexpr)
+refineKindWithType  db imps kd = Just kd
+
 refineEnvironmentWithType :: TypeNode -> [[String]] -> SemanticUnit -> Environment -> Maybe Environment
 refineEnvironmentWithType db imps _ ENVE = Just ENVE
-refineEnvironmentWithType db imps parent (ENV su ch) = case (dropWhile isJust syms', dropWhile isJust ch') of
-                                                        ([], []) -> Just (ENV su' (map fromJust ch'))
+refineEnvironmentWithType db imps parent (ENV su ch) = case (isJust k', dropWhile isJust syms', dropWhile isJust ch') of
+                                                        (True, [], []) -> Just (ENV su' (map fromJust ch'))
                                                         _ -> Nothing
     where
         (SU cname k syms _) = su
+        k' = refineKindWithType db imps k
         syms' = map (refineSymbolWithType db imps) syms
-        su' = (SU cname k (map fromJust syms') parent)
+        su' = (SU cname (fromJust k') (map fromJust syms') parent)
         ch' = map (refineEnvironmentWithType db imps su') ch

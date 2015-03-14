@@ -92,7 +92,12 @@ weedStatementBlock Nothing = Nothing
 weedStatementBlock (Just block) = fmap (++ (show (statementsInfo block))) (msum $ map weedStatement (statements block))
 
 weedStatement :: Statement -> WeedError
-weedStatement (LocalVar var value) = weedExpression value
+weedStatement (LocalVar (TV _ name info) value)
+  | identifierInExpr name value = Just $ "Variable assignment cannot reference itself" ++ show info
+  | isJust exprError = exprError
+  | otherwise = Nothing
+  where exprError = weedExpression value
+
 weedStatement (If ifExpression ifBlock elseBlock) = (weedExpression ifExpression)
                                                 <|> (weedStatementBlock $ Just ifBlock)
                                                 <|> (weedStatementBlock elseBlock)
@@ -136,6 +141,7 @@ weedExpression (CastB (ID _ depthA) expression depthB)
   | depthA > depthB + 11 = Just "Invalid cast"
   | otherwise = Nothing
 weedExpression (CastB castExpression expression _) = Just "Invalid Cast"
+weedExpression (CastC _ _ _ _) = Nothing
 weedExpression (InstanceOf refType expression _) = Nothing
 weedExpression (ID identifier _) = Nothing
 weedExpression (Value TypeInt value depth)
