@@ -91,7 +91,12 @@ weedStatementBlock Nothing = Nothing
 weedStatementBlock (Just block) = fmap (++ (show (statementsInfo block))) (msum $ map weedStatement (statements block))
 
 weedStatement :: Statement -> WeedError
-weedStatement (LocalVar var value) = weedExpression value
+weedStatement (LocalVar (TV _ name info) value)
+  | identifierInExpr name value = Just $ "Variable assignment cannot reference itself" ++ show info
+  | isJust exprError = exprError
+  | otherwise = Nothing
+  where exprError = weedExpression value
+
 weedStatement (If ifExpression ifBlock elseBlock) = (weedExpression ifExpression)
                                                 <|> (weedStatementBlock $ Just ifBlock)
                                                 <|> (weedStatementBlock elseBlock)

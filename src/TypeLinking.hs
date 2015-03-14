@@ -30,7 +30,7 @@ typeLinkingCheck db imps (ENV su c) = if elem Nothing imps' then [] else tps
                 Var expr -> if typeLinkingExpr db imps su (Binary "=" (ID (Name ([localName varsym])) 0) expr 0) == [] then [] else cts'
 
                 Field varsym (Just expr) -> let syms = dropWhile (varsym /=) [sym | sym@(SYM mds _ _ _) <- sti, not $ elem "static" mds]
-                                                forward = or (map (\sym -> forwardSYMInExpr (localName sym) expr) syms)
+                                                forward = or (map (\sym -> identifierInExpr (localName sym) expr) syms)
                                             in if forward
                                                 then typeLinkingFailure $ "forward use of syms " ++ (show varsym) ++ (show expr)
                                                 else if typeLinkingExpr db imps su (Binary "=" (ID (Name ([localName varsym])) 0) expr 0) == [] then typeLinkingFailure $ "field type mis match expression " ++ (show varsym) ++ (show expr) else cts'
@@ -214,7 +214,7 @@ typeLinkingExpr db imps su (CastB castexpr expr _) = if null typeCastExpr || nul
                             [tp] -> [tp]
                             tps -> typeLinkingFailure $ "CastB CastExpr multi match " ++ (show castexpr) ++ (show tps) ++ (show db)
             typeExpr = case typeLinkingExpr db imps su expr of
-                            [] -> typeLinkingFailure $ "CastB Expr no match " ++ (show expr) 
+                            [] -> typeLinkingFailure $ "CastB Expr no match " ++ (show expr)
                             [tp] -> [tp]
                             tps -> typeLinkingFailure $ "CastB Expr multi match " ++ (show expr) ++ (show tps) ++ (show db)
             casting = case castConversion db (head typeExpr) (head typeCastExpr) of
@@ -370,24 +370,3 @@ checkSameNameInSymbolTable st = length nms /= (length . nub) nms
         nms = map localName syms
 
 ------------------------------------------------------------------------------
-forwardSYMInExpr :: String -> Expression -> Bool
-forwardSYMInExpr nm (Unary op expr _) = forwardSYMInExpr nm expr
-forwardSYMInExpr nm expr@(Binary op exprL exprR _)
-    |   elem op ["="] = case exprL of
-                            ID exprL' _ -> forwardSYMInExpr nm exprR
-                            _ -> or [forwardSYMInExpr nm exprL, forwardSYMInExpr nm exprR]
-    |   otherwise = or [forwardSYMInExpr nm exprL, forwardSYMInExpr nm exprR]
-forwardSYMInExpr nm (ID (Name cname) _) = nm == head cname
-forwardSYMInExpr nm This = False
-forwardSYMInExpr nm (Value tp _ _) = False
-forwardSYMInExpr nm (InstanceOf tp expr _) = forwardSYMInExpr nm expr
-forwardSYMInExpr nm (FunctionCall exprf args _) = or ((forwardSYMInExpr nm exprf):(map (forwardSYMInExpr nm) args))
-forwardSYMInExpr nm expr@(Attribute s m _) = forwardSYMInExpr nm s
-forwardSYMInExpr nm (NewObject tp args dp) = or (map (forwardSYMInExpr nm) args)
-forwardSYMInExpr nm (NewArray tp expr _ _) = forwardSYMInExpr nm expr
-forwardSYMInExpr nm (Dimension _ exprd _) = forwardSYMInExpr nm exprd
-forwardSYMInExpr nm (ArrayAccess arr idx _) = or [forwardSYMInExpr nm arr, forwardSYMInExpr nm idx]
-forwardSYMInExpr nm (CastA casttp dim expr _) = forwardSYMInExpr nm expr
-forwardSYMInExpr nm (CastB castexpr expr _) = forwardSYMInExpr nm expr
-forwardSYMInExpr nm (CastC castnm _ expr _) = forwardSYMInExpr nm expr
-forwardSYMInExpr nm _ = False

@@ -608,3 +608,25 @@ literalToType (ASTT nm (Token _ content, _)) = case nm of
                           "LITERAL_STRING" -> Object (Name ["java", "lang", "String"])
                           "LITERAL_NULL" -> TypeNull
 
+
+identifierInExpr :: String -> Expression -> Bool
+identifierInExpr nm (Unary op expr _) = identifierInExpr nm expr
+identifierInExpr nm expr@(Binary op exprL exprR _)
+    |   elem op ["="] = case exprL of
+                            ID exprL' _ -> identifierInExpr nm exprR
+                            _ -> or [identifierInExpr nm exprL, identifierInExpr nm exprR]
+    |   otherwise = or [identifierInExpr nm exprL, identifierInExpr nm exprR]
+identifierInExpr nm (ID (Name cname) _) = nm == head cname
+identifierInExpr nm This = False
+identifierInExpr nm (Value tp _ _) = False
+identifierInExpr nm (InstanceOf tp expr _) = identifierInExpr nm expr
+identifierInExpr nm (FunctionCall exprf args _) = or ((identifierInExpr nm exprf):(map (identifierInExpr nm) args))
+identifierInExpr nm expr@(Attribute s m _) = identifierInExpr nm s
+identifierInExpr nm (NewObject tp args dp) = or (map (identifierInExpr nm) args)
+identifierInExpr nm (NewArray tp expr _ _) = identifierInExpr nm expr
+identifierInExpr nm (Dimension _ exprd _) = identifierInExpr nm exprd
+identifierInExpr nm (ArrayAccess arr idx _) = or [identifierInExpr nm arr, identifierInExpr nm idx]
+identifierInExpr nm (CastA casttp dim expr _) = identifierInExpr nm expr
+identifierInExpr nm (CastB castexpr expr _) = identifierInExpr nm expr
+identifierInExpr nm (CastC castnm _ expr _) = identifierInExpr nm expr
+identifierInExpr nm _ = False
