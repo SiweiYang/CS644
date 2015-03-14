@@ -72,11 +72,13 @@ checkExtends unit@(Comp _ _ (CLS clsMods clsName (Just extendee) _ _ _ _ _) _) t
   | any (\x -> "static" `elem` symbolModifiers x) overridenMethods = Just $ "Class " ++ clsName ++ " redeclared a static method"
   | (not isAbstract) && (any (\x -> "abstract" `elem` symbolModifiers x) nonoverridenMethods) = Just $ "Class " ++ clsName ++ " doesn't define all abstract methods"
   | (length clobberedMethods) > 0 = Just $ "Class " ++ clsName ++ " overwrites a final or static method"
+  | (length hierarchyNoDefault) > 0 = Just $ "Class " ++ (show $ head hierarchyNoDefault) ++ " has no default constructor"
   | otherwise = Nothing
   where extendedNodeMaybe = getClassSuper unit typeDB
         extendedUnit = astUnit . symbol . fromJust $ extendedNodeMaybe
         extendedClass = definition extendedUnit
         hierarchyChain = getClassHierarchy unit typeDB
+        hierarchyNoDefault = filter (not . hasDefaultConstructor) (tail hierarchyChain)
         ownNode = if hierarchyChain == [] then error "checkExtends" else head hierarchyChain
         extendeeMethods = filter isFunction (map symbol (concat $ map subNodes (tail hierarchyChain)))
         ownMethods = filter isFunction (map symbol (subNodes ownNode))
@@ -240,3 +242,7 @@ higherInChain symA@(IT _ _ _ _) symB@(CL _ _ _ unitB) typeDB
   | otherwise = Nothing
   where hierarchyB = map symbol $ getClassHierarchy unitB typeDB
 -}
+
+hasDefaultConstructor :: TypeNode -> Bool
+hasDefaultConstructor node@(TN sym@(CL _ _ _ unit@(Comp _ _ (CLS _ _ _ _ constructors _ _ _) _)) _) =
+  any (\c -> (length . constructorParameters $ c) == 0) constructors
