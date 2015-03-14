@@ -8,8 +8,31 @@ import TypeDatabase
 import Hierarchy
 import Data.Maybe
 
+equalityCheck :: TypeNode -> Type -> Type -> [Type]
+equalityCheck typeDB typeS typeT
+    | (typeS == TypeVoid) || (typeT == TypeVoid) = []
+    | typeS == typeT = [typeS]
+    | typeS == TypeNull = case typeT of
+                            (Object x) -> [(Object x)]
+                            (Array x) -> [(Array x)]
+                            _ -> []
+    | typeT == TypeNull = case typeS of
+                            (Object x) -> [(Object x)]
+                            (Array x) -> [(Array x)]
+                            _ -> []
+    | otherwise = case (isPrimitive typeS, isPrimitive typeT) of
+                    (True, True) -> primitiveConversionB typeS typeT
+                    (False, False) -> objectConversionB typeDB typeS typeT
+                    (True, False) -> if boxingType typeS == typeT then [typeT] else []
+                    (False, True) -> if boxingType typeT == typeS then [typeS] else []
+
+-- | typeL == (Object (Name ["java", "lang", "String"]))) && a`
+-- | typeR == (Object (Name ["java", "lang", "String"]))) = []
+----------------------------------------------------------
+
 assignConversion :: TypeNode -> Type -> Type -> [Type]
 assignConversion typeDB typeS typeT
+    | (typeS == TypeVoid) || (typeT == TypeVoid) = []
     | typeS == typeT = [typeT]
     | typeT == TypeNull = []
     | typeS == TypeNull = case typeT of
@@ -34,6 +57,7 @@ assignConversion typeDB typeS typeT
 
 castConversion :: TypeNode -> Type -> Type -> [Type]
 castConversion typeDB typeS typeT
+    | (typeS == TypeVoid) || (typeT == TypeVoid) = []
     | typeS == typeT = [typeT]
     | typeT == TypeNull = []
     | typeS == TypeNull = case typeT of
@@ -123,6 +147,8 @@ objectConversionB _ _ _ = []
 
 isPrimitive :: Type -> Bool
 isPrimitive x = elem x [TypeBoolean, TypeChar, TypeByte, TypeShort, TypeInt]
+
+
 
 {-
 isObject :: Type -> Bool

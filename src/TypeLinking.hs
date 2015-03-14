@@ -8,7 +8,7 @@ import AST
 import TypeChecking
 
 typeLinkingFailure :: String -> [Type]
---typeLinkingFailure msg = error msg
+--typeLinkingFailure msg = error m
 typeLinkingFailure msg = []
 
 typeLinkingCheck :: TypeNode -> [[String]] -> Environment -> [Type]
@@ -30,7 +30,7 @@ typeLinkingCheck db imps (ENV su c) = if elem Nothing imps' then [] else tps
                 Var expr -> if typeLinkingExpr db imps su (Binary "=" (ID (Name ([localName varsym])) 0) expr 0) == [] then [] else cts'
 
                 Field varsym (Just expr) -> let syms = dropWhile (varsym /=) [sym | sym@(SYM mds _ _ _) <- sti, not $ elem "static" mds]
-                                                forward = or (map (\sym -> forwardSYMInExpr (localName sym) expr) syms)
+                                                forward = or (map (\sym -> identifierInExpr (localName sym) expr) syms)
                                             in if forward
                                                 then typeLinkingFailure $ "forward use of syms " ++ (show varsym) ++ (show expr)
                                                 else if typeLinkingExpr db imps su (Binary "=" (ID (Name ([localName varsym])) 0) expr 0) == [] then typeLinkingFailure $ "field type mis match expression " ++ (show varsym) ++ (show expr) else cts'
@@ -86,13 +86,15 @@ typeLinkingExpr db imps su (Unary op expr _) = case op of
 typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
     |   length typeLs /= 1 || length typeRs /= 1 = []
     |   elem op ["+"] = case (typeL, typeR) of
+                            (TypeVoid, _) -> typeLinkingFailure "Binary + TypeVoid"
+                            (_, TypeVoid) -> typeLinkingFailure "Binary + TypeVoid"
                             ((Object (Name ["java", "lang", "String"])), _) -> [(Object (Name ["java", "lang", "String"]))]
                             (_, (Object (Name ["java", "lang", "String"]))) -> [(Object (Name ["java", "lang", "String"]))]
                             (_, _) -> if typeLInt && typeRInt then typeLR else typeLinkingFailure "Binary +"
     |   elem op ["-", "*", "/", "%"] = if typeLInt && typeRInt then typeLR else typeLinkingFailure "Binary arithematic op"
     |   elem op ["<", ">", "<=", ">="] = if typeLInt && typeRInt then [TypeBoolean] else typeLinkingFailure "Binary comparision op"
     |   elem op ["&&", "||", "&", "|"] = if typeLBool && typeRBool then [TypeBoolean] else typeLinkingFailure "Binary logical op"
-    |   elem op ["==", "!="] = if null typeLR then typeLinkingFailure $ "Binary " ++ op else [TypeBoolean]
+    |   elem op ["==", "!="] = if null equality then typeLinkingFailure $ "Binary " ++ (show typeL) ++ op ++ (show typeR) else [TypeBoolean]
     |   elem op ["="] = if assignRL then [typeL] else typeLinkingFailure $ "Binary =" ++ (show typeL) ++ (show typeR) ++ (show $ assignConversion db typeR typeL)
     where
         typeLs = case filter filterNonFunction $ typeLinkingExpr db imps su exprL of
@@ -115,6 +117,7 @@ typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
         typeRInt = not . null $ castConversion db typeR TypeInt
         typeLBool= not . null $ castConversion db typeL TypeBoolean
         typeRBool = not . null $ castConversion db typeR TypeBoolean
+        equality = equalityCheck db typeL typeR
 
 
 typeLinkingExpr db imps su (ID nm _) = typeLinkingName db imps su nm
@@ -140,13 +143,14 @@ typeLinkingExpr db imps su (FunctionCall exprf args _) = if atsFailed then typeL
 typeLinkingExpr db imps su expr@(Attribute s m _) = case typeLinkingExpr db imps su s of
                                                         [] -> typeLinkingFailure ("Attr no match " ++ (show s) ++ (show m))
                                                         --should handle Class and instance differently
-                                                        [tp] -> let Just tn = getTypeEntry db (typeToName tp)
-                                                                    syms = [node | node <- traverseInstanceEntryAccessible db cname db ((typeToName tp)++[m])]
-                                                                    syms' = if accessibleType db cname (symbol tn) then syms else [node | node <- syms, not $ elem "protected" ((symbolModifiers . symbol) node)]--typeLinkingFailure $ "no protected fields " ++ (show flds)--
-                                                                in case syms' of
-                                                                    [] -> typeLinkingFailure ("Attr no match on member " ++ (show expr) ++ (show ((typeToName tp)++[m])))
-                                                                    --instance look up should not return multiple candidates
-                                                                    nodes -> map (symbolToType . symbol) nodes
+                                                        [tp] -> if isPrimitive tp then typeLinkingFailure $ "Attribute dereference a primitive " ++ (show tp) else
+                                                                    let Just tn = getTypeEntry db (typeToName tp)
+                                                                        syms = [node | node <- traverseInstanceEntryAccessible db cname db ((typeToName tp)++[m])]
+                                                                        syms' = if accessibleType db cname (symbol tn) then syms else [node | node <- syms, not $ elem "protected" ((symbolModifiers . symbol) node)]--typeLinkingFailure $ "no protected fields " ++ (show flds)--
+                                                                    in case syms' of
+                                                                        [] -> typeLinkingFailure ("Attr no match on member " ++ (show expr) ++ (show ((typeToName tp)++[m])))
+                                                                        --instance look up should not return multiple candidates
+                                                                        nodes -> map (symbolToType . symbol) nodes
                                                         _ -> typeLinkingFailure ("Attr multi " ++ (show s) ++ (show m))
     where
         cname = (typeToName . lookUpThis) su
@@ -217,7 +221,7 @@ typeLinkingExpr db imps su (CastB castexpr expr _) = if null typeCastExpr || nul
                             [tp] -> [tp]
                             tps -> typeLinkingFailure $ "CastB CastExpr multi match " ++ (show castexpr) ++ (show tps) ++ (show db)
             typeExpr = case typeLinkingExpr db imps su expr of
-                            [] -> typeLinkingFailure $ "CastB Expr no match " ++ (show expr) 
+                            [] -> typeLinkingFailure $ "CastB Expr no match " ++ (show expr)
                             [tp] -> [tp]
                             tps -> typeLinkingFailure $ "CastB Expr multi match " ++ (show expr) ++ (show tps) ++ (show db)
             casting = case castConversion db (head typeExpr) (head typeCastExpr) of
@@ -271,7 +275,7 @@ typeLinkingName' db imps su (Name cname@(nm:remain)) = case syms'' of
                 baseName = (typeToName . lookUpThis) su
 		syms = [sym | sym <- lookUpSymbolTable su nm, not $ elem "cons" (symbolModifiers sym)]
                 symsLocal = [sym | sym@(SYM mds scope _ _) <- syms, (scope /= baseName)]
-                symsStatic = symsLocal ++ [sym | sym@(SYM mds scope _ _) <- syms, elem "static" mds] ++ [func | func@(FUNC mds _ _ _ _) <- syms, elem "static" mds]
+                symsStatic = symsLocal ++ [sym | sym@(SYM mds scope _ _) <- syms, elem "static" mds] ++ [func | func@(FUNC mds _ _ _ _) <- syms, elem "static" mds, (length cname) > 1]
                 symsNStatic = symsLocal ++ [sym | sym <- syms, not $ elem sym symsStatic]
                 syms' = if scopeStatic su then symsStatic else symsNStatic
                 syms'' = if remain == []
@@ -374,24 +378,3 @@ checkSameNameInSymbolTable st = length nms /= (length . nub) nms
         nms = map localName syms
 
 ------------------------------------------------------------------------------
-forwardSYMInExpr :: String -> Expression -> Bool
-forwardSYMInExpr nm (Unary op expr _) = forwardSYMInExpr nm expr
-forwardSYMInExpr nm expr@(Binary op exprL exprR _)
-    |   elem op ["="] = case exprL of
-                            ID exprL' _ -> forwardSYMInExpr nm exprR
-                            _ -> or [forwardSYMInExpr nm exprL, forwardSYMInExpr nm exprR]
-    |   otherwise = or [forwardSYMInExpr nm exprL, forwardSYMInExpr nm exprR]
-forwardSYMInExpr nm (ID (Name cname) _) = nm == head cname
-forwardSYMInExpr nm This = False
-forwardSYMInExpr nm (Value tp _ _) = False
-forwardSYMInExpr nm (InstanceOf tp expr _) = forwardSYMInExpr nm expr
-forwardSYMInExpr nm (FunctionCall exprf args _) = or ((forwardSYMInExpr nm exprf):(map (forwardSYMInExpr nm) args))
-forwardSYMInExpr nm expr@(Attribute s m _) = forwardSYMInExpr nm s
-forwardSYMInExpr nm (NewObject tp args dp) = or (map (forwardSYMInExpr nm) args)
-forwardSYMInExpr nm (NewArray tp expr _ _) = forwardSYMInExpr nm expr
-forwardSYMInExpr nm (Dimension _ exprd _) = forwardSYMInExpr nm exprd
-forwardSYMInExpr nm (ArrayAccess arr idx _) = or [forwardSYMInExpr nm arr, forwardSYMInExpr nm idx]
-forwardSYMInExpr nm (CastA casttp dim expr _) = forwardSYMInExpr nm expr
-forwardSYMInExpr nm (CastB castexpr expr _) = forwardSYMInExpr nm expr
-forwardSYMInExpr nm (CastC castnm _ expr _) = forwardSYMInExpr nm expr
-forwardSYMInExpr nm _ = False

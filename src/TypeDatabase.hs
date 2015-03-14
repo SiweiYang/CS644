@@ -14,7 +14,8 @@ data TypeNode = TN {
 
 arrayClass = CLS ["public"] "Array" (Just ["Object"]) [[]] [] [] [] (CLSI [] (AI "" 0 0 0 0) Nothing [])
 arrayUnit = Comp (Just ["joosc native"]) [] arrayClass (CompI Nothing [])
-nativeTypes = TN (PKG []) [TN (PKG "joosc native") [TN (CL ["public"] "Array" (TypeClass (Name ["joosc native", "Array"])) arrayUnit) [TN (SYM ["public"] ["joosc native", "Array"] "length" TypeInt) []]]]
+nativeTypes = TN (PKG []) [TN (PKG "joosc native") [TN (CL ["public"] "Array" (TypeClass (Name ["joosc native", "Array"])) arrayUnit) [TN (SYM ["public", "final"] ["joosc native", "Array"] "length" TypeInt) []]]]
+
 
 isVisibleClassNode tn = case symbol tn of
                             PKG _ -> True
