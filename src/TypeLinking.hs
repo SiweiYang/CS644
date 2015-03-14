@@ -30,7 +30,7 @@ typeLinkingCheck db imps (ENV su c) = if elem Nothing imps' then [] else tps
                 Var expr -> if typeLinkingExpr db imps su (Binary "=" (ID (Name ([localName varsym])) 0) expr 0) == [] then [] else cts'
 
                 Field varsym (Just expr) -> let syms = dropWhile (varsym /=) [sym | sym@(SYM mds _ _ _) <- sti, not $ elem "static" mds]
-                                                forward = or (map (\sym -> forwardSYMInExpr (localName sym) expr) syms)
+                                                forward = or (map (\sym -> identifierInExpr (localName sym) expr) syms)
                                             in if forward
                                                 then typeLinkingFailure $ "forward use of syms " ++ (show varsym) ++ (show expr)
                                                 else if typeLinkingExpr db imps su (Binary "=" (ID (Name ([localName varsym])) 0) expr 0) == [] then typeLinkingFailure $ "field type mis match expression " ++ (show varsym) ++ (show expr) else cts'
@@ -141,28 +141,35 @@ typeLinkingExpr db imps su (FunctionCall exprf args _) = if atsFailed then typeL
                 fts' = [Function nm pt rt | ft@(Function nm pt rt) <- fts, argsMatching (concat ats) pt]
 
 typeLinkingExpr db imps su expr@(Attribute s m _) = case typeLinkingExpr db imps su s of
-                                                        [] -> []-- typeLinkingFailure ("Attr " ++ (show s) ++ (show m))
+                                                        [] -> typeLinkingFailure ("Attr no match " ++ (show s) ++ (show m))
                                                         --should handle Class and instance differently
                                                         [tp] -> if isPrimitive tp then typeLinkingFailure $ "Attribute dereference a primitive " ++ (show tp) else
-                                                                case traverseInstanceEntry' db db ((typeToName tp)++[m]) of
-                                                                    [] -> typeLinkingFailure ("Attr " ++ (show expr) ++ (show ((typeToName tp)++[m])))
-                                                                    --instance look up should not return multiple candidates
-                                                                    nodes -> map (symbolToType . symbol) nodes
-                                                        _ -> typeLinkingFailure ("Attr " ++ (show s) ++ (show m))
+                                                                    let Just tn = getTypeEntry db (typeToName tp)
+                                                                        syms = [node | node <- traverseInstanceEntryAccessible db cname db ((typeToName tp)++[m])]
+                                                                        syms' = if accessibleType db cname (symbol tn) then syms else [node | node <- syms, not $ elem "protected" ((symbolModifiers . symbol) node)]--typeLinkingFailure $ "no protected fields " ++ (show flds)--
+                                                                    in case syms' of
+                                                                        [] -> typeLinkingFailure ("Attr no match on member " ++ (show expr) ++ (show ((typeToName tp)++[m])))
+                                                                        --instance look up should not return multiple candidates
+                                                                        nodes -> map (symbolToType . symbol) nodes
+                                                        _ -> typeLinkingFailure ("Attr multi " ++ (show s) ++ (show m))
+    where
+        cname = (typeToName . lookUpThis) su
 
 -- import rule plays here
 typeLinkingExpr db imps su (NewObject tp args dp) = if atsFailed then typeLinkingFailure $ "NewObject types of Args " ++ (show ats) else
                                                     case [TypeClass (Name nm) | TypeClass (Name nm) <- lookUpDB db imps su (typeToName tp)] of
                                                         [] -> typeLinkingFailure $ "New Object []: " ++ (show tp) ++ (show args) ++ (show imps)
                                                         [(TypeClass (Name nm))]-> let Just tn = getTypeEntry db nm
-                                                                                      cons = [node | node@(TN (FUNC mds _ _ pt _) _) <- subNodes tn, elem "cons" mds, argsMatching (concat ats) pt]
+                                                                                      cons = [node | node@(TN (FUNC mds ls _ pt _) _) <- subNodes tn, elem "cons" mds, ls == nm, accessibleSymbol db cname (symbol node), argsMatching (concat ats) pt]
+                                                                                      cons' = if accessibleType db cname (symbol tn) then cons else [node | node <- cons, not $ elem "protected" ((symbolModifiers . symbol) node)]--error $ "using non protect accessible types" ++ (show (symbol tn))
                                                                                    in if elem "abstract" ((symbolModifiers . symbol) tn)
                                                                                         then typeLinkingFailure $ "New Object: cannot create abstract class object" ++ (show nm)
-                                                                                        else if cons == []
+                                                                                        else if cons' == []
                                                                                                 then typeLinkingFailure $ "New Object: no matching constructor for " ++ (show ats) ++ (show [node | node@(TN (FUNC mds _ _ pt _) _) <- subNodes tn, elem "cons" mds])
                                                                                                 else [Object (Name nm)]
                                                         tcs -> typeLinkingFailure $ "New Object multi: " ++ (show tcs) ++ (show tp) ++ (show args)
     where
+        cname = (typeToName . lookUpThis) su
         ats = map (typeLinkingExpr db imps su) args
         atsFailed = or $ map null ats
 -- to check param types
@@ -214,7 +221,7 @@ typeLinkingExpr db imps su (CastB castexpr expr _) = if null typeCastExpr || nul
                             [tp] -> [tp]
                             tps -> typeLinkingFailure $ "CastB CastExpr multi match " ++ (show castexpr) ++ (show tps) ++ (show db)
             typeExpr = case typeLinkingExpr db imps su expr of
-                            [] -> typeLinkingFailure $ "CastB Expr no match " ++ (show expr) 
+                            [] -> typeLinkingFailure $ "CastB Expr no match " ++ (show expr)
                             [tp] -> [tp]
                             tps -> typeLinkingFailure $ "CastB Expr multi match " ++ (show expr) ++ (show tps) ++ (show db)
             casting = case castConversion db (head typeExpr) (head typeCastExpr) of
@@ -268,21 +275,21 @@ typeLinkingName' db imps su (Name cname@(nm:remain)) = case syms'' of
                 baseName = (typeToName . lookUpThis) su
 		syms = [sym | sym <- lookUpSymbolTable su nm, not $ elem "cons" (symbolModifiers sym)]
                 symsLocal = [sym | sym@(SYM mds scope _ _) <- syms, (scope /= baseName)]
-                symsStatic = symsLocal ++ [sym | sym@(SYM mds scope _ _) <- syms, elem "static" mds] ++ [func | func@(FUNC mds _ _ _ _) <- syms, elem "static" mds]
+                symsStatic = symsLocal ++ [sym | sym@(SYM mds scope _ _) <- syms, elem "static" mds] ++ [func | func@(FUNC mds _ _ _ _) <- syms, elem "static" mds, (length cname) > 1]
                 symsNStatic = symsLocal ++ [sym | sym <- syms, not $ elem sym symsStatic]
                 syms' = if scopeStatic su then symsStatic else symsNStatic
                 syms'' = if remain == []
                             then syms'
-                            else map symbol $ concat $ map (traverseInstanceEntry' db db) [((typeToName . localType) sym) ++ remain | sym@(SYM mds _ _ _) <- syms']
+                            else map symbol $ concat $ map (traverseInstanceEntryAccessible db baseName db) [((typeToName . localType) sym) ++ remain | sym@(SYM mds _ _ _) <- syms']
                 
-                Just thisNode = getTypeEntry db (typeToName . lookUpThis $ su)
-                symsInheritance = [sym | sym <- map symbol (traverseInstanceEntry' db thisNode [nm]), not $ elem "cons" (symbolModifiers sym)]
+                Just thisNode = getTypeEntry db baseName
+                symsInheritance = [sym | sym <- map symbol (traverseInstanceEntryAccessible db baseName thisNode [nm]), not $ elem "cons" (symbolModifiers sym)]
                 symsInheritanceStatic = [sym | sym@(SYM mds _ _ _) <- symsInheritance, elem "static" mds] ++ [func | func@(FUNC mds _ _ _ _) <- symsInheritance, elem "static" mds]
                 symsInheritanceNStatic = [sym | sym <- symsInheritance, not $ elem sym symsInheritanceStatic]
                 symsInheritance' = if scopeStatic su then symsInheritanceStatic else symsInheritanceNStatic
                 symsInheritance'' = if remain == []
                             then symsInheritance'
-                            else map symbol $ concat $ map (traverseInstanceEntry' db db) [((typeToName . localType) sym) ++ remain | sym@(SYM mds _ _ _) <- symsInheritance']
+                            else map symbol $ concat $ map (traverseInstanceEntryAccessible db baseName db) [((typeToName . localType) sym) ++ remain | sym@(SYM mds _ _ _) <- symsInheritance']
                 symsInheritance''' = if scopeLocal su then symsInheritance'' else []
 
 ---------------------------------------------------------------------------------------------------------
@@ -333,8 +340,9 @@ lookUpDB db imps su cname
     | length tps' > 0 = tps'
     | otherwise = (map (symbolToType . symbol) $ nub tps)
         where
+            baseName = (typeToName . lookUpThis) su
             ps = map (\i -> (take i cname, drop i cname)) [1..(length cname)]
-            tps = concat $ map (\(pre, post) -> traverseInstanceEntry db (traverseFieldEntryWithImports db imps pre) post) ps
+            tps = concat $ map (\(pre, post) -> concat $ map (\tn -> traverseInstanceEntryAccessible db baseName tn post) (traverseFieldEntryWithImports db imps pre)) ps
             tps' = map (TypeClass . Name) (lookUpType db imps cname)
 
 ------------------------------------------------------------------------------------

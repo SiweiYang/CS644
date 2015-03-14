@@ -136,10 +136,10 @@ getInterfaceSupers' node@(TN sym@(IT _ _ _ unit@(Comp _ _ (ITF _ itfName extende
 getInterfaceSupers' _ _ _ = []
 
 getClassHierarchy :: CompilationUnit -> TypeNode -> [TypeNode]
-getClassHierarchy unit@(Comp _ _ (CLS _ clsName _ _ _ _ _ _) _) typeDB =
+getClassHierarchy unit@(Comp _ _ cls@(CLS _ clsName _ _ _ _ _ _) _) typeDB =
   let unitImports = visibleImports unit
       ownName = traverseTypeEntryWithImports typeDB unitImports [clsName]
-      ownNode = if ownName == [] then error "getClassHierarchy" else fromJust $ getTypeEntry typeDB (head ownName)
+      ownNode = if ownName == [] then error $ "getClassHierarchy error with imports " ++ (show unitImports) ++ (show unit) else fromJust $ getTypeEntry typeDB (head ownName)
   in getClassHierarchyForSymbol ownNode typeDB
 
 {- this function should not be called

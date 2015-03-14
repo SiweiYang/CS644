@@ -25,6 +25,7 @@ weedTypeDec filename (CLS modifiers name _ _ constructors fields methods info)
   | constructorError /= Nothing = constructorError
   | name /= correctName = Just $ "Expected class to be named '" ++ correctName ++ "' but saw '" ++ name ++ "'" ++ show info
   | shouldBeAbstract && not ("abstract" `elem` modifiers) = Just $ name ++ " has an abstract method but isn't abstract"
+--  | not $ any (\c -> (length . constructorParameters $ c) == 0) constructors = Just $ name ++ " does not have a default constructor"
   | otherwise = Nothing
   where methodError = weedClassMethods methods
         fieldError = weedFields fields
@@ -91,7 +92,12 @@ weedStatementBlock Nothing = Nothing
 weedStatementBlock (Just block) = fmap (++ (show (statementsInfo block))) (msum $ map weedStatement (statements block))
 
 weedStatement :: Statement -> WeedError
-weedStatement (LocalVar var value) = weedExpression value
+weedStatement (LocalVar (TV _ name info) value)
+  | identifierInExpr name value = Just $ "Variable assignment cannot reference itself" ++ show info
+  | isJust exprError = exprError
+  | otherwise = Nothing
+  where exprError = weedExpression value
+
 weedStatement (If ifExpression ifBlock elseBlock) = (weedExpression ifExpression)
                                                 <|> (weedStatementBlock $ Just ifBlock)
                                                 <|> (weedStatementBlock elseBlock)

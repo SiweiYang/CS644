@@ -1,5 +1,7 @@
 module TypeChecking where
 
+import Data.List
+
 import AST
 import Environment
 import TypeDatabase
@@ -189,4 +191,65 @@ isExtentedImplemented _ _ _ _ = error "ExtendedImplemented: otherwise"
 
 -}
 
+-------------------------------------------------------------------------------
+accessibleSymbol :: TypeNode -> [String] -> Symbol -> Bool
+accessibleSymbol db cname sym = if init cname == init cnameTar
+                                    then True
+                                    else case higherInChain symbolFrom symbolTo db of
+                                            Just symbolHigh -> if symbolHigh == symbolTo then True else False
+                                            _ -> not $ elem "protected" mds
+    where
+        cnameTar = localScope sym
+        mds = symbolModifiers sym
+        symbolFrom = case getTypeEntry db cname of
+                        Nothing -> error ("symbolFrom" ++ show cname)
+                        Just s -> symbol s
+        symbolTo = case getTypeEntry db cnameTar of
+                        Nothing -> error ("symbolTo" ++ show cnameTar)
+                        Just s -> symbol s
 
+accessibleType :: TypeNode -> [String] -> Symbol -> Bool
+accessibleType db cname sym = if init cname == init cnameTar
+                                    then True
+                                    else case higherInChain symbolFrom symbolTo db of
+                                            Just symbolHigh -> if symbolHigh == symbolFrom then True else False
+                                            _ -> False
+    where
+        symbolTo = sym
+        cnameTar = (typeToName . localType) symbolTo
+        symbolFrom = case getTypeEntry db cname of
+                        Nothing -> error ("symbolFrom" ++ show cname)
+                        Just s -> symbol s
+
+traverseFieldEntryWithImports :: TypeNode -> [[String]] -> [String] -> [TypeNode]
+traverseFieldEntryWithImports root imps query = nub . concat $ (flds ++ funcs)
+    where
+        cname = head imps
+        entries = map (traverseTypeEntry root) imps
+        entries' = map (\(mnode, imp) -> (fromJust mnode, imp)) (filter (isJust . fst) (zip entries imps))
+        results = map (\(node, imp) -> (traverseTypeEntry node (init query), (init imp) ++ (init query))) ((root, ["*"]):entries')
+        nm = if query == [] then error "traverseFieldEntryWithImports" else last query
+        flds = [[tn | tn@(TN (SYM mds ls ln lt) ch) <- subNodes node, elem "static" mds, accessibleSymbol root cname (symbol tn), ln == nm] | (Just (TN _ [node]), cname) <- results]
+        funcs = [[tn | tn@(TN (FUNC mds ls ln ps rt) ch) <- subNodes node, elem "static" mds, accessibleSymbol root cname (symbol tn), ln == nm] | (Just (TN _ [node]), cname) <- results]
+
+traverseInstanceEntry' :: TypeNode -> TypeNode -> [String] -> [TypeNode]
+traverseInstanceEntry' root tn@(TN (SYM _ _ _ _) _) [] = [tn]
+traverseInstanceEntry' root tn@(TN (FUNC _ _ _ _ _) _) [] = [tn]
+traverseInstanceEntry' root tn [] = []
+traverseInstanceEntry' root (TN (SYM mds ls ln lt) _) (nm:cname) = traverseInstanceEntry' root root ((typeToName lt) ++ (nm:cname))
+traverseInstanceEntry' root cur (nm:cname) = case [node | node <- subNodes cur, (localName . symbol) node == nm, (not $ isSYMFUNCNode node) || (not $ elem "static" ((symbolModifiers . symbol) node))] of
+                                        []            -> []
+                                        targets      -> concat $ map (\target -> traverseInstanceEntry' root target cname) targets
+
+traverseInstanceEntryAccessible :: TypeNode -> [String] -> TypeNode -> [String] -> [TypeNode]
+traverseInstanceEntryAccessible root cname tn@(TN (SYM _ _ _ _) _) [] = if accessibleSymbol root cname (symbol tn) then [tn] else []
+traverseInstanceEntryAccessible root cname tn@(TN (FUNC _ _ _ _ _) _) [] = if accessibleSymbol root cname (symbol tn) then [tn] else []
+traverseInstanceEntryAccessible root cname tn [] = []
+traverseInstanceEntryAccessible root cname tn@(TN (SYM mds ls ln lt) _) (nm:remain) = if accessibleSymbol root cname (symbol tn) then traverseInstanceEntryAccessible root cname root ((typeToName lt) ++ (nm:remain)) else []
+traverseInstanceEntryAccessible root cname cur (nm:remain) = case [node | node <- nodes, (localName . symbol) node == nm] of
+                                                                []            -> []
+                                                                targets      -> concat $ map (\target -> traverseInstanceEntryAccessible root cname target remain) targets
+    where
+        nodes = if isConcreteNode cur
+                then [node | node <- subNodes cur, not $ elem "static" ((symbolModifiers . symbol) node), (accessibleType root cname (symbol cur)) || (not $ elem "protected" ((symbolModifiers . symbol) node))]
+                else subNodes cur
