@@ -8,8 +8,8 @@ import AST
 import TypeChecking
 
 typeLinkingFailure :: String -> [Type]
---typeLinkingFailure msg = error m
-typeLinkingFailure msg = []
+typeLinkingFailure msg = error msg
+--typeLinkingFailure msg = []
 
 typeLinkingCheck :: TypeNode -> [[String]] -> Environment -> [Type]
 typeLinkingCheck _ _ ENVE = [TypeVoid]
@@ -337,12 +337,15 @@ lookUpSymbolTable su nm = case cur of
 
 lookUpDB :: TypeNode -> [[String]] -> SemanticUnit -> [String] -> [Type]
 lookUpDB db imps su cname
+    | or $ map (\(pre, post) -> traverseTypeEntryWithImports db imps pre /= []) ps'' = [] -- prefix of a type is resolved to a type
     | length tps' > 0 = tps'
     | otherwise = (map (symbolToType . symbol) $ nub tps)
         where
             baseName = (typeToName . lookUpThis) su
             ps = map (\i -> (take i cname, drop i cname)) [1..(length cname)]
-            tps = concat $ map (\(pre, post) -> concat $ map (\tn -> traverseInstanceEntryAccessible db baseName tn post) (traverseFieldEntryWithImports db imps pre)) ps
+            ps' = reverse $ takeWhile (\(pre, post) -> traverseTypeEntryWithImports db imps pre == []) (reverse ps)
+            ps'' = reverse $ drop 1 $ dropWhile (\(pre, post) -> traverseTypeEntryWithImports db imps pre == []) (reverse ps)
+            tps = concat $ map (\(pre, post) -> concat $ map (\tn -> traverseInstanceEntryAccessible db baseName tn post) (traverseFieldEntryWithImports db imps pre)) ps'
             tps' = map (TypeClass . Name) (lookUpType db imps cname)
 
 ------------------------------------------------------------------------------------
