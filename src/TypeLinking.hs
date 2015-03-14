@@ -8,7 +8,7 @@ import AST
 import TypeChecking
 
 typeLinkingFailure :: String -> [Type]
---typeLinkingFailure msg = error m
+--typeLinkingFailure msg = error msg
 typeLinkingFailure msg = []
 
 typeLinkingCheck :: TypeNode -> [[String]] -> Environment -> [Type]
@@ -95,7 +95,7 @@ typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
     |   elem op ["<", ">", "<=", ">="] = if typeLInt && typeRInt then [TypeBoolean] else typeLinkingFailure "Binary comparision op"
     |   elem op ["&&", "||", "&", "|"] = if typeLBool && typeRBool then [TypeBoolean] else typeLinkingFailure "Binary logical op"
     |   elem op ["==", "!="] = if null equality then typeLinkingFailure $ "Binary " ++ (show typeL) ++ op ++ (show typeR) else [TypeBoolean]
-    |   elem op ["="] = if assignRL then [typeL] else typeLinkingFailure $ "Binary =" ++ (show typeL) ++ (show typeR) ++ (show $ assignConversion db typeR typeL)
+    |   elem op ["="] = if assignRL && (finalArrayLength db imps su exprL) then [typeL] else typeLinkingFailure $ "Binary =" ++ (show typeL) ++ (show typeR) ++ (show $ assignConversion db typeR typeL)
     where
         typeLs = case filter filterNonFunction $ typeLinkingExpr db imps su exprL of
                             [] -> typeLinkingFailure $ "Binary typeL no match: type(left) " ++ op ++ " type(right)" ++ (show exprL) ++ (show exprR)
@@ -290,7 +290,7 @@ typeLinkingName' db imps su (Name cname@(nm:remain)) = case syms'' of
 lookUpThis :: SemanticUnit -> Type
 lookUpThis su = if elem (kind su) [Class, Interface] then Object (Name (scope su)) else lookUpThis (inheritFrom su)
 
-scopeStatic:: SemanticUnit -> Bool
+scopeStatic :: SemanticUnit -> Bool
 scopeStatic su
     | elem kd [Package, Class, Interface] = True
     | otherwise = rst
@@ -301,7 +301,7 @@ scopeStatic su
                 Field (SYM mds _ _ _) _ -> elem "static" mds
                 _ -> scopeStatic (inheritFrom su)
 
-scopeLocal:: SemanticUnit -> Bool
+scopeLocal :: SemanticUnit -> Bool
 scopeLocal su
     | elem kd [Package, Class, Interface] = False
     | otherwise = rst
@@ -311,7 +311,7 @@ scopeLocal su
                 Method (FUNC mds _ _ _ _) -> True
                 _ -> scopeLocal (inheritFrom su)
 
-scopeReturnType:: SemanticUnit -> Type
+scopeReturnType :: SemanticUnit -> Type
 scopeReturnType su = rst
     where
         kd = kind su
@@ -391,3 +391,19 @@ forwardSYMInExpr nm (CastA casttp dim expr _) = forwardSYMInExpr nm expr
 forwardSYMInExpr nm (CastB castexpr expr _) = forwardSYMInExpr nm expr
 forwardSYMInExpr nm (CastC castnm _ expr _) = forwardSYMInExpr nm expr
 forwardSYMInExpr nm _ = False
+
+finalArrayLength :: TypeNode -> [[String]] -> SemanticUnit -> Expression -> Bool
+finalArrayLength db imps su (Attribute s m _) = case (typeS, m) of
+                                                    (Array _, "length") -> False
+                                                    _ -> True
+        where
+            [typeS] = typeLinkingExpr db imps su s
+
+finalArrayLength db imps su (ID (Name nm) _) = if (length nm == 1) then True else 
+                                               case (last nm, tp) of
+                                                   ("length", Array _) -> False
+                                                   _ -> True
+        where
+            [tp] = typeLinkingName db imps su (Name (init nm))
+
+finalArrayLength _ _ _ _ = True
