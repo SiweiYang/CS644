@@ -8,8 +8,8 @@ import AST
 import TypeChecking
 
 typeLinkingFailure :: String -> [Type]
---typeLinkingFailure msg = error msg
-typeLinkingFailure msg = []
+typeLinkingFailure msg = error msg
+--typeLinkingFailure msg = []
 
 typeLinkingCheck :: TypeNode -> [[String]] -> Environment -> [Type]
 typeLinkingCheck _ _ ENVE = [TypeVoid]
@@ -86,6 +86,8 @@ typeLinkingExpr db imps su (Unary op expr _) = case op of
 typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
     |   length typeLs /= 1 || length typeRs /= 1 = []
     |   elem op ["+"] = case (typeL, typeR) of
+                            (TypeVoid, _) -> typeLinkingFailure "Binary + TypeVoid"
+                            (_, TypeVoid) -> typeLinkingFailure "Binary + TypeVoid"
                             ((Object (Name ["java", "lang", "String"])), _) -> [(Object (Name ["java", "lang", "String"]))]
                             (_, (Object (Name ["java", "lang", "String"]))) -> [(Object (Name ["java", "lang", "String"]))]
                             (_, _) -> if typeLInt && typeRInt then typeLR else typeLinkingFailure "Binary +"

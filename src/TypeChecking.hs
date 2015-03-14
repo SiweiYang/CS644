@@ -8,8 +8,7 @@ import Data.Maybe
 
 equalityCheck :: TypeNode -> Type -> Type -> [Type]
 equalityCheck typeDB typeS typeT
-    | typeS == TypeVoid = []
-    | typeT == TypeVoid = []
+    | (typeS == TypeVoid) || (typeT == TypeVoid) = []
     | typeS == typeT = [typeS]
     | typeS == TypeNull = case typeT of
                             (Object x) -> [(Object x)]
@@ -31,6 +30,7 @@ equalityCheck typeDB typeS typeT
 
 assignConversion :: TypeNode -> Type -> Type -> [Type]
 assignConversion typeDB typeS typeT
+    | (typeS == TypeVoid) || (typeT == TypeVoid) = []
     | typeS == typeT = [typeT]
     | typeT == TypeNull = []
     | typeS == TypeNull = case typeT of
@@ -55,6 +55,7 @@ assignConversion typeDB typeS typeT
 
 castConversion :: TypeNode -> Type -> Type -> [Type]
 castConversion typeDB typeS typeT
+    | (typeS == TypeVoid) || (typeT == TypeVoid) = []
     | typeS == typeT = [typeT]
     | typeT == TypeNull = []
     | typeS == TypeNull = case typeT of
