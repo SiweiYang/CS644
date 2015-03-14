@@ -8,8 +8,8 @@ import AST
 import TypeChecking
 
 typeLinkingFailure :: String -> [Type]
-typeLinkingFailure msg = error msg
---typeLinkingFailure msg = []
+--typeLinkingFailure msg = error m
+typeLinkingFailure msg = []
 
 typeLinkingCheck :: TypeNode -> [[String]] -> Environment -> [Type]
 typeLinkingCheck _ _ ENVE = [TypeVoid]
@@ -143,7 +143,8 @@ typeLinkingExpr db imps su (FunctionCall exprf args _) = if atsFailed then typeL
 typeLinkingExpr db imps su expr@(Attribute s m _) = case typeLinkingExpr db imps su s of
                                                         [] -> []-- typeLinkingFailure ("Attr " ++ (show s) ++ (show m))
                                                         --should handle Class and instance differently
-                                                        [tp] -> case traverseInstanceEntry' db db ((typeToName tp)++[m]) of
+                                                        [tp] -> if isPrimitive tp then typeLinkingFailure $ "Attribute dereference a primitive " ++ (show tp) else
+                                                                case traverseInstanceEntry' db db ((typeToName tp)++[m]) of
                                                                     [] -> typeLinkingFailure ("Attr " ++ (show expr) ++ (show ((typeToName tp)++[m])))
                                                                     --instance look up should not return multiple candidates
                                                                     nodes -> map (symbolToType . symbol) nodes
