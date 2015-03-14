@@ -306,7 +306,7 @@ buildConstructor ast = Cons (map toLexeme ms) nm (map buildTypedVar params) coni
 
         n = last decprods
         nm = toLexeme n
-        params = concat (map (flatten "FormalParameter") (filter (\ast -> name ast == "FormalParameterList") decprods))
+        params = reverse $ concat (map (flatten "FormalParameter") (filter (\ast -> name ast == "FormalParameterList") decprods))
 
         [def] = filter (\ast -> name ast == "ConstructorBody") prods
         ci = filter (\ast -> name ast == "ExplicitConstructorInvocation") (production def)

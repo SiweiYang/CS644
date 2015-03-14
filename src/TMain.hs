@@ -233,7 +233,7 @@ main' givenFileNames = do
   let Just db' = mdb'
 
   --hPutStrLn stderr (show db')
-  let failures = filter (\(imp, Just env, fn) ->  typeLinkingCheck db' imp env == []) (filter (\(imp, Just env, fn) -> (reverse (take 0 (reverse fn))) == "") listImpEnvFns)
+  let failures = filter (\(imp, Just env, fn) ->  typeLinkingCheck db' imp env == []) (filter (\(imp, Just env, fn) -> (reverse (take 9 (reverse fn))) == "Main.java") listImpEnvFns)
   if length failures > 0 then do
     hPutStrLn stderr "Type Linking error!"
     --hPutStrLn stderr (show failures)

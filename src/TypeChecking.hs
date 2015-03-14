@@ -187,11 +187,10 @@ accessibleType db cname sym = if init cname == init cnameTar
                                     then True
                                     else case higherInChain symbolFrom symbolTo db of
                                             Just symbolHigh -> if symbolHigh == symbolFrom then True else False
-                                            _ -> not $ elem "protected" mds
+                                            _ -> False
     where
         symbolTo = sym
         cnameTar = (typeToName . localType) symbolTo
-        mds = symbolModifiers sym
         symbolFrom = case getTypeEntry db cname of
                         Nothing -> error ("symbolFrom" ++ show cname)
                         Just s -> symbol s

@@ -140,8 +140,11 @@ typeLinkingExpr db imps su (FunctionCall exprf args _) = if atsFailed then typeL
 typeLinkingExpr db imps su expr@(Attribute s m _) = case typeLinkingExpr db imps su s of
                                                         [] -> typeLinkingFailure ("Attr no match " ++ (show s) ++ (show m))
                                                         --should handle Class and instance differently
-                                                        [tp] -> case [node | node <- traverseInstanceEntryAccessible db cname db ((typeToName tp)++[m])] of
-                                                                    [] -> typeLinkingFailure ("Attr no match on member" ++ (show expr) ++ (show ((typeToName tp)++[m])))
+                                                        [tp] -> let Just tn = getTypeEntry db (typeToName tp)
+                                                                    syms = [node | node <- traverseInstanceEntryAccessible db cname db ((typeToName tp)++[m])]
+                                                                    syms' = if accessibleType db cname (symbol tn) then syms else [node | node <- syms, not $ elem "protected" ((symbolModifiers . symbol) node)]--typeLinkingFailure $ "no protected fields " ++ (show flds)--
+                                                                in case syms' of
+                                                                    [] -> typeLinkingFailure ("Attr no match on member " ++ (show expr) ++ (show ((typeToName tp)++[m])))
                                                                     --instance look up should not return multiple candidates
                                                                     nodes -> map (symbolToType . symbol) nodes
                                                         _ -> typeLinkingFailure ("Attr multi " ++ (show s) ++ (show m))
@@ -149,17 +152,22 @@ typeLinkingExpr db imps su expr@(Attribute s m _) = case typeLinkingExpr db imps
         cname = (typeToName . lookUpThis) su
 
 -- import rule plays here
-typeLinkingExpr db imps su (NewObject tp args dp) = case [TypeClass (Name nm) | TypeClass (Name nm) <- lookUpDB db imps su (typeToName tp)] of
-                                                        [] -> typeLinkingFailure $ "New Object: " ++ (show tp) ++ (show args) ++ (show imps)
-                                                        (TypeClass (Name nm)):_ -> let Just tn = getTypeEntry db nm
-                                                                                       cons = [node | node@(TN (FUNC mds _ _ pt _) _) <- subNodes tn, elem "cons" mds, accessibleSymbol db cname (symbol node), length pt == length args]
+typeLinkingExpr db imps su (NewObject tp args dp) = if atsFailed then typeLinkingFailure $ "NewObject types of Args " ++ (show ats) else
+                                                    case [TypeClass (Name nm) | TypeClass (Name nm) <- lookUpDB db imps su (typeToName tp)] of
+                                                        [] -> typeLinkingFailure $ "New Object []: " ++ (show tp) ++ (show args) ++ (show imps)
+                                                        [(TypeClass (Name nm))]-> let Just tn = getTypeEntry db nm
+                                                                                      cons = [node | node@(TN (FUNC mds ls _ pt _) _) <- subNodes tn, elem "cons" mds, ls == nm, accessibleSymbol db cname (symbol node), argsMatching (concat ats) pt]
+                                                                                      cons' = if accessibleType db cname (symbol tn) then cons else [node | node <- cons, not $ elem "protected" ((symbolModifiers . symbol) node)]--error $ "using non protect accessible types" ++ (show (symbol tn))
                                                                                    in if elem "abstract" ((symbolModifiers . symbol) tn)
                                                                                         then typeLinkingFailure $ "New Object: cannot create abstract class object" ++ (show nm)
-                                                                                        else if cons == []
-                                                                                                then typeLinkingFailure $ "New Object: no matching constructor for " ++ (show (map (typeLinkingExpr db imps su) args))
+                                                                                        else if cons' == []
+                                                                                                then typeLinkingFailure $ "New Object: no matching constructor for " ++ (show ats) ++ (show [node | node@(TN (FUNC mds _ _ pt _) _) <- subNodes tn, elem "cons" mds])
                                                                                                 else [Object (Name nm)]
+                                                        tcs -> typeLinkingFailure $ "New Object multi: " ++ (show tcs) ++ (show tp) ++ (show args)
     where
         cname = (typeToName . lookUpThis) su
+        ats = map (typeLinkingExpr db imps su) args
+        atsFailed = or $ map null ats
 -- to check param types
 
 typeLinkingExpr db imps su (NewArray tp exprd _ _) = if (not . null $ typeIdx) && (not . null $ castConversion db (head typeIdx) TypeInt)
@@ -236,8 +244,15 @@ argsMatching :: [Type] -> [Type] -> Bool
 argsMatching x y
     | length x /= length y = False
     | (null x) && (null y) = True
-    | (head x) /= (head y) = False
+    | casting == False = False
     | otherwise = argsMatching (tail x) (tail y)
+    where
+        xHead = head x
+        yHead = head y
+        casting = case (isPrimitive xHead, isPrimitive yHead) of
+                    (True, False) -> (boxingType xHead) == yHead
+                    (False, True) -> (boxingType yHead) == xHead
+                    _ -> xHead == yHead
 
 ---------------------------------------------------------------------------------------------------------
 
