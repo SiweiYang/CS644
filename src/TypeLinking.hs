@@ -268,7 +268,7 @@ typeLinkingName' db imps su (Name cname@(nm:remain)) = case syms'' of
                 baseName = (typeToName . lookUpThis) su
 		syms = [sym | sym <- lookUpSymbolTable su nm, not $ elem "cons" (symbolModifiers sym)]
                 symsLocal = [sym | sym@(SYM mds scope _ _) <- syms, (scope /= baseName)]
-                symsStatic = symsLocal ++ [sym | sym@(SYM mds scope _ _) <- syms, elem "static" mds] ++ [func | func@(FUNC mds _ _ _ _) <- syms, elem "static" mds]
+                symsStatic = symsLocal ++ [sym | sym@(SYM mds scope _ _) <- syms, elem "static" mds] ++ [func | func@(FUNC mds _ _ _ _) <- syms, elem "static" mds, (length cname) > 1]
                 symsNStatic = symsLocal ++ [sym | sym <- syms, not $ elem sym symsStatic]
                 syms' = if scopeStatic su then symsStatic else symsNStatic
                 syms'' = if remain == []
