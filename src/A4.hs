@@ -11,6 +11,7 @@ import Environment
 import Hierarchy
 import Lexical
 import Parser
+import Reachability
 import Scanner
 import TypeDatabase
 import TypeLinking
@@ -153,5 +154,15 @@ main = do
   else do
     hPutStrLn stderr "Type Linking: OK"
 
+  -- REACHABILITY TESTING
+  let reachabilityResults = map (\x -> unreachable . fst $ x) fileAsts
+  let unreachable = filter (not . null) reachabilityResults
+
+  if (length unreachable) == 0 then do
+    hPutStrLn stderr "Reachability: OK"
+  else do
+    hPutStrLn stderr "Reachability error!"
+    hPutStrLn stderr $ show . head . head $ unreachable
+    exitWith (ExitFailure 42)
 
 

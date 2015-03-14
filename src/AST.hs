@@ -335,18 +335,6 @@ buildTypedVar ast = TV tp nm (extractASTInfo ast)
         nm = toLexeme (head prods)
         tp = buildType (last prods)
 
--- rethink
-{-
-buildType :: AST -> [String]
-buildType ast = case (nast, name arr) of
-                    ([], _)             -> nameToPackage ast
-                    (_, "ArrayType")    -> nameToPackage ((production arr) !! 2) ++ ["[]"]
-                    _                   -> nameToPackage ast
-    where
-        nast = flattenL ["ArrayType", "ClassOrInterfaceType", "PrimitiveType"] ast
-        [arr] = nast
--}
-
 toLexeme :: AST -> String
 toLexeme ast = case ast of
                 ASTT n c  -> (lexeme (fst c))

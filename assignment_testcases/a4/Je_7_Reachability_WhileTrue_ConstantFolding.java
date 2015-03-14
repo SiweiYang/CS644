@@ -1,20 +1,16 @@
-// JOOS1:REACHABILITY,UNREACHABLE_STATEMENT
-// JOOS2:REACHABILITY,UNREACHABLE_STATEMENT
-// JAVAC:UNKNOWN
-// 
+// REACHABILITY
 /**
  * Reachability:
- * - Check that all statements (including empty statements and empty
- * blocks) are reachable.  
- * 
+ * - If the body of a method whose return type is not void can
+ * complete normally, produce an error message.  
+ *
  * The condition (false || true) is constant folded into ABooleanConstExp, x, with x.value == true.
  */
-public class Je_7_Reachability_WhileTrue_ConstantFolding {
-	public Je_7_Reachability_WhileTrue_ConstantFolding() {}
+public class J1_7_Reachability_WhileTrue_ConstantFolding {
+	public J1_7_Reachability_WhileTrue_ConstantFolding() {}
 	
-	public void method() {
+	public int method() {
 		while (false || true) {}
-		return; // unreachable statement
 	}
 	
 	public static int test() {
