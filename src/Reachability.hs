@@ -1,9 +1,6 @@
 module Reachability where
 
-import Control.Applicative
-import Control.Monad
 import Data.Maybe
-import Data.List
 
 import AST
 import Util
@@ -19,7 +16,9 @@ unreachable (Comp _ _ (CLS _ _ _ _ constructors _ methods _) _) =
 unreachable _ = []
 
 unreachableBlock :: Bool -> StatementBlock -> [Statement]
-unreachableBlock reachable block = unreachableTest reachable $ statements block
+unreachableBlock reachable block = case statements block of
+  [(Block sb)] -> unreachableBlock reachable sb
+  _ -> unreachableTest reachable $ statements block
 
 -- Returns [] if it can complete normally, or [Statement] if a statemet cannot complete
 -- In most cases a statement completes IFF it is reachable
@@ -29,7 +28,7 @@ unreachableTest reachable (x:xs) =
   let
     unreachables = case x of
       (Block stmts) -> unreachableBlock reachable stmts
-      (Return _) -> xs
+      (Return _) -> [x]
       (While expr stmts) -> case conditionConstant expr of
         (Left _) -> unreachableBlock reachable stmts
         (Right True) -> xs
@@ -50,8 +49,10 @@ unreachableTest reachable (x:xs) =
           else falseUnreach
       _ -> if reachable then [] else [x]
     completable = null unreachables
+    willReturn = willComplete [x]
   in
-    unreachables ++ (unreachableTest completable xs)
+    if willReturn then xs
+    else unreachables ++ (unreachableTest completable xs)
 unreachableTest reachable stmts = []
 
 
@@ -71,3 +72,35 @@ conditionConstant (Unary op expr _) =
   ("!", Right val) -> Right $ not val
   _ -> Left ()
 conditionConstant _ = Left ()
+
+-- A non-void function is completable if all execution paths have a return statement
+-- All void functions are completable
+
+allCompletable :: CompilationUnit -> Bool
+allCompletable(Comp _ _ (CLS _ _ _ _ _ _ methods _) _) =
+  let nonVoidMethods = filter (\x -> (typeName . methodVar $ x) /= TypeVoid) methods
+      methodDefinitions = mapMaybe methodDefinition nonVoidMethods
+      completableMethods = filter completableBlock methodDefinitions
+  in
+    (length methodDefinitions) == (length completableMethods)
+allCompletable _ = True
+
+completableBlock :: StatementBlock -> Bool
+completableBlock block = willComplete $ statements block
+
+-- True if all execution paths complete, false otherwise
+willComplete :: [Statement] -> Bool
+willComplete (x:xs) =
+  let
+    doesComplete = case x of
+      (Return _) -> True
+      (Block stmts) -> completableBlock stmts
+      (If _ stmts (Just eStmts)) ->
+        let trueWillComplete = completableBlock stmts
+            falseWillComplete = completableBlock eStmts
+        in trueWillComplete && falseWillComplete
+      _ -> False
+  in
+    doesComplete || willComplete xs
+
+willComplete [] = False

@@ -7,6 +7,7 @@ import System.Exit
 import System.IO
 
 import AST
+import Completability
 import Environment
 import Hierarchy
 import Lexical
@@ -163,6 +164,15 @@ main = do
   else do
     hPutStrLn stderr "Reachability error!"
     hPutStrLn stderr $ show . head . head $ unreachable
+    exitWith (ExitFailure 42)
+
+  -- COMPLETABILITY TESTING
+  let completabilityResults = map (\x -> allCompletable . fst $ x) fileAsts
+
+  if (all (==True) completabilityResults) then do
+    hPutStrLn stderr "Completability: OK"
+  else do
+    hPutStrLn stderr "Completability error!"
     exitWith (ExitFailure 42)
 
 
