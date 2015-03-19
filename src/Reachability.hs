@@ -31,12 +31,12 @@ unreachableTest reachable (x:xs) =
       (Return _) -> [x]
       (While expr stmts) -> case conditionConstant expr of
         (Left _) -> unreachableBlock reachable stmts
-        (Right True) -> xs
-        (Right False) -> x:statements stmts
+        (Right 0) -> x:statements stmts
+        (Right _) -> xs
       (For _ (Just expr) _ stmts) -> case conditionConstant expr of
         (Left _) -> unreachableBlock reachable stmts
-        (Right True) -> xs
-        (Right False) -> x:statements stmts
+        (Right 0) -> x:statements stmts
+        (Right _) -> xs
       (For _ Nothing _ _) -> xs
       (If _ stmts Nothing) -> unreachableBlock reachable stmts
       (If _ stmts (Just eStmts)) ->
@@ -54,24 +54,6 @@ unreachableTest reachable (x:xs) =
     if willReturn then xs
     else unreachables ++ (unreachableTest completable xs)
 unreachableTest reachable stmts = []
-
-
-conditionConstant :: Expression -> Either () Bool
-conditionConstant (Value _ val _)
-  | val == "true" = Right True
-  | val == "false" = Right False
-  | otherwise = Left ()
-conditionConstant (Binary op a b _) =
-  let opLeftRight = (op,conditionConstant a,conditionConstant b)
-  in case opLeftRight of
-    ("&&", Right aVal, Right bVal) -> Right $ aVal && bVal
-    ("||", Right aVal, Right bVal) -> Right $ aVal || bVal
-    _ -> Left ()
-conditionConstant (Unary op expr _) =
-  case (op, conditionConstant expr) of
-  ("!", Right val) -> Right $ not val
-  _ -> Left ()
-conditionConstant _ = Left ()
 
 -- A non-void function is completable if all execution paths have a return statement
 -- All void functions are completable
@@ -112,8 +94,8 @@ canCompleteWithoutReturn :: [Statement] -> Bool
 canCompleteWithoutReturn [] = True
 canCompleteWithoutReturn ((While expr stmts):xs) = case conditionConstant expr of
   (Left _) -> canCompleteWithoutReturn xs
-  (Right True) -> False
-  (Right False) -> canCompleteWithoutReturn xs
+  (Right 0) -> canCompleteWithoutReturn xs
+  (Right _) -> False
 canCompleteWithoutReturn ((If _ _ Nothing):xs) = canCompleteWithoutReturn xs
 canCompleteWithoutReturn ((Return _):xs) = False
 canCompleteWithoutReturn (x:xs) =
@@ -127,3 +109,29 @@ canCompleteWithoutReturn (x:xs) =
       _ -> True
   in
     iCanCompleteWithoutReturn && canCompleteWithoutReturn xs
+
+conditionConstant :: Expression -> Either () Int
+conditionConstant (Value TypeByte val _) = Right $ read val
+conditionConstant (Value TypeShort val _) = Right $ read val
+conditionConstant (Value TypeInt val _) = Right $ read val
+conditionConstant (Value _ val _)
+  | val == "true" = Right 1
+  | val == "false" = Right 0
+  | otherwise = Left ()
+conditionConstant (Binary op a b _) =
+  let opLeftRight = (op,conditionConstant a,conditionConstant b)
+  in case opLeftRight of
+    ("&&", Right aVal, Right bVal) -> Right $ if aVal == 1 && bVal == 1 then 1 else 0
+    ("||", Right aVal, Right bVal) -> Right $ if aVal == 1 || bVal == 1 then 1 else 0
+    ("==", Right aVal, Right bVal) -> Right $ if aVal == bVal then 1 else 0
+    ("+", Right aVal, Right bVal) -> Right $ aVal + bVal
+    ("-", Right aVal, Right bVal) -> Right $ aVal - bVal
+    ("*", Right aVal, Right bVal) -> Right $ aVal * bVal
+    ("%", Right aVal, Right bVal) -> Right $ aVal `mod` bVal
+    _ -> Left ()
+conditionConstant (Unary op expr _) =
+  case (op, conditionConstant expr) of
+  ("!", Right val) -> Right $ if val == 0 then 1 else 0
+  ("-", Right val) -> Right $ -val
+  _ -> Left ()
+conditionConstant _ = Left ()
