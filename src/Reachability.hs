@@ -110,28 +110,3 @@ canCompleteWithoutReturn (x:xs) =
   in
     iCanCompleteWithoutReturn && canCompleteWithoutReturn xs
 
-conditionConstant :: Expression -> Either () Int
-conditionConstant (Value TypeByte val _) = Right $ read val
-conditionConstant (Value TypeShort val _) = Right $ read val
-conditionConstant (Value TypeInt val _) = Right $ read val
-conditionConstant (Value _ val _)
-  | val == "true" = Right 1
-  | val == "false" = Right 0
-  | otherwise = Left ()
-conditionConstant (Binary op a b _) =
-  let opLeftRight = (op,conditionConstant a,conditionConstant b)
-  in case opLeftRight of
-    ("&&", Right aVal, Right bVal) -> Right $ if aVal == 1 && bVal == 1 then 1 else 0
-    ("||", Right aVal, Right bVal) -> Right $ if aVal == 1 || bVal == 1 then 1 else 0
-    ("==", Right aVal, Right bVal) -> Right $ if aVal == bVal then 1 else 0
-    ("+", Right aVal, Right bVal) -> Right $ aVal + bVal
-    ("-", Right aVal, Right bVal) -> Right $ aVal - bVal
-    ("*", Right aVal, Right bVal) -> Right $ aVal * bVal
-    ("%", Right aVal, Right bVal) -> Right $ aVal `mod` bVal
-    _ -> Left ()
-conditionConstant (Unary op expr _) =
-  case (op, conditionConstant expr) of
-  ("!", Right val) -> Right $ if val == 0 then 1 else 0
-  ("-", Right val) -> Right $ -val
-  _ -> Left ()
-conditionConstant _ = Left ()

@@ -91,7 +91,7 @@ weedStatementBlock Nothing = Nothing
 weedStatementBlock (Just block) = fmap (++ (show (statementsInfo block))) (msum $ map weedStatement (statements block))
 
 weedStatement :: Statement -> WeedError
-weedStatement (LocalVar (TV _ name info) value)
+weedStatement (LocalVar (TV typeName name info) value)
   | identifierInExpr name value = Just $ "Variable assignment cannot reference itself" ++ show info
   | isJust exprError = exprError
   | otherwise = Nothing
