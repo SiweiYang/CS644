@@ -192,6 +192,13 @@ isExtentedImplemented _ _ _ _ = error "ExtendedImplemented: otherwise"
 -}
 
 -------------------------------------------------------------------------------
+widenType :: Type -> Type
+widenType tp
+  |  tp == TypeByte = TypeInt
+  |  tp == TypeShort = TypeInt
+  |  tp == TypeChar = TypeInt
+  |  otherwise = tp
+-------------------------------------------------------------------------------
 accessibleSymbol :: TypeNode -> [String] -> Symbol -> Bool
 accessibleSymbol db cname sym = if init cname == init cnameTar
                                     then True

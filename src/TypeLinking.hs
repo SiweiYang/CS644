@@ -80,9 +80,11 @@ typeLinkingExpr :: TypeNode -> [[String]] -> SemanticUnit -> Expression -> [Type
 typeLinkingExpr db imps su Null = [TypeNull]
 typeLinkingExpr db imps su (Unary op expr _) = case op of
                                                 "!" -> if null $ castConversion db tp TypeBoolean then typeLinkingFailure "Unary !" else [tp]
-                                                "-" -> if null $ castConversion db tp TypeInt then typeLinkingFailure "Unary -" else [tp]
+                                                "+" -> if null $ castConversion db tp TypeInt then typeLinkingFailure "Unary +" else [tp']
+                                                "-" -> if null $ castConversion db tp TypeInt then typeLinkingFailure "Unary -" else [tp']    
     where
         [tp] = typeLinkingExpr db imps su expr
+        tp' = widenType tp
 typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
     |   length typeLs /= 1 || length typeRs /= 1 = []
     |   elem op ["+"] = case (typeL, typeR) of
@@ -90,8 +92,8 @@ typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
                             (_, TypeVoid) -> typeLinkingFailure "Binary + TypeVoid"
                             ((Object (Name ["java", "lang", "String"])), _) -> [(Object (Name ["java", "lang", "String"]))]
                             (_, (Object (Name ["java", "lang", "String"]))) -> [(Object (Name ["java", "lang", "String"]))]
-                            (_, _) -> if typeLInt && typeRInt then typeLR else typeLinkingFailure "Binary +"
-    |   elem op ["-", "*", "/", "%"] = if typeLInt && typeRInt then typeLR else typeLinkingFailure "Binary arithematic op"
+                            (_, _) -> if typeLInt && typeRInt then typeLR' else typeLinkingFailure "Binary +"
+    |   elem op ["-", "*", "/", "%"] = if typeLInt && typeRInt then typeLR' else typeLinkingFailure "Binary arithematic op"
     |   elem op ["<", ">", "<=", ">="] = if typeLInt && typeRInt then [TypeBoolean] else typeLinkingFailure "Binary comparision op"
     |   elem op ["&&", "||", "&", "|"] = if typeLBool && typeRBool then [TypeBoolean] else typeLinkingFailure "Binary logical op"
     |   elem op ["==", "!="] = if null equality then typeLinkingFailure $ "Binary " ++ (show typeL) ++ op ++ (show typeR) else [TypeBoolean]
@@ -113,6 +115,7 @@ typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
                     (True, True) -> []
                     (False, _) -> [typeR]
                     (_, False) -> [typeL]
+        typeLR' = map widenType typeLR
         typeLInt = not . null $ castConversion db typeL TypeInt
         typeRInt = not . null $ castConversion db typeR TypeInt
         typeLBool= not . null $ castConversion db typeL TypeBoolean

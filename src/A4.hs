@@ -7,7 +7,6 @@ import System.Exit
 import System.IO
 
 import AST
-import Completability
 import Environment
 import Hierarchy
 import Lexical
