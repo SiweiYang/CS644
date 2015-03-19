@@ -169,10 +169,10 @@ main = do
   -- COMPLETABILITY TESTING
   let completabilityResults = map (\x -> allCompletable . fst $ x) fileAsts
 
-  if (all (==True) completabilityResults) then do
-    hPutStrLn stderr "Completability: OK"
-  else do
+  if (any (==True) completabilityResults) then do
     hPutStrLn stderr "Completability error!"
     exitWith (ExitFailure 42)
+  else do
+    hPutStrLn stderr "Completability: OK"
 
 

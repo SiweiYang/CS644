@@ -80,10 +80,10 @@ allCompletable :: CompilationUnit -> Bool
 allCompletable(Comp _ _ (CLS _ _ _ _ _ _ methods _) _) =
   let nonVoidMethods = filter (\x -> (typeName . methodVar $ x) /= TypeVoid) methods
       methodDefinitions = mapMaybe methodDefinition nonVoidMethods
-      completableMethods = filter completableBlock methodDefinitions
+      completableMethods = filter canCompleteBlockWithoutReturn methodDefinitions
   in
-    (length methodDefinitions) == (length completableMethods)
-allCompletable _ = True
+    (length completableMethods) > 0
+allCompletable _ = False
 
 completableBlock :: StatementBlock -> Bool
 completableBlock block = willComplete $ statements block
@@ -104,3 +104,26 @@ willComplete (x:xs) =
     doesComplete || willComplete xs
 
 willComplete [] = False
+
+canCompleteBlockWithoutReturn :: StatementBlock -> Bool
+canCompleteBlockWithoutReturn block = canCompleteWithoutReturn $ statements block
+
+canCompleteWithoutReturn :: [Statement] -> Bool
+canCompleteWithoutReturn [] = True
+canCompleteWithoutReturn ((While expr stmts):xs) = case conditionConstant expr of
+  (Left _) -> canCompleteWithoutReturn xs
+  (Right True) -> False
+  (Right False) -> canCompleteWithoutReturn xs
+canCompleteWithoutReturn ((If _ _ Nothing):xs) = canCompleteWithoutReturn xs
+canCompleteWithoutReturn ((Return _):xs) = False
+canCompleteWithoutReturn (x:xs) =
+  let
+    iCanCompleteWithoutReturn = case x of
+      (Block stmts) -> canCompleteBlockWithoutReturn stmts
+      (If _ stmts (Just eStmts)) ->
+        let trueCanCompleteWithoutReturn = canCompleteBlockWithoutReturn stmts
+            falseCanCompleteWithoutReturn = canCompleteBlockWithoutReturn eStmts
+        in trueCanCompleteWithoutReturn || falseCanCompleteWithoutReturn
+      _ -> True
+  in
+    iCanCompleteWithoutReturn && canCompleteWithoutReturn xs
