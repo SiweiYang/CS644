@@ -87,6 +87,7 @@ The \emph{Symbol} can represent either Package, Class, Interface, Function or Va
 \emph{Environment} is a recursive data structure that goes top-down, so that down-stream information is naturally available. To get the up-stream information, we follow the \emph{SemanticUnit} all the way to the desired ancestors.
 
 \subsection{Consolidating Type Hierarchy into a Database}
+To begin with, we put all the type information together into a tree of \emph{TypeNode}.
 \begin{lstlisting}
 data TypeNode = TN {
     symbol :: Symbol,
@@ -94,6 +95,7 @@ data TypeNode = TN {
 } deriving (Eq)
 \end{lstlisting}
 
+To support the searches operated on this type database, we also created a few helper methods to cope with the special rules from JLS. Two most important of them are the \emph{traverseTypeEntryWithImports} and \emph{traverseInstanceEntry'}.
 \begin{lstlisting}
 traverseTypeEntryWithImports :: TypeNode -> [[String]] -> [String] -> [[String]]
 traverseTypeEntryWithImports tn imps query = nub [cname | (Just node, cname) <- results]
@@ -114,9 +116,27 @@ traverseInstanceEntry' root cur (nm:cname) = case [node | node <- subNodes cur, 
                                         targets      -> concat $ map (\target -> traverseInstanceEntry' root target cname) targets
 \end{lstlisting}
 
+\emph{traverseTypeEntryWithImports} supports type name lookups taking into account all the imports. And \emph{traverseInstanceEntry'} takes care of chains of attribute accesses.
+
 \subsection{Coding Attribute Rules}
+The attribute rules are translated into structural recursion rules that works on the \emph{Environment}. Here, we show a simplified segment of our code for illustration purpose.
+\begin{lstlisting}
+typeLinkingCheck db imps (ENV su c) = if elem Nothing imps' then [] else tps
+    where
+        tps = case kd of
+                Var expr ->
+                Field varsym (Just expr) -> 
+                Exp expr ->                
+                Ret expr ->
+                ForBlock ->
+                WhileBlock expr ->
+                IfBlock expr ->
+                Class ->
+                Method _ ->
+                _ -> 
+\end{lstlisting}
 
-
+The expressions are checked by code with similar nature. Due to the limitation of space, we are not going to show it here though.
 
 \section{Name Resolution and Type Linking}
 %jian
@@ -167,11 +187,16 @@ Last but not least, we would like to cover some technicalities involving the fol
 
 \subsection{Type  Queries}
 %siwei
-We have briefly talked about the structure and primitive operations supported by the type database. However, it takes more than a tree traversal to find the correct type of each "name", simple or qualified.
+We have briefly talked about the structure and primitive operations supported by the type database. However, it takes more than a tree traversal to find the correct type of each "name", simple or qualified. The first enhancement to the data structure is to support parallel search with respect to each of the imports. So that all possible matches can be found. The second enhancement is to support access control of static and instance field and methods.
 
 \subsection{Instance Queries}
 %siwei
 Instance query is somewhat similar to the type query, except the traversal of type database can go back and forth multiple times.
+\begin{lstlisting}
+traverseInstanceEntry' root (TN (SYM mds ls ln lt) _) (nm:cname) = traverseInstanceEntry' root root ((typeToName lt) ++ (nm:cname))
+\end{lstlisting}
+
+Note this special rule guarantees attribute access on a field can be redirected to the type node corresponds to the field. We also wraps this method with another one that take care of access control on each attribute access.
 
 \subsection{Hierarchy Queries}
 %justin
@@ -199,7 +224,14 @@ So we remove our predefine primitive type \emph{TypeString} for literal string f
 
 \section{Debugging and Testing Strategies}
 %siwei
+Considering the complexity of the tasks at hand, we applied coding tricks to facilitate debugging in development stage. Note we indicate type linking error by providing an empty type candidate list. This leads to a clean propagation of error. However, at development times, this also means we do not have specific error information available to us. So we created an wrapper on error reporting so that we can have the error message exposed to us in development stage. Yet, the message can easily be turned off for submission.
+\begin{lstlisting}
+typeLinkingFailure :: String -> [Type]
+--typeLinkingFailure msg = error msg
+typeLinkingFailure msg = []
+\end{lstlisting}
+
+Note by swapping the definition of \emph{typeLinkingFailure}, we can either let type check fail silently or reporting the error but terminate the program abnormal.
 
 \end{document}
-
 
