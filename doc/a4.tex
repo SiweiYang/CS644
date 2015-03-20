@@ -1,0 +1,110 @@
+\documentclass[12pt,letterpaper]{article}
+\usepackage[margin=0.75in]{geometry}
+\usepackage[pdftex]{graphicx}
+\usepackage[parfill]{parskip}
+\usepackage{listings}
+\usepackage{color}
+\lstset{language=Haskell, frame=single, breaklines=true, keywordstyle=\color{blue}, identifierstyle=\color{red}, basicstyle=\small}
+
+% Submit to Marmoset a PDF document of no more than five pages explaining the design of this phase of your compiler.
+% The document should be organized to enable someone unfamiliar with your code to understand the structure of (this phase of) your compiler.
+% In the document, discuss challenges that you encountered and how you tried to overcome them in your design and implementation.
+% Also explain the testing that you did before submitting to Marmoset.
+
+\begin{document}
+
+\begin{titlepage}
+\begin{center}
+
+% Title
+\Large \textbf { {\bf CS644 Project} \\ Report: A4}\\[0.5in]
+
+       \small \emph{Submitted in partial fulfillment of\\
+        the requirements for the course}
+        \vspace{.2in}
+
+% Submitted by
+\normalsize Submitted by \\
+\begin{table}[h]
+\centering
+\begin{tabular}{lr}\hline \\
+Name & ID\\ \\ \hline
+\\
+Siwei Yang & s8yang \\ \\ \hline
+\\
+Justin Vanderheide & jtvander \\ \\ \hline
+\\
+Jian Li & j493li \\ \\ \hline
+\end{tabular}
+\end{table}
+
+\vfill
+
+% Bottom of the page
+\includegraphics[width=0.3\textwidth]{../res/UWLogo}\\[1.1in]
+\Large{Department of Computer Science}\\
+\normalsize
+\textsc{University of Waterloo}\\
+Waterloo, Ontario, Canada -- N2L 3G1 \\
+\vspace{0.2cm}
+Winter 2015
+
+\end{center}
+\end{titlepage}
+
+\section{General Strategy}
+%siwei
+This section describes the meta strategy we applied in developing solutions to each of the deliveribles. In principle, we are using the attribute grammar approach to finish all the tasks: name resolution, type linking and static analysis.
+
+However, it takes more than merely coding the attribute rules to solve the problem. Auxiliary information might be needed at every node to make the right decision. And the information flows both ways which is hard to support is a pure functional language like Haskell. Besides, we would like to achieve a nice separation between the supporting data structures and the grammar structures.
+
+Therefore, we modelled our solution as three parts: a transformed data structure captures the essense of the AST as well as supporting bi-directional information flow, a newly build data structure that answers queries from the attribute rules and the implementations of the attribute grammars.
+
+\subsection{Engineering a Pure Functional Double-linked AST}
+
+\subsection{Consolidating Type Hierarchy into a Database}
+
+\subsection{Coding Attribute Rules}
+
+
+
+\section{Name Resolution and Type Linking}
+%jian
+\subsection{Division of Responsibility}
+The scanner is implemented in the file \emph{Scanner.hs}.
+
+Each token type has an associated function that implements a recognizer for it. For example \emph{scanChar} recognizes char literals, and \emph{scanBool} recognizes boolean literals. Each of these functions consumes a string containing the unscanned portion of the file, and returns a Maybe representing the result.
+
+If the recognizer did not find its token type, it returns Nothing. For example if the input is "while (..." then \emph{scanDecimalInteger} will return Nothing since the beginning of the input is not a valid integer literal token. If the recognizer does find its token type then it returns a pair where the first element is the token type, and the second element is the lexeme of the token. For example in the input "while (..." the \emph{scanKeyword} function will return ("KEYWORD", "while"). Each of these functions is run in parallel, and the longest lexeme is taken.
+\begin{lstlisting}
+*Scanner> scanDecimalInteger "while ("
+Nothing
+*Scanner> scanKeyword "while ("
+Just ("KEYWORD","while")
+\end{lstlisting}
+
+\subsection{Attribute Recursion Rules}
+\subsection{Handling Base Cases}
+
+\section{Static Analysis}
+%justin
+% not sure how justin did it, this is assuming the attribute grammar is used
+
+\subsection{Attribute Recursion Rules}
+\subsection{Handling Base Cases}
+
+
+\section{Challenges}
+\subsection{Type Queries}
+%siwei
+\subsection{Hierarchy Queries}
+%justin
+\subsection{Forward-references Detection}
+%siwei
+\subsection{Name resolution}
+%siwei
+\section{Debugging and Testing Strategies}
+%siwei
+\end{document}
+
+
