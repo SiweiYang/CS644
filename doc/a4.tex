@@ -105,18 +105,7 @@ traverseTypeEntryWithImports tn imps query = nub [cname | (Just node, cname) <- 
         results = map (\(node, imp) -> (traverseTypeEntry node query, (init imp) ++ query)) ((tn, ["*"]):entries')
 \end{lstlisting}
 
-\begin{lstlisting}
-traverseInstanceEntry' :: TypeNode -> TypeNode -> [String] -> [TypeNode]
-traverseInstanceEntry' root tn@(TN (SYM _ _ _ _) _) [] = [tn]
-traverseInstanceEntry' root tn@(TN (FUNC _ _ _ _ _) _) [] = [tn]
-traverseInstanceEntry' root tn [] = []
-traverseInstanceEntry' root (TN (SYM mds ls ln lt) _) (nm:cname) = traverseInstanceEntry' root root ((typeToName lt) ++ (nm:cname))
-traverseInstanceEntry' root cur (nm:cname) = case [node | node <- subNodes cur, (localName . symbol) node == nm, (not $ isSYMFUNCNode node) || (not $ elem "static" ((symbolModifiers . symbol) node))] of
-                                        []            -> []
-                                        targets      -> concat $ map (\target -> traverseInstanceEntry' root target cname) targets
-\end{lstlisting}
-
-\emph{traverseTypeEntryWithImports} supports type name lookups taking into account all the imports. \emph{traverseInstanceEntry'} takes care of chains of attribute accesses.
+\emph{traverseTypeEntryWithImports} supports type name lookups taking into account all the imports. \emph{traverseInstanceEntry'} is omitted for brevity, but it takes care of chains of attribute accesses.
 
 \subsection{Coding Attribute Rules}
 The attribute rules are translated into structural recursion rules that work on the \emph{Environment}. Here, we show a simplified segment of our code for illustration purpose.
@@ -189,7 +178,6 @@ The test for function completion without a return also implements the rules from
 
 This separation of concerns made the reachability testing much easier to implement.
 
-
 \section{Challenges}
 Last but not least, we would like to cover some technicalities involving the following challenges. Each further demonstrates how we model the solution, and how we engineer solution taking into account the characteritics of pure functional language.
 
@@ -260,13 +248,5 @@ It is important that our test suite runs quickly so that we can run it often and
 GNU Parallel was used to distribute the testing across all available cores, causing a 4x speedup.
 
 Our test suite results always matched the results given by marmoset, so we always knew that our submissions would suceed and didn't have to frequently submit to marmoset just to test if our compiler was working.
-\begin{lstlisting}
-typeLinkingFailure :: String -> [Type]
---typeLinkingFailure msg = error msg
-typeLinkingFailure msg = []
-\end{lstlisting}
-
-Note by swapping the definition of \emph{typeLinkingFailure}, we can either let type check fail silently or reporting the error but terminate the program abnormal.
-
 \end{document}
 
