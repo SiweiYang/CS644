@@ -54,14 +54,14 @@ Winter 2015
 
 \section{General Strategy}
 %siwei
-This section describes the meta strategy we applied in developing solutions to each of the deliveribles. In principle, we are using the attribute grammar approach to finish all the tasks: name resolution, type linking and static analysis.
+This section describes the meta strategy we applied in developing solutions to each of the deliverables. In principle, we are using the attribute grammar approach to finish all the tasks: name resolution, type linking and static analysis.
 
-However, it takes more than merely coding the attribute rules to solve the problem. Auxiliary information might be needed at every node to make the right decision. And the information flows both ways which is hard to support is a pure functional language like Haskell. Besides, we would like to achieve a nice separation between the supporting data structures and the grammar structures.
+However, it takes more than merely coding the attribute rules to solve the problem. Auxiliary information might be needed at every node to make the right decision, and the information flows both ways which is hard to support in a pure functional language like Haskell. We would also like to achieve a nice separation between the supporting data structures and the grammar structures.
 
-Therefore, we modelled our solution as three parts: a transformed data structure captures the essense of the AST as well as supporting bi-directional information flow, a newly build data structure that answers queries from the attribute rules and the implementations of the attribute grammars.
+Therefore, we modeled our solution as three parts: a transformed data structure which captures the essence of the AST as well as supporting bi-directional information flow, a newly built data structure that answers queries from the attribute rules and the implementations of the attribute grammars.
 
 \subsection{Engineering a Pure Functional Double-linked AST}
-Our first major work is to re-structure the AST so that all the relevant information remains, yet easily accessible while processing each node. This is trivial in language supports mutation where adding a reverse pointer to each AST node solves the problem. However, we are working with a pure functional language. Adding reverse pointer is not viable as explicit pointer is not provided in the langauge. Therefore, we introduced a two layer structure of \emph{SemanticUnit} and \emph{Environment}.
+Our first major task was to re-structure the AST so that all the relevant information remains and is easily accessible while processing each node. This is trivial in languages that support mutation where adding a reverse pointer to each AST node solves the problem. However, we are working with a purely functional language. Adding reverse pointer is not viable as explicit pointers are not provided in the language. Therefore, we introduced a two layer structure of \emph{SemanticUnit}s and \emph{Environment}s.
 \begin{lstlisting}
 data SemanticUnit = Root {
     scope :: [String]
@@ -78,16 +78,16 @@ data Environment = ENVE | ENV {
 } deriving (Eq)
 \end{lstlisting}
 
-We traverse the AST from top to bottom, meanwhile we build environment using the information in AST nodes.
+We traverse the AST from top to bottom, meanwhile we build the environment using the information in AST nodes.
 The structure of the environment is basically a recursive tree.
-For each of tree node, it has a \emph{SemanticUnit} which capsules scope info, AST, symbol table and the parent pointer.
-The configuration of symbol table is a linked list(or a list) corresponding to the path from the current tree node to the root, and every element in the symbol table is a structure \emph{Symbol}.
-The \emph{Symbol} can represent either Package, Class, Interface, Function or Variable, and include all AST information we need.
+For each of the tree nodes, it has a \emph{SemanticUnit} which contains the scope info, AST, symbol table and the parent pointer.
+The configuration of the symbol table is a linked list (or a list) corresponding to the path from the current tree node to the root, and every element in the symbol table is a structure \emph{Symbol}.
+The \emph{Symbol} can represent either Package, Class, Interface, Function or Variable, and includes all AST information we need.
 
 \emph{Environment} is a recursive data structure that goes top-down, so that down-stream information is naturally available. To get the up-stream information, we follow the \emph{SemanticUnit} all the way to the desired ancestors.
 
 \subsection{Consolidating Type Hierarchy into a Database}
-To begin with, we put all the type information together into a tree of \emph{TypeNode}.
+To begin with, we put all the type information together into a tree of \emph{TypeNode}s.
 \begin{lstlisting}
 data TypeNode = TN {
     symbol :: Symbol,
@@ -95,7 +95,7 @@ data TypeNode = TN {
 } deriving (Eq)
 \end{lstlisting}
 
-To support the searches operated on this type database, we also created a few helper methods to cope with the special rules from JLS. Two most important of them are the \emph{traverseTypeEntryWithImports} and \emph{traverseInstanceEntry'}.
+To support the searches executed on this type database, we also created a few helper methods to cope with the special rules from the JLS. The two most important ones were \emph{traverseTypeEntryWithImports} and \emph{traverseInstanceEntry'}.
 \begin{lstlisting}
 traverseTypeEntryWithImports :: TypeNode -> [[String]] -> [String] -> [[String]]
 traverseTypeEntryWithImports tn imps query = nub [cname | (Just node, cname) <- results]
@@ -116,61 +116,61 @@ traverseInstanceEntry' root cur (nm:cname) = case [node | node <- subNodes cur, 
                                         targets      -> concat $ map (\target -> traverseInstanceEntry' root target cname) targets
 \end{lstlisting}
 
-\emph{traverseTypeEntryWithImports} supports type name lookups taking into account all the imports. And \emph{traverseInstanceEntry'} takes care of chains of attribute accesses.
+\emph{traverseTypeEntryWithImports} supports type name lookups taking into account all the imports. \emph{traverseInstanceEntry'} takes care of chains of attribute accesses.
 
 \subsection{Coding Attribute Rules}
-The attribute rules are translated into structural recursion rules that works on the \emph{Environment}. Here, we show a simplified segment of our code for illustration purpose.
+The attribute rules are translated into structural recursion rules that work on the \emph{Environment}. Here, we show a simplified segment of our code for illustration purpose.
 \begin{lstlisting}
 typeLinkingCheck db imps (ENV su c) = if elem Nothing imps' then [] else tps
     where
         tps = case kd of
                 Var expr ->
-                Field varsym (Just expr) -> 
-                Exp expr ->                
+                Field varsym (Just expr) ->
+                Exp expr ->
                 Ret expr ->
                 ForBlock ->
                 WhileBlock expr ->
                 IfBlock expr ->
                 Class ->
                 Method _ ->
-                _ -> 
+                _ ->
 \end{lstlisting}
 
-The expressions are checked by code with similar nature. Due to the limitation of space, we are not going to show it here though.
+The expressions are checked by similar code.
 
 \section{Name Resolution and Type Linking}
 %jian
 \subsection{Type Linking}
 
-Before we move on to this stage, we already got the symbol table and type database which can be used for looking up local variables and classes(interfaces as well) respectively.
+Before we reach the type linking stage, we have already constructed the symbol table and type database which can be used for looking up local variables, classes, and interfaces.
 However, the Joos language supports both single-type-import and import-on-demand.
-So we can directly use the names of classes which are not in the same package.
-This feature would cause lots of troubles during name resolution.
-Our solution is first looking up the name from symbol table, if we can find a binding for this name, we return the type declared for this variable.
-Otherwise, it is not in the symbol table, then we look up our type database to check whether it is a name of class or interface.
-If we cannot find in the type database either, then we claim that we cannot resolve this name.
+This allows programmers to use the names of classes which are not in the same package.
+This feature significantly complicates name resolution.
+Our solution is to first look up the name in the symbol table, if we can find a binding for this name we return the type declared for this variable.
+Otherwise, it is not in the symbol table, then we look in our type database to check whether it is the name of a class or interface.
+If we cannot find it in the type database either, then we report that we cannot resolve this name.
 
 %\subsection{Reconstructing Environments with canonical names}
 
-
 \subsection{Type Checking}
 
-The assignment 2 only needs to do type linking which is a part of name resolution. However, when we were doing that part, we already got entire environment and type database.
-So we could evaluate the type of each expression and return a list of possible types for that expression.
+Assignment 2 only required us to do type linking which is a part of name resolution.
+However, when we were doing that part, we already had the entire environment and type database.
+This meant we could evaluate the type of each expression and return a list of possible types for that expression.
 This is a recursive process since the type attribute of expression are synthesized.
-Each time, we pass the current node environment to children, evaluate the types of subexpressions(children), and then combine all types of subexpressions with the format of current expression to get the type of this expression. 
-If the return of an expression is an empty list, then we know there exists an error when we evaluated a subexpression or this expression, then just pass this empty list to the upper caller, i.e. propagating the error info to the root.
-Or if the return has multiple types, there must exist some ambiguous name, in this case, we also need to report such error.
+Each time we pass the current node's environment to it's children, evaluate the types of subexpressions(children), and then combine all types of subexpressions with the format of the current expression to get the type of this expression.
+If the return of an expression is an empty list, then we know there exists an error when we evaluated a subexpression or this expression, then we pass this empty list to the upper caller, i.e. propagating the error info to the root.
+Or if the return has multiple types, there must exist some ambiguous name, in this case, we also report the error.
 
 \subsection{Type Conversion}
 
-Another issue need to deal with is type conversion.
-We have to relax some strict type equality checking to a more complicated casting type system defined by conversion rules, since Joos language supports explicit type casting and implicit type conversion in some kinds of expressions.
+Another issue we dealt with was type conversion.
+We had to relax some strict type equality checking to a more complicated casting type system defined by conversion rules, since Joos supports explicit type casting and implicit type conversion in some kinds of expressions.
 This part is mainly implemented in the file \emph{TypeChecking.hs}.
-According to JLS, there are many kinds of conversions for primitive types and references types.
-And the conversions used in assignment(operator \{=\}) and casting are also slightly different.
-Besides, for the binary operators \{==, !=\}, they are also another rules for this equality checking.
-We were trying to summarize the common parts of these rules, and only change as few as possible when we deal with different cases.
+According to the JLS, there are many kinds of conversions for primitive types and references types.
+The conversions used in assignment(operator \{=\}) and casting are also slightly different.
+For the binary operators \{==, !=\}, there are also other rules for this equality checking.
+We tried to summarize the common parts of these rules, and only change as few values as possible when dealing with different cases.
 This is why we split the conversion into two parts: \emph{primitiveConversion} and \emph{objectConversion}, and reuse them in \emph{assignConversion}, \emph{castConversion} and \emph{equalityCheck}.
 
 
