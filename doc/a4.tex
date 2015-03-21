@@ -175,11 +175,19 @@ This is why we split the conversion into two parts: \emph{primitiveConversion} a
 
 
 \section{Static Analysis}
-%justin
-% not sure how justin did it, this is assuming the attribute grammar is used
 
-\subsection{Attribute Recursion Rules}
-\subsection{Handling Base Cases}
+Reachability Checking is implemented in the file \emph{Reachability.hs}.
+In order to make the checking easier, two separate tests are done.
+First a reachability test is performed, then a second test is performed to see if a function can terminate without a return.
+The test for unreachability simply implements the rules from section 14.20 of the JLS.
+The standard case is that a statement can complete normally iff it is reachable.
+There are few exceptions to this rule, which were handled by pattern matching.
+Return statements, whiles, fors, and ifs are pattern matched along with their condition expressions and the rules specified in the JLS.
+The function that tests for unreachability returns a list of unreachable statements so that they can be shown to the programmer.
+
+The test for function completion without a return also implements the rules from section 14.20 of the JLS, this time with an emphesis on whether or not a code path to the end of the function without a return exists.
+
+This separation of concerns made the reachability testing much easier to implement.
 
 
 \section{Challenges}
@@ -199,7 +207,18 @@ traverseInstanceEntry' root (TN (SYM mds ls ln lt) _) (nm:cname) = traverseInsta
 Note this special rule guarantees attribute access on a field can be redirected to the type node corresponds to the field. We also wraps this method with another one that take care of access control on each attribute access.
 
 \subsection{Hierarchy Queries}
-%justin
+The most challenging part of hierarchy checking was implementing the third rule from JLS 9.2, that any interface with no superinterface must implicitly declare public abstract versions of all methods in Object.
+This posed a problem because it is essentially an interface that is extending a class.
+We implemented this by creating an interface called "ObjectInterface" that has all of the signatures from Object in it, and having all interfaces without a super use that interface.
+There were problems with clone() and getClass() however, since clone is protected not private, and getClass is final.
+Neither the protected or final keyword are allowed in interface method definitions, so the ObjectInterface was being rejected by the weeder, but these modifiers were required to ensure interfaces didn't incorrectly overwrite these methods.
+To get around this we simple skip ObjectInterface in the weeder, everything works out fine once we get to hierarchy checking!
+
+Another aspect of hierarchy checking that required careful consideration was getting the hierarchy chain for interfaces.
+Since cycles can appear in the hierarchy chain, it was important to have cycle detection in our function that finds the chain.
+"getInterfaceSupers", the function that returns a list of all interfaces in the hierarchy chain, does depth first search and aborts upon reaching an interface twice.
+Rather than having a global visited list, each split has it's own visited list since common ancestors are valid.
+After the split the results are unioned together to get the set of all super interfaces.
 
 \subsection{Forward-references Detection}
 %siwei
@@ -214,7 +233,6 @@ Field varsym (Just expr) ->
 \end{lstlisting}
 
 \subsection{Autoboxing and unboxing}
-
 Joos supports autoboxing from a primitive type to a corresponding reference type, for example, primitive type \emph{int} can automatically convert to \emph{Object Integer} which is predefined in Java standard library.
 Also we can do unboxing with some specific predefine reference types, then get a primitive type.
 So we implemented functions \emph{boxingType} and \emph{unboxingType} so that we can support autoboxing and unboxing features.
@@ -222,9 +240,26 @@ However, \emph{String} is a special case here, because Java does not define a pr
 It means every literal string can be thought with type \emph{Object String}.
 So we remove our predefine primitive type \emph{TypeString} for literal string from AST, and replace every \emph{TypeString} with type \emph{Object (Name ["java", "lang", "String"])}(need a canonical name here).
 
+\subsection{Static Analysis}
+The biggest challenge in implementing static analysis was implementing constant folding which we did not have previously.
+We wrote a function called conditionConstant which attempts to evaluate an expression, and returns an Either value.
+If we can determine the value of an expression then the return value is Right Int, where the Int represents the computed value.
+For booleans 0/1 is used rather than True/False since our function can only have 1 return type.
+If we cannot determine the value of the expression then Left () is returned, indicating we cannot figure it out.
+These values are used in reachability testing to see if the conditions for various blocks are a constant true or false.
+
 \section{Debugging and Testing Strategies}
-%siwei
-Considering the complexity of the tasks at hand, we applied coding tricks to facilitate debugging in development stage. Note we indicate type linking error by providing an empty type candidate list. This leads to a clean propagation of error. However, at development times, this also means we do not have specific error information available to us. So we created an wrapper on error reporting so that we can have the error message exposed to us in development stage. Yet, the message can easily be turned off for submission.
+In assignment 1 we wrote our test runners in Haskell, however assignments 2-4 were significantly more involved than assignment 1 so we needed a more sophisticated approach.
+We created a bash script that automatically runs all of the valid and invalid tests.
+It handles passing all of the necessary files from the standard library as well as all java files from a directory for tests with multiple files.
+Internally the script exports various helpful functions that make invoking the compiler easier.
+For example the function "joosc\_run" takes in the path to either a single file test or a test directory and runs joosc with the appropriate standard library files and test directory files.
+
+Because some assignments have over 300 test cases it was taking quite a while to run the test suite.
+It is important that our test suite runs quickly so that we can run it often and identify regressions sooner rather than later.
+GNU Parallel was used to distribute the testing across all available cores, causing a 4x speedup.
+
+Our test suite results always matched the results given by marmoset, so we always knew that our submissions would suceed and didn't have to frequently submit to marmoset just to test if our compiler was working.
 \begin{lstlisting}
 typeLinkingFailure :: String -> [Type]
 --typeLinkingFailure msg = error msg
