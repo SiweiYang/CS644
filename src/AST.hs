@@ -406,7 +406,7 @@ data Expression = Unary { op :: String, expr :: Expression, depth :: Int}
                 | Binary { op :: String, exprL :: Expression, exprR :: Expression, depth :: Int }
                 | Attribute { struct :: Expression, mem :: String, depth :: Int }
                 | ArrayAccess { array :: Expression, index :: Expression, depth :: Int }
-                | NewArray { arraytype :: Type, dimexprs :: Expression, dims :: Expression, depth :: Int }
+                | NewArray { arraytype :: Type, dimexprs :: Expression, depth :: Int }
                 | Dimension { left :: Expression, index :: Expression, depth :: Int }
                 | NewObject { classtype :: Type, arguments :: Arguments, depth :: Int }
                 | FunctionCall { func :: Expression, arguments :: Arguments, depth :: Int }
@@ -518,7 +518,7 @@ buildExp currentDepth ast = case (name ast) of
                     "StatementExpression" -> buildNewExp singleton
                     "AdditiveExpression" -> if (check "AdditiveExpression" ast) then (Binary (tk "AdditiveOperator" ast) (buildNewExp additive) (buildNewExp multiplicative) currentDepth) else (buildNewExp multiplicative)
                     "ArrayAccess" -> ArrayAccess (if (check "PrimaryNoNewArray" ast) then (buildNewExp priarray) else (ID (buildName nm) currentDepth)) (if (check "Expression" ast) then (buildNewExp expr) else Null) currentDepth
-                    "ArrayCreationExpression" -> NewArray (buildType (if (check "PrimitiveType" ast) then pritype else classiftype)) (buildNewExp dimexprs) (if (check "Dims" ast) then (buildNewExp dims) else Null) currentDepth
+                    "ArrayCreationExpression" -> NewArray (buildType (if (check "PrimitiveType" ast) then pritype else classiftype)) (buildNewExp dimexprs) currentDepth
                     "Assignment" -> Binary "=" (buildNewExp lhs) (buildNewExp expr) currentDepth
                     "ConditionalExpression" -> buildNewExp singleton
                     "ConditionalAndExpression" -> if (check "ConditionalAndExpression" ast) then (Binary (tk "AndOperator" ast) (buildNewExp condand) (buildNewExp equal) currentDepth) else (buildNewExp equal)
@@ -639,7 +639,7 @@ identifierInExpr nm (InstanceOf tp expr _) = identifierInExpr nm expr
 identifierInExpr nm (FunctionCall exprf args _) = or ((identifierInExpr nm exprf):(map (identifierInExpr nm) args))
 identifierInExpr nm expr@(Attribute s m _) = identifierInExpr nm s
 identifierInExpr nm (NewObject tp args dp) = or (map (identifierInExpr nm) args)
-identifierInExpr nm (NewArray tp expr _ _) = identifierInExpr nm expr
+identifierInExpr nm (NewArray tp expr _) = identifierInExpr nm expr
 identifierInExpr nm (Dimension _ exprd _) = identifierInExpr nm exprd
 identifierInExpr nm (ArrayAccess arr idx _) = or [identifierInExpr nm arr, identifierInExpr nm idx]
 identifierInExpr nm (CastA casttp dim expr _) = identifierInExpr nm expr

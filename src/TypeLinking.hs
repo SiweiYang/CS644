@@ -177,13 +177,13 @@ typeLinkingExpr db imps su (NewObject tp args dp) = if atsFailed then typeLinkin
         atsFailed = or $ map null ats
 -- to check param types
 
-typeLinkingExpr db imps su (NewArray tp exprd _ _) = if (not . null $ typeIdx) && (not . null $ castConversion db (head typeIdx) TypeInt)
-                                                        then if isPrimitive tp then [Array tp] else
-                                                            case [Object (Name nm) | TypeClass (Name nm) <- lookUpDB db imps su (typeToName tp)] of
-                                                            [] -> typeLinkingFailure $ "NewArray: []" ++ (show tp) ++ (show $ lookUpDB db imps su (typeToName tp))
-                                                            [tp] -> [Array tp]
-                                                            tps' -> typeLinkingFailure (show tps')
-                                                        else typeLinkingFailure "Array: index is not an integer"
+typeLinkingExpr db imps su (NewArray tp exprd _) = if (not . null $ typeIdx) && (not . null $ castConversion db (head typeIdx) TypeInt)
+                                                      then if isPrimitive tp then [Array tp] else
+                                                          case [Object (Name nm) | TypeClass (Name nm) <- lookUpDB db imps su (typeToName tp)] of
+                                                          [] -> typeLinkingFailure $ "NewArray: []" ++ (show tp) ++ (show $ lookUpDB db imps su (typeToName tp))
+                                                          [tp] -> [Array tp]
+                                                          tps' -> typeLinkingFailure (show tps')
+                                                      else typeLinkingFailure "Array: index is not an integer"
     where
         typeIdx = case typeLinkingExpr db imps su exprd of
                         [] -> typeLinkingFailure $ "Array Index type []: " ++ (show exprd)
@@ -398,7 +398,7 @@ forwardSYMInExpr nm (InstanceOf tp expr _) = forwardSYMInExpr nm expr
 forwardSYMInExpr nm (FunctionCall exprf args _) = or ((forwardSYMInExpr nm exprf):(map (forwardSYMInExpr nm) args))
 forwardSYMInExpr nm expr@(Attribute s m _) = forwardSYMInExpr nm s
 forwardSYMInExpr nm (NewObject tp args dp) = or (map (forwardSYMInExpr nm) args)
-forwardSYMInExpr nm (NewArray tp expr _ _) = forwardSYMInExpr nm expr
+forwardSYMInExpr nm (NewArray tp expr _) = forwardSYMInExpr nm expr
 forwardSYMInExpr nm (Dimension _ exprd _) = forwardSYMInExpr nm exprd
 forwardSYMInExpr nm (ArrayAccess arr idx _) = or [forwardSYMInExpr nm arr, forwardSYMInExpr nm idx]
 forwardSYMInExpr nm (CastA casttp dim expr _) = forwardSYMInExpr nm expr
