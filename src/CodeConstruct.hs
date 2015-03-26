@@ -8,12 +8,21 @@ import           Environment
 import           TypeDatabase
 import           TypeLinking
 
-data ClassLayout = CL {
-  className :: [String]
+data ClassConstruct = CC {
+  className :: [String],
+  classFields :: [TypedVar],
+  classMethods :: [MethodLayout]
 }
 
-data MethodLayout = ML {
-  methodName :: [String]
+data MethodConstruct = MC {
+  methodName :: [String],
+  methodParameters :: [TypedVar],
+  methodDefinition :: DFExpression
+}
+
+data InstanceConstruct = IC {
+  instanceType :: [String],
+  instanceFields :: [TypedVar]
 }
 
 data DFExpression = FunctionCall Symbol [DFExpression]
@@ -23,9 +32,6 @@ data DFExpression = FunctionCall Symbol [DFExpression]
                   | ArrayAccess { array :: DFExpression, index :: DFExpression }
                   | NewArray { arraytype :: Type, dimexprs :: DFExpression }
                   | NewObject { classtype :: Type, arguments :: [DFExpression] }
---                  | CastA { casttype :: Type, dims :: DFExpression, expr :: DFExpression }
---                  | CastB { castexpr :: DFExpression, expr :: DFExpression }
---                  | CastC { castname :: Name, dims :: DFExpression, expr :: DFExpression }
                   | InstanceOf { reftype :: Type, expr :: DFExpression }
                   | Cast {reftype :: Type, expr :: DFExpression }
                   | ID { identifier :: Either Int Symbol }
@@ -46,7 +52,7 @@ data DFStatement = DFIf {
   condition   :: DFExpression,
   finalizer   :: DFStatement,
   forBlock    :: [DFStatement]
-} | DFExpr DFExpression | DFReturn (Maybe DFExpression)
+} | DFExpr DFExpression | DFReturn (Maybe DFExpression) | DFBlock [DFStatement]
 
 
 buildDFExpression :: TypeNode -> [[String]] -> SemanticUnit -> [Type] -> Expression -> DFExpression
