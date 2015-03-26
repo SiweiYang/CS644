@@ -17,12 +17,17 @@ import TypeDatabase
 import TypeLinking
 import Weeder
 
+
+
 main :: IO ()
 main = do
   -- Get the files to compile from the args
   givenFileNames <- getArgs
   let allFileNames = givenFileNames ++ ["./res/ObjectInterface.java"]
+  --hPutStrLn stderr $ (show allFileNames)
+  main' allFileNames
 
+main' allFileNames = do
   -- Read their contents
   fileContents <- mapM readFile allFileNames
 
@@ -125,6 +130,8 @@ main = do
   let Just db = mdb
 
   -- HIERARCHY CHECKING
+  --let TN s nodes = db
+  --let db' = TN s [node | node <- nodes, symbol node /= PKG "joosc native"]
   let hierarchyResults = checkHierarchies (map fst fileAsts) db
 
   if isJust hierarchyResults then do

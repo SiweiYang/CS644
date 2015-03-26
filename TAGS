@@ -44,75 +44,55 @@ data Lex Lex66,67
 data Lex = Lex Lex66,67
 instance instance67,68
 
-./src/CodeConstruct.hs,4109
+./src/CodeConstruct.hs,2325
 module CodeConstruct CodeConstruct0,1
-data ClassLayout ClassLayout5,6
-data ClassLayout = {{5,6
-data MethodLayout MethodLayout9,10
-data MethodLayout = {{9,10
-data DFExpression DFExpression12,13
-data DFExpression = FunctionApplication FunctionApplication12,13
-                  | Unary Unary13,14
-                  | Unary { op op13,14
-                  | Unary { op :: String, expr expr13,14
-                  | Unary { op :: String, expr :: Expression, depth depth13,14
-                | Binary Binary14,15
-                | Binary { op op14,15
-                | Binary { op :: String, exprL exprL14,15
-                | Binary { op :: String, exprL :: Expression, exprR exprR14,15
-                | Binary { op :: String, exprL :: Expression, exprR :: Expression, depth depth14,15
-                | Attribute Attribute15,16
-                | Attribute { struct struct15,16
-                | Attribute { struct :: Expression, mem mem15,16
-                | Attribute { struct :: Expression, mem :: String, depth depth15,16
-                | ArrayAccess ArrayAccess16,17
-                | ArrayAccess { array array16,17
-                | ArrayAccess { array :: Expression, index index16,17
-                | ArrayAccess { array :: Expression, index :: Expression, depth depth16,17
-                | NewArray NewArray17,18
-                | NewArray { arraytype arraytype17,18
-                | NewArray { arraytype :: Type, dimexprs dimexprs17,18
-                | NewArray { arraytype :: Type, dimexprs :: Expression, dims dims17,18
-                | NewArray { arraytype :: Type, dimexprs :: Expression, dims :: Expression, depth depth17,18
-                | Dimension Dimension18,19
-                | Dimension { left left18,19
-                | Dimension { left :: Expression, index index18,19
-                | Dimension { left :: Expression, index :: Expression, depth depth18,19
-                | NewObject NewObject19,20
-                | NewObject { classtype classtype19,20
-                | NewObject { classtype :: Type, arguments arguments19,20
-                | NewObject { classtype :: Type, arguments :: Arguments, depth depth19,20
-                | FunctionCall FunctionCall20,21
-                | FunctionCall { func func20,21
-                | FunctionCall { func :: Expression, arguments arguments20,21
-                | FunctionCall { func :: Expression, arguments :: Arguments, depth depth20,21
-                | CastA CastA21,22
-                | CastA { casttype casttype21,22
-                | CastA { casttype :: Type, dims dims21,22
-                | CastA { casttype :: Type, dims :: Expression, expr expr21,22
-                | CastA { casttype :: Type, dims :: Expression, expr :: Expression, depth depth21,22
-                | CastB CastB22,23
-                | CastB { castexpr castexpr22,23
-                | CastB { castexpr :: Expression, expr expr22,23
-                | CastB { castexpr :: Expression, expr :: Expression, depth depth22,23
-                | CastC CastC23,24
-                | CastC { castname castname23,24
-                | CastC { castname :: Name, dims dims23,24
-                | CastC { castname :: Name, dims :: Expression, expr expr23,24
-                | CastC { castname :: Name, dims :: Expression, expr :: Expression, depth depth23,24
-                | InstanceOf InstanceOf24,25
-                | InstanceOf { reftype reftype24,25
-                | InstanceOf { reftype :: Type, expr expr24,25
-                | InstanceOf { reftype :: Type, expr :: Expression, depth depth24,25
-                | ID ID25,26
-                | ID { identifier identifier25,26
-                | ID { identifier :: Name, depth depth25,26
-                | Value Value26,27
-                | Value { valuetype valuetype26,27
-                | Value { valuetype :: Type, value value26,27
-                | Value { valuetype :: Type, value :: String, depth depth26,27
-                | ThisThis27,28
-                | NullNull28,29
+data ClassLayout ClassLayout9,10
+data ClassLayout = CL CL9,10
+  className className10,11
+data MethodLayout MethodLayout13,14
+data MethodLayout = ML ML13,14
+  methodName methodName14,15
+data DFExpression DFExpression17,18
+data DFExpression = FunctionApplication FunctionApplication17,18
+                  | Unary Unary18,19
+                  | Unary { op op18,19
+                  | Unary { op :: String, expr expr18,19
+                  | Binary Binary19,20
+                  | Binary { op op19,20
+                  | Binary { op :: String, exprL exprL19,20
+                  | Binary { op :: String, exprL :: DFExpression, exprR exprR19,20
+                  | Attribute Attribute20,21
+                  | Attribute { struct struct20,21
+                  | Attribute { struct :: DFExpression, mem mem20,21
+                  | ArrayAccess ArrayAccess21,22
+                  | ArrayAccess { array array21,22
+                  | ArrayAccess { array :: DFExpression, index index21,22
+                  | NewArray NewArray22,23
+                  | NewArray { arraytype arraytype22,23
+                  | NewArray { arraytype :: Type, dimexprs dimexprs22,23
+                  | Dimension Dimension23,24
+                  | Dimension { left left23,24
+                  | Dimension { left :: DFExpression, index index23,24
+                  | NewObject NewObject24,25
+                  | NewObject { classtype classtype24,25
+                  | NewObject { classtype :: Type, arguments arguments24,25
+                  | InstanceOf InstanceOf28,29
+                  | InstanceOf { reftype reftype28,29
+                  | InstanceOf { reftype :: Type, expr expr28,29
+                  | ID ID29,30
+                  | ID { identifier identifier29,30
+                  | Value Value30,31
+                  | Value { valuetype valuetype30,31
+                  | Value { valuetype :: Type, value value30,31
+                  | ThisThis31,32
+                  | NullNull32,33
+data DFStatement DFStatement34,35
+data DFStatement = DFIf DFIf34,35
+  condition condition35,36
+  ifBlock ifBlock36,37
+  elseBlock elseBlock37,38
+buildDFExpression buildDFExpression49,50
+buildDFExpression buildDFExpression51,52
 
 ./src/Environment.hs,3054
 data Kind Kind9,10
@@ -226,47 +206,52 @@ readLR1 readLR185,86
 tokenToAST tokenToAST102,103
 tokenToAST tokenToAST103,104
 
-./src/TypeLinking.hs,1642
+./src/TypeLinking.hs,1873
 module TypeLinking TypeLinking0,1
 typeLinkingFailure typeLinkingFailure9,10
 --typeLinkingFailure --typeLinkingFailure10,11
 typeLinkingFailure typeLinkingFailure11,12
-typeLinkingCheck typeLinkingCheck13,14
-typeLinkingCheck typeLinkingCheck14,15
-typeLinkingPrefix typeLinkingPrefix67,68
-typeLinkingPrefix typeLinkingPrefix68,69
-filterNonFunction filterNonFunction74,75
-typeLinkingExpr typeLinkingExpr78,79
-typeLinkingExpr typeLinkingExpr79,80
---if --if137,138
-argsMatching argsMatching249,250
-argsMatching argsMatching250,251
-typeLinkingName typeLinkingName265,266
-typeLinkingName typeLinkingName266,267
-typeLinkingName' typeLinkingName'270,271
-typeLinkingName' typeLinkingName'271,272
-lookUpThis lookUpThis299,300
-lookUpThis lookUpThis300,301
-scopeStatic scopeStatic302,303
-scopeStatic scopeStatic303,304
-scopeLocal scopeLocal313,314
-scopeLocal scopeLocal314,315
-scopeReturnType scopeReturnType323,324
-scopeReturnType scopeReturnType324,325
-lookUpSymbolTable lookUpSymbolTable331,332
-lookUpSymbolTable lookUpSymbolTable332,333
-lookUpDB lookUpDB340,341
-lookUpDB lookUpDB341,342
-checkSameNameInEnvironment checkSameNameInEnvironment355,356
-checkSameNameInEnvironment checkSameNameInEnvironment356,357
-checkSameNameUp checkSameNameUp362,363
-checkSameNameUp checkSameNameUp363,364
-checkSameNameInSymbolTable checkSameNameInSymbolTable379,380
-checkSameNameInSymbolTable checkSameNameInSymbolTable380,381
-forwardSYMInExpr forwardSYMInExpr386,387
-forwardSYMInExpr forwardSYMInExpr387,388
-finalArrayLength finalArrayLength408,409
-finalArrayLength finalArrayLength409,410
+typeLinkingFailure' typeLinkingFailure'12,13
+--typeLinkingFailure' --typeLinkingFailure'13,14
+typeLinkingFailure' typeLinkingFailure'14,15
+typeLinkingCheck typeLinkingCheck17,18
+typeLinkingCheck typeLinkingCheck18,19
+typeLinkingPrefix typeLinkingPrefix71,72
+typeLinkingPrefix typeLinkingPrefix72,73
+filterNonFunction filterNonFunction78,79
+typeLinkingExpr typeLinkingExpr82,83
+typeLinkingExpr typeLinkingExpr83,84
+--if --if141,142
+typeLinkingExpr' typeLinkingExpr'239,240
+typeLinkingExpr' typeLinkingExpr'240,241
+argsMatching argsMatching256,257
+argsMatching argsMatching257,258
+typeLinkingName typeLinkingName272,273
+typeLinkingName typeLinkingName273,274
+typeLinkingName' typeLinkingName'277,278
+typeLinkingName' typeLinkingName'278,279
+lookUpThis lookUpThis306,307
+lookUpThis lookUpThis307,308
+scopeStatic scopeStatic309,310
+scopeStatic scopeStatic310,311
+scopeLocal scopeLocal320,321
+scopeLocal scopeLocal321,322
+scopeReturnType scopeReturnType330,331
+scopeReturnType scopeReturnType331,332
+lookUpSymbolTable lookUpSymbolTable338,339
+lookUpSymbolTable lookUpSymbolTable339,340
+lookUpDB lookUpDB347,348
+lookUpDB lookUpDB348,349
+checkSameNameInEnvironment checkSameNameInEnvironment362,363
+checkSameNameInEnvironment checkSameNameInEnvironment363,364
+checkSameNameUp checkSameNameUp369,370
+checkSameNameUp checkSameNameUp370,371
+checkSameNameInSymbolTable checkSameNameInSymbolTable386,387
+checkSameNameInSymbolTable checkSameNameInSymbolTable387,388
+forwardSYMInExpr forwardSYMInExpr393,394
+forwardSYMInExpr forwardSYMInExpr394,395
+finalArrayLength finalArrayLength415,416
+finalArrayLength finalArrayLength416,417
 
 ./src/Reachability.hs,726
 module Reachability Reachability0,1

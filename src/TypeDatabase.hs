@@ -13,8 +13,25 @@ data TypeNode = TN {
 } deriving (Eq)
 
 arrayClass = CLS ["public"] "Array" (Just ["Object"]) [[]] [] [] [] (CLSI [] (AI "" 0 0 0 0) Nothing [])
+
 arrayUnit = Comp (Just ["joosc native"]) [] arrayClass (CompI Nothing [])
-nativeTypes = TN (PKG []) [TN (PKG "joosc native") [TN (CL ["public"] "Array" (TypeClass (Name ["joosc native", "Array"])) arrayUnit) [TN (SYM ["public", "final"] ["joosc native", "Array"] "length" TypeInt) []]]]
+
+arraySYM = (TypeClass (Name ["joosc native", "Array"]))
+arrayConstructor = TN (FUNC ["public", "final"] ["joosc native", "Array"] "Array" [TypeInt] (Array TypeVoid)) []
+arrayLength = TN (SYM ["public", "final"] ["joosc native", "Array"] "length" TypeInt) []
+arrayTN = TN (CL ["public"] "Array" arraySYM arrayUnit) [arrayConstructor, arrayLength]
+
+runtimeClass = CLS ["public"] "Runtime" (Just ["Object"]) [[]] [] [] [] (CLSI [] (AI "" 0 0 0 0) Nothing [])
+runtimeUnit = Comp (Just ["joosc native"]) [] runtimeClass (CompI Nothing [])
+
+runtimeSYM = (TypeClass (Name ["joosc native", "Runtime"]))
+runtimeMalloc = TN (FUNC ["public", "final"] ["joosc native", "Runtime"] "malloc" [TypeInt] TypeInt) []
+runtimeTN  = TN (CL ["public"] "Runtime" runtimeSYM runtimeUnit) [runtimeMalloc]
+
+
+
+nativeTypes = TN (PKG []) [TN (PKG "joosc native") [arrayTN, runtimeTN]]
+
 
 
 isVisibleClassNode tn = case symbol tn of
@@ -89,7 +106,10 @@ dumpDB :: TypeNode -> [[String]]
 dumpDB tn@(TN sym nodes) = map (typeToName . localType . symbol) (dumpDBNodes tn)
 
 dumpDBNodes :: TypeNode -> [TypeNode]
-dumpDBNodes tn@(TN sym nodes) = if isConcreteNode tn then [tn] else concat $ map dumpDBNodes nodes
+
+dumpDBNodes tn@(TN sym nodes) = case tn of
+                                  TN (PKG "joosc native") _ -> []
+				  _ -> if isConcreteNode tn then [tn] else concat $ map dumpDBNodes nodes
 
 traverseNodeEntry :: TypeNode -> [String] -> Maybe TypeNode
 traverseNodeEntry tn [] = traverseTypeEntry tn []

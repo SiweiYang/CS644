@@ -452,7 +452,21 @@ data Type = TypeByte | TypeShort | TypeInt | TypeChar | TypeBoolean | TypeNull |
           | TypeClass Name
           | Object Name
           | Array Type
-          deriving (Eq, Show)
+          deriving (Show)
+instance Eq Type where
+  Function _ tps rt == Function _ tps' rt' = tps == tps' && rt == rt
+  TypeByte == TypeByte = True
+  TypeShort == TypeShort = True
+  TypeInt == TypeInt = True
+  TypeChar == TypeChar = True
+  TypeBoolean == TypeBoolean = True
+  TypeNull == TypeNull = True
+  TypeVoid == TypeVoid = True
+  TypeClass nm == TypeClass nm' = nm == nm'
+  Object nm == Object nm' = nm == nm'
+  Array tp == Array tp' = tp == tp'
+  _ == _ = False
+
 typeToName TypeByte = ["Byte"]
 typeToName TypeShort = ["Short"]
 typeToName TypeInt = ["Int"]
