@@ -44,11 +44,15 @@ typeLinkingCheck db imps (ENV su c) = if elem Nothing imps' then [] else tps
                 Exp expr -> typeLinkingExpr db imps su expr
                 
                 Ret expr -> let rtp = scopeReturnType su in
-                            if rtp == TypeVoid then typeLinkingFailure $ "Return in a void method: " ++ (show expr)
-                            else case filter filterNonFunction $ typeLinkingExpr db imps su expr of
-                                [] -> typeLinkingFailure $ "Return type no match: " ++ (show expr)
-                                [tp] -> if not . null $ assignConversion db tp rtp then [TypeVoid] else typeLinkingFailure $ "Return assign conversion failure: " ++ (show tp) ++ (show rtp)
-                                a -> typeLinkingFailure $ "Return type multi match: " ++ (show expr) ++ (show a)
+                            let incons = scopeConstructor su in
+                            case (rtp, isNothing expr) of
+                                (TypeVoid, True) -> [TypeVoid]
+                                (TypeVoid, False) -> typeLinkingFailure $ "Return in a void method: " ++ (show expr) 
+                                (_, True) -> if incons then [TypeVoid] else typeLinkingFailure $ "Return nothing in a non-void method: " ++ (show expr)
+                                _ -> case filter filterNonFunction $ typeLinkingExpr db imps su (fromJust expr) of
+                                        [] -> typeLinkingFailure $ "Return type no match: " ++ (show expr)
+                                        [tp] -> if not . null $ assignConversion db tp rtp then [TypeVoid] else typeLinkingFailure $ "Return assign conversion failure: " ++ (show tp) ++ (show rtp)
+                                        a -> typeLinkingFailure $ "Return type multi match: " ++ (show expr) ++ (show a)
 
                 ForBlock -> let typeCond = cts !! 1
                                 casting = castConversion db (head typeCond) TypeBoolean in
@@ -317,6 +321,14 @@ symbolLinkingName db imps su (Name cname@(nm:remain)) = case syms'' of
 
 lookUpThis :: SemanticUnit -> Type
 lookUpThis su = if elem (kind su) [Class, Interface] then Object (Name (scope su)) else lookUpThis (inheritFrom su)
+
+scopeConstructor :: SemanticUnit -> Bool
+scopeConstructor su = rst
+    where
+        kd = kind su
+        rst = case kd of
+                Method (FUNC mds _ _ _ lt) -> elem "cons" mds
+                _ -> scopeConstructor (inheritFrom su)
 
 scopeStatic :: SemanticUnit -> Bool
 scopeStatic su
