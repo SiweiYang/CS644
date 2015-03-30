@@ -133,7 +133,7 @@ typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
         equality = equalityCheck db typeL typeR
 
 
-typeLinkingExpr db imps su (ID nm _) = map symbolToType (symbolLinkingName db imps su nm)
+typeLinkingExpr db imps su expr@(ID nm _) = map symbolToType (symbolLinkingExpr db imps su expr)
 typeLinkingExpr db imps su This = if scopeStatic su then typeLinkingFailure "This not accessible from static scope" else [lookUpThis su]
 typeLinkingExpr db imps su (Value tp _ _) = [tp]
 --ToDO: check if instance of is legit
@@ -366,6 +366,7 @@ scopeOffset su sym = case kd of
                               then scopeOffsetPos (inheritFrom su)
                               else scopeOffset (inheritFrom su) sym
   where
+    kd = kind su
     syms = symbolTable su
     syms' = dropWhile (sym /=) syms
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-make
+#make
 
 testSuite=a4
 if [ $# -eq 1 ]
