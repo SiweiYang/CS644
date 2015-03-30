@@ -7,7 +7,7 @@ import Data.Maybe
 import AST
 import Util
 
-data Kind = Package | Class | Interface | Method Symbol | Field Symbol (Maybe Expression) | Statement | Var Expression | Exp Expression | Ret Expression | WhileBlock Expression | IfBlock Expression | ForBlock deriving (Eq, Show)
+data Kind = Package | Class | Interface | Method Symbol | Field Symbol (Maybe Expression) | Statement | Var Expression | Exp Expression | Ret (Maybe Expression) | WhileBlock Expression | IfBlock Expression | ForBlock deriving (Eq, Show)
 
 data Symbol = SYM {
     symbolModifiers :: [String],
@@ -154,11 +154,10 @@ buildEnvironmentFromStatements parent ((Expr expr):remain) = ENV su [buildEnviro
     where
         cname' = (scope parent)
         su = (SU cname' (Exp expr) [] parent)
-buildEnvironmentFromStatements parent ((Return mexpr):remain) = if isNothing mexpr then buildEnvironmentFromStatements parent remain else ENV su [buildEnvironmentFromStatements parent remain]
+buildEnvironmentFromStatements parent ((Return mexpr):remain) = ENV su [buildEnvironmentFromStatements parent remain]
     where
         cname' = (scope parent)
-        expr = fromJust mexpr
-        su = (SU cname' (Ret expr) [] parent)
+        su = (SU cname' (Ret mexpr) [] parent)
 buildEnvironmentFromStatements parent ((Block sb):remain) = ENV su [buildEnvironmentFromStatements su (statements sb), buildEnvironmentFromStatements parent remain]
     where
         cname' = ((scope parent) ++ [[]])

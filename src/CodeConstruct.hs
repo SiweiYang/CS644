@@ -1,5 +1,6 @@
 module CodeConstruct where
 
+import           Data.Maybe
 import           Data.Either
 
 import           AST          (Expression, Type)
@@ -8,22 +9,138 @@ import           Environment
 import           TypeDatabase
 import           TypeLinking
 
-data ClassConstruct = CC {
-  className :: [String],
-  classFields :: [TypedVar],
-  classMethods :: [MethodLayout]
+
+data FieldType = FT {
+  fieldName :: String,
+  fieldType :: Type,
+  isStatic :: Bool
 }
 
-data MethodConstruct = MC {
-  methodName :: [String],
-  methodParameters :: [TypedVar],
-  methodDefinition :: DFExpression
+--fieldTableOffset :: [FT] -> String -> Int
+--fieldTableOffset [] 
+--fieldTableOffset ft:
+
+buildFieldType :: [Symbol] -> [FieldType]
+buildFieldType st
+  | null st = []
+  | otherwise = case (head st) of
+                  SYM mds ls nm tp -> (FT nm tp (elem "static" mds)):remain
+                  FUNC _ _ _ _ _ -> remain
+                  _ -> error "buildFieldType: not SYM or FUNC"
+      where
+          remain = buildFieldType $ tail st
+
+data ClassConstruct = CC {
+  className :: [String],
+  classFields :: [FieldType],
+  classSymbol :: Symbol,
+  classMethods :: [MethodConstruct]
 }
 
 data InstanceConstruct = IC {
   instanceType :: [String],
-  instanceFields :: [TypedVar]
+  instanceFields :: [FieldType]
 }
+
+
+
+buildClassConstruct :: TypeNode -> [[String]] -> Environment -> ClassConstruct
+
+buildClassConstruct db imps (ENV su@(SU _ Package _ _) ch) = buildClassConstruct db imps (head ch)
+buildClassConstruct db imps (ENV su@(SU cname Class st parent) ch) = CC cname ft sym mtdc
+  where
+    ft = filter isStatic $ buildFieldType st
+    [sym] = symbolTable parent
+    mtds = [(ENV (SU cname' (Method sym') st' parent') ch') | (ENV (SU cname' (Method sym') st' parent') ch') <- ch]
+    mtdc = map (buildMethodConstruct db imps) mtds
+
+------------------------------------------
+
+data MethodConstruct = MC {
+  methodName :: [String],
+  --methodParameters :: [AST.TypedVar],
+  methodSymbol :: Symbol,
+  methodDefinition :: [DFStatement]
+}
+
+buildMethodConstruct :: TypeNode -> [[String]] -> Environment -> MethodConstruct
+buildMethodConstruct db imps (ENV su@(SU cname (Method sym) _ _) ch) = MC cname sym stmts
+  where
+    stmts = buildDFStatement db imps (head ch)
+
+------------------------------------------
+
+data DFStatement = DFIf {
+  condition :: DFExpression,
+  ifBlock   :: [DFStatement],
+  elseBlock :: [DFStatement]
+} | DFWhile {
+  condition  :: DFExpression,
+  whileBlock :: [DFStatement]
+} | DFFor {
+  initializer :: DFStatement,
+  condition   :: DFExpression,
+  finalizer   :: DFStatement,
+  forBlock    :: [DFStatement]
+} | DFExpr DFExpression | DFReturn (Maybe DFExpression) | DFBlock [DFStatement]
+
+
+buildDFStatement :: TypeNode -> [[String]] -> Environment -> [DFStatement]
+buildDFStatement db imps ENVE = []
+
+buildDFStatement db imps (ENV (SU _ Statement _ _) ch) = (DFBlock block):remain
+  where
+    stmtch = map (buildDFStatement db imps) ch
+    block = head stmtch
+    remain = last stmtch
+
+
+buildDFStatement db imps (ENV su@(SU _ (Var expr) st _) ch) = (DFExpr dfexpr):remain
+  where
+    remain = head $ map (buildDFStatement db imps) ch
+    [(SYM _ _ nm _)] = st
+    newExpr = AST.Binary "=" (AST.ID (AST.Name [nm]) 0) expr 0
+    dfexpr = buildDFExpression db imps su [] newExpr
+
+buildDFStatement db imps (ENV su@(SU _ (Exp expr) _ _) ch) = (DFExpr dfexpr):remain
+  where
+    remain = head $ map (buildDFStatement db imps) ch
+    dfexpr = buildDFExpression db imps su [] expr
+
+
+buildDFStatement db imps (ENV su@(SU _ (IfBlock expr) _ _) ch) = (DFIf dfexpr ifpart elsepart):remain
+  where
+    stmtch = map (buildDFStatement db imps) ch
+    dfexpr = buildDFExpression db imps su [] expr
+    ifpart = head stmtch
+    elsepart = head $ tail stmtch
+    remain = last stmtch
+
+
+buildDFStatement db imps (ENV su@(SU _ (Ret expr) _ _) ch) = (DFReturn dfexpr):remain
+  where
+    remain = head $ map (buildDFStatement db imps) ch
+    dfexpr = if (isNothing expr) then Nothing else Just dfexpr'
+    dfexpr' = buildDFExpression db imps su [] (fromJust expr)
+
+
+buildDFStatement db imps (ENV su@(SU _ (WhileBlock expr) _ _) ch) = (DFWhile dfexpr whilepart):remain
+  where
+    stmtch = map (buildDFStatement db imps) ch
+    dfexpr = buildDFExpression db imps su [] expr
+    whilepart = head stmtch
+    remain = last $ stmtch
+
+buildDFStatement db imps (ENV (SU _ ForBlock _ _) ch) = (DFFor initstmt expr forstmt forblock):remain
+  where
+    stmtch = map (buildDFStatement db imps) ch
+    initstmt = head $ head stmtch
+    DFExpr expr = head $ head $ tail stmtch
+    forstmt = head $ head $ tail $ tail stmtch
+    forblock = head $ tail $ tail $ tail stmtch
+    remain = last $ stmtch
+
+------------------------------------------
 
 data DFExpression = FunctionCall Symbol [DFExpression]
                   | Unary { op :: String, expr :: DFExpression }
@@ -39,20 +156,6 @@ data DFExpression = FunctionCall Symbol [DFExpression]
                   | This
                   | Null
                   | NOOP
-
-data DFStatement = DFIf {
-  condition :: DFExpression,
-  ifBlock   :: [DFStatement],
-  elseBlock :: [DFStatement]
-} | DFWhile {
-  condition  :: DFExpression,
-  whileBlock :: [DFStatement]
-} | DFFor {
-  initializer :: DFStatement,
-  condition   :: DFExpression,
-  finalizer   :: DFStatement,
-  forBlock    :: [DFStatement]
-} | DFExpr DFExpression | DFReturn (Maybe DFExpression) | DFBlock [DFStatement]
 
 
 buildDFExpression :: TypeNode -> [[String]] -> SemanticUnit -> [Type] -> Expression -> DFExpression
