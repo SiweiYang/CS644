@@ -8,6 +8,7 @@ import System.Exit
 import System.IO
 
 import AST
+import CodeConstruct
 import Environment
 import Hierarchy
 import Lexical
@@ -17,6 +18,7 @@ import Scanner
 import TypeDatabase
 import TypeLinking
 import Weeder
+import CodeConstruct
 
 main :: IO ()
 main = do
@@ -136,14 +138,14 @@ main = do
     hPutStrLn stderr "Hierarchy: OK"
 
   -- Update DB with inheritance relations
-  let cn = dumpDBNodes db  
+  let cn = dumpDBNodes db
   let relationsCL = [((typeToName . localType . symbol) node, (map (typeToName . localType . symbol) (filter isCLNode $ getClassHierarchyForSymbol node db))) | node <- cn, isCLNode node]
   let relationsIT = [((typeToName . localType . symbol) node, (map (typeToName . localType . symbol) (getClassHierarchyForSymbol node db))) | node <- cn, isITNode node]
   hPutStrLn stderr (show relationsCL)
   hPutStrLn stderr (show relationsIT)
 
 
-  let mdb' = updateDBWithInheritances db (relationsCL ++ relationsIT) 
+  let mdb' = updateDBWithInheritances db (relationsCL ++ relationsIT)
   if isNothing mdb' then do
     hPutStrLn stderr "Inheritance DB building error!"
     exitWith (ExitFailure 42)
@@ -187,12 +189,23 @@ main = do
     hPutStrLn stderr "Completability: OK"
 
 
+  -- CLASS RECONSTRUCT
+  let reconstructedCLASS = map (\(imp, Just env, fn) -> (imp, (buildClassConstruct db' imp env), fn)) listImpEnvFns
+  -- do
+    --hPutStrLn stderr (intercalate "\n------------------------\n" $ map (\(_, x, _) -> show x) reconstructedCLASS)
+
+
   -- The compiler is currently hard-coded to write an executable that will return exit code 200
-  writeFile "output/temp.s" $ unlines ["global _start",
+  writeFile "output/main.s" $ unlines ["global _start",
+                                       "extern _test",
                                        "section .text",
-                                       "  _start:",
-                                       "  mov eax, 1",
-                                       "  mov ebx, 200",
-                                       "  int 0x80"]
+                                       "_start:",
+                                       "call _test",
+                                       "mov ebx, eax",
+                                       "mov eax, 1",
+                                       "int 0x80"]
+
+  let firstClass = head $ filter isJust $ map (\(_,cls,_) -> cls) reconstructedCLASS
+  writeFile "output/temp.s" $ unlines . genAsm $ fromJust firstClass
 
 
