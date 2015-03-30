@@ -10,11 +10,11 @@ import AST
 import TypeChecking
 
 typeLinkingFailure :: String -> [Type]
---typeLinkingFailure msg = error msg
-typeLinkingFailure msg = []
+typeLinkingFailure msg = error msg
+--typeLinkingFailure msg = []
 typeLinkingFailure' :: String -> [Symbol]
---typeLinkingFailure' msg = error msg
-typeLinkingFailure' msg = []
+typeLinkingFailure' msg = error msg
+--typeLinkingFailure' msg = []
 
 
 typeLinkingCheck :: TypeNode -> [[String]] -> Environment -> [Type]
@@ -234,7 +234,7 @@ symbolLinkingExpr db imps su expr@(Attribute s m _) = case typeLinkingExpr db im
 
 symbolLinkingExpr db imps su (FunctionCall exprf args _) = if atsFailed then typeLinkingFailure' $ "Function types of Args " ++ (show ats) else
                                                             case fss' of
-                                                                [] -> typeLinkingFailure' ("Function cannot find " ++ (show exprf) ++ (show fss) ++ (show args))
+                                                                [] -> typeLinkingFailure' ("Function cannot find " ++ (show $ traverseFieldEntryWithImports db imps ["Arrays", "equals"]) ++ (show exprf) ++ (show fss) ++ (show args))
                                                                 [fs] -> [fs]
                                                                 _ -> typeLinkingFailure' ("Function find multi " ++ (show exprf) ++ (show args))
         where
@@ -292,7 +292,8 @@ typeLinkingName' db imps su (Name cname@(nm:remain)) = map symbolToType (symbolL
 symbolLinkingName :: TypeNode -> [[String]] -> SemanticUnit -> Name -> [Symbol]
 symbolLinkingName db imps su (Name cname@(nm:remain)) = case syms'' of
                                                         [] -> case symsInheritance''' of
-                                                                [] -> lookUpDBSymbol db imps su (nm:remain)
+                                                                --[] -> if cname == ["Arrays", "equals"] then error (show $ lookUpDBSymbol db imps su cname) else lookUpDBSymbol db imps su cname
+                                                                [] -> lookUpDBSymbol db imps su cname
                                                                 _ -> symsInheritance''
                                                         _ -> syms''
 	where

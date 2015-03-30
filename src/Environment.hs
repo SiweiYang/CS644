@@ -1,38 +1,49 @@
 module Environment where
 
-import Control.Monad
-import Data.List
-import Data.Maybe
+import           Control.Monad
+import           Data.List
+import           Data.Maybe
 
-import AST
-import Util
+import           AST
+import           Util
 
 data Kind = Package | Class | Interface | Method Symbol | Field Symbol (Maybe Expression) | Statement | Var Expression | Exp Expression | Ret (Maybe Expression) | WhileBlock Expression | IfBlock Expression | ForBlock deriving (Eq, Show)
 
 data Symbol = SYM {
     symbolModifiers :: [String],
-    localScope :: [String],
-    localName :: String,
-    localType :: Type
+    localScope      :: [String],
+    localName       :: String,
+    localType       :: Type
 }           | PKG {
     localName :: String
 }           | CL {
     symbolModifiers :: [String],
-    localName :: String,
-    localType :: Type,
-    astUnit :: CompilationUnit
+    localName       :: String,
+    localType       :: Type,
+    astUnit         :: CompilationUnit
 }           | IT {
     symbolModifiers :: [String],
-    localName :: String,
-    localType :: Type,
-    astUnit :: CompilationUnit
+    localName       :: String,
+    localType       :: Type,
+    astUnit         :: CompilationUnit
 }           | FUNC {
     symbolModifiers :: [String],
-    localScope :: [String],
-    localName :: String,
-    parameterTypes :: [Type],
-    localType :: Type
-} deriving (Eq, Show)
+    localScope      :: [String],
+    localName       :: String,
+    parameterTypes  :: [Type],
+    localType       :: Type
+} deriving (Show)
+
+
+symbolToOrd (PKG nm)    = (0, [], nm, [])
+symbolToOrd (CL _ _ lt _)= (1, typeToOrd lt, "", [])
+symbolToOrd (IT _ _ lt _)= (2, typeToOrd lt, "", [])
+symbolToOrd (SYM mds ls ln tp)= (3, ls, ln, [])
+symbolToOrd (FUNC _ ls ln pt _)= (4, ls, ln, map typeToOrd pt)
+instance Eq Symbol where
+  sym1 == sym2 = symbolToOrd sym1 == symbolToOrd sym2
+instance Ord Symbol where
+  sym1 <= sym2 = symbolToOrd sym1 <= symbolToOrd sym2
 
 symbolToType :: Symbol -> Type
 symbolToType (SYM _ _ _ t) = t
@@ -49,8 +60,8 @@ isFunction _ = False
 data SemanticUnit = Root {
     scope :: [String]
 }                   | SU {
-    scope :: [String],
-    kind :: Kind,
+    scope       :: [String],
+    kind        :: Kind,
     symbolTable :: [Symbol],
     inheritFrom :: SemanticUnit
 } deriving (Eq)

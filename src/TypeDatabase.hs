@@ -47,12 +47,16 @@ isCLNode tn = case symbol tn of
 isITNode tn = case symbol tn of
                 IT _ _ _ _ -> True
                 _ -> False
+isSYMNode tn = case symbol tn of
+                SYM _ _ _ _ -> True
+                _ -> False
+isFUNCNode tn = case symbol tn of
+                FUNC _ _ _ _ _ -> True
+                _ -> False
 isConcreteNode tn = (isCLNode tn) || (isITNode tn) 
 
-isSYMFUNCNode tn = case symbol tn of
-                            FUNC _ _ _ _ _ -> True
-                            SYM _ _ _ _ -> True
-                            _ -> False
+isSYMFUNCNode tn = (isSYMNode tn) || (isFUNCNode tn)
+
 
 instance Show TypeNode where
     show (TN sym nodes) =   "{\n" ++
@@ -62,11 +66,31 @@ instance Show TypeNode where
         where
             lns = map show (filter isVisibleClassNode nodes)
 
-symbolToLabel :: TypeNode -> Symbol -> String
-symbolToLabel db sym = ""                                            
+generateConcretePair :: TypeNode -> [(Symbol, String)]
+generateConcretePair db = [(symbol node, ((intercalate "_") . typeToName . symbolToType . symbol) node) | node <- nodes]
+  where
+    nodes = dumpDBNodes db
 
-symbolToLabel' :: TypeNode -> Symbol -> String
-symbolToLabel' node sym = ""
+generateSYMSPair :: TypeNode -> [(Symbol, String)]
+generateSYMSPair db = concat $ map generateSYMSPairFromNode nodes'
+  where
+    nodes = dumpDBNodes db
+    nodes' = filter isCLNode nodes
+generateSYMSPairFromNode :: TypeNode -> [(Symbol, String)]
+generateSYMSPairFromNode (TN _ nodes) = [(node, intercalate "_" (ls ++ [ln])) | node@(SYM mds ls ln _) <- map symbol nodes]
+  where
+    nodes' = [node | node@(SYM mds _ _ _) <- map symbol nodes, elem "static" mds]
+
+generateFUNCPair :: TypeNode -> [(Symbol, String)]
+generateFUNCPair db = [(func, lb ++ "_" ++ (show i))  | ((func, lb), i) <- zip pairs [0..]]
+  where
+    nodes = dumpDBNodes db
+    pairs = concat $ map generateFUNCPairFromNode nodes
+
+generateFUNCPairFromNode :: TypeNode -> [(Symbol, String)]
+generateFUNCPairFromNode (TN _ nodes) = [(node, intercalate "_" (ls ++ [ln])) | node@(FUNC mds ls ln _ _) <- map symbol nodes']
+  where
+    nodes' = filter isFUNCNode nodes
 
 getTypeEntry :: TypeNode -> [String] -> Maybe TypeNode
 getTypeEntry tn name = case traverseTypeEntry tn name of

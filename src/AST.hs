@@ -467,6 +467,10 @@ instance Eq Type where
   Array tp == Array tp' = tp == tp'
   _ == _ = False
 
+typeToOrd (Function (Name nm) ps rt) = nm ++ [intercalate "_" (map ((intercalate "_") . typeToOrd) ps)]
+typeToOrd (Array tp) = "Array":(typeToOrd tp)
+typeToOrd tp = typeToName tp
+
 typeToName TypeByte = ["Byte"]
 typeToName TypeShort = ["Short"]
 typeToName TypeInt = ["Int"]

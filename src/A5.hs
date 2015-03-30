@@ -2,6 +2,7 @@ module Main where
 
 import Data.List
 import Data.Maybe
+import Data.Map(fromList)
 import System.Environment
 import System.Exit
 import System.IO
@@ -150,6 +151,12 @@ main = do
     hPutStrLn stderr "Inheritance DB: OK"
   let Just db' = mdb'
 
+  let tlb = generateConcretePair db'
+  let sslb = generateSYMSPair db'
+  let flb = generateFUNCPair db'
+  let labelDB = fromList (tlb ++ sslb ++ flb)
+  --hPutStrLn stderr (show $ flb)
+
   let failures = filter (\(imp, Just env, fn) ->  typeLinkingCheck db' imp env == []) listImpEnvFns
   if length failures > 0 then do
     hPutStrLn stderr "Type Linking error!"
@@ -157,6 +164,7 @@ main = do
     exitWith (ExitFailure 42)
   else do
     hPutStrLn stderr "Type Linking: OK"
+
 
   -- REACHABILITY TESTING
   let reachabilityResults = map (\x -> unreachable . fst $ x) fileAsts
