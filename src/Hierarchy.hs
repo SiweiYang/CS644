@@ -235,13 +235,14 @@ higherInChain symA@(CL _ _ _ unitA) symB@(IT _ _ _ _) typeDB
   where hierarchyClass = map symbol $ getClassHierarchy unitA typeDB
         hierarchyInterface = map symbol $ concat $ map (\x -> getClassInterfaces (astUnit x) typeDB) hierarchyClass
 
-higherInChain _ _ _ = error "higherInChain: casting an interface to a class"
-{-
-higherInChain symA@(IT _ _ _ _) symB@(CL _ _ _ unitB) typeDB
-  | symA `elem` hierarchyB = Just symA
-  | otherwise = Nothing
-  where hierarchyB = map symbol $ getClassHierarchy unitB typeDB
--}
+higherInChain _ _ _ = Nothing--error "higherInChain: casting an interface to a class"
+
+isA :: TypeNode -> Symbol -> Symbol -> Bool
+isA db symA symB = case parent of
+                     Just sym -> sym == symB
+                     _ -> False
+  where
+    parent = higherInChain symA symB db
 
 hasDefaultConstructor :: TypeNode -> Bool
 hasDefaultConstructor node@(TN sym@(CL _ _ _ unit@(Comp _ _ (CLS _ _ _ _ constructors _ _ _) _)) _) =

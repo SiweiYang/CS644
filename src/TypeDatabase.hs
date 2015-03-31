@@ -26,7 +26,7 @@ runtimeClass = CLS ["public"] "Runtime" (Just ["Object"]) [[]] [] [] [] (CLSI []
 runtimeUnit = Comp (Just ["joosc native"]) [] runtimeClass (CompI Nothing [])
 
 runtimeSYM = (TypeClass (Name ["joosc native", "Runtime"]))
-runtimeMalloc = TN (FUNC ["public", "final"] ["joosc native", "Runtime"] "malloc" [TypeInt] TypeInt) []
+runtimeMalloc = TN (FUNC ["public", "static", "final"] ["joosc native", "Runtime"] "malloc" [TypeInt] TypeInt) []
 runtimeTN  = TN (CL ["public"] "Runtime" runtimeSYM runtimeUnit) [runtimeMalloc]
 
 

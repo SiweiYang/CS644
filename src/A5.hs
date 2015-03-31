@@ -2,7 +2,7 @@ module Main where
 
 import Data.List
 import Data.Maybe
-import Data.Map(fromList)
+import Data.Map(size, fromList)
 import System.Environment
 import System.Exit
 import System.IO
@@ -19,12 +19,13 @@ import TypeDatabase
 import TypeLinking
 import Weeder
 import CodeConstruct
+import Inheritance
 
 main :: IO ()
 main = do
   -- Get the files to compile from the args
   givenFileNames <- getArgs
-  let allFileNames = givenFileNames ++ ["./res/ObjectInterface.java"]
+  let allFileNames = givenFileNames ++ ["./res/ObjectInterface.java", "./res/NativeArray.java"]
 
   -- Read their contents
   fileContents <- mapM readFile allFileNames
@@ -69,7 +70,10 @@ main = do
 
 
   -- AST GENERATION
-  let fileAsts = map (\x -> ((buildAST . units . fst $ fst x), snd x)) validParsed
+  let fileAsts' = map (\x -> ((buildAST . units . fst $ fst x), snd x)) validParsed
+  let fileAsts = map (\(cu, fn) -> if fn == "./res/NativeArray.java"
+                                      then (updatePackage cu ["joosc native"], fn)
+                                      else (cu, fn)) fileAsts'
 
   -- WEEDING
   let weedResults = map (\x -> weed (snd x) (fst x)) fileAsts
@@ -84,6 +88,7 @@ main = do
 
   -- ENVIRONMENT CONSTRUCTION
   let fileEnvironments = map (\x -> (buildEnvironment $ fst x, snd x)) fileAsts
+  hPutStrLn stderr $ "Files: " ++ (show $ map snd fileAsts)
   let fileEnvironmentWithImports = map (\x -> (visibleImports $ fst x, buildEnvironment $ fst x, snd x)) fileAsts
 
   let (validEnvironments, invalidEnvironments) = partition (\x -> case (fst x) of {ENVE -> False; _ -> True}) fileEnvironments
@@ -152,12 +157,7 @@ main = do
   else do
     hPutStrLn stderr "Inheritance DB: OK"
   let Just db' = mdb'
-
-  let tlb = generateConcretePair db'
-  let sslb = generateSYMSPair db'
-  let flb = generateFUNCPair db'
-  let labelDB = fromList (tlb ++ sslb ++ flb)
-  --hPutStrLn stderr (show $ flb)
+  hPutStrLn stderr $ show $ map (\(imp, Just env, fn) -> (imp, fn)) listImpEnvFns
 
   let failures = filter (\(imp, Just env, fn) ->  typeLinkingCheck db' imp env == []) listImpEnvFns
   if length failures > 0 then do
@@ -188,6 +188,12 @@ main = do
   else do
     hPutStrLn stderr "Completability: OK"
 
+  -- Create Hierarchy Information
+  let typeIDMap = createTypeID db'
+  let functionIDMap = createFUNCID db'
+  let typeCharacteristicBM = createTypeCharacteristicBM db'
+  hPutStrLn stderr $ "Total Number of Functions: " ++ show (size functionIDMap)
+  hPutStrLn stderr $ "Type Characteristic BitMap: " ++ show typeCharacteristicBM
 
   -- CLASS RECONSTRUCT
   let reconstructedCLASS = map (\(imp, Just env, fn) -> (imp, (buildClassConstruct db' imp env), fn)) listImpEnvFns

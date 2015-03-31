@@ -100,6 +100,9 @@ data CompilationUnit = Comp { package :: Maybe [String],
                               cui :: CompilationUnitInfo
                               }
 
+updatePackage :: CompilationUnit -> [String] -> CompilationUnit
+updatePackage (Comp mpgk imps def cui) pkg = Comp (Just pkg) imps def cui
+
 data CompilationUnitInfo = CompI { packageInfo :: Maybe ASTInfo,
                                    importsInfo :: [ASTInfo]
                                    } deriving (Show)
