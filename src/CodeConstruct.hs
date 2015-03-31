@@ -37,11 +37,17 @@ data ClassConstruct = CC {
   classMethods :: [MethodConstruct]
 }
 
+data InstanceConstruct = IC {
+  instanceType :: [String],
+  instanceFields :: [FieldType]
+}
+
+
 buildClassConstruct :: TypeNode -> [[String]] -> Environment -> ClassConstruct
 
 buildClassConstruct db imps (ENV su@(SU cname Class st parent) ch) = CC cname ft sym mtdc
   where
-    ft = buildFieldType st
+    ft = filter isStatic $ buildFieldType st
     [sym] = symbolTable parent
     mtds = [(ENV (SU cname' (Method sym') st' parent') ch') | (ENV (SU cname' (Method sym') st' parent') ch') <- ch]
     mtdc = map (buildMethodConstruct db imps) mtds
@@ -59,14 +65,6 @@ buildMethodConstruct :: TypeNode -> [[String]] -> Environment -> MethodConstruct
 buildMethodConstruct db imps (ENV su@(SU cname (Method sym) _ _) ch) = MC cname sym stmts
   where
     stmts = buildDFStatement db imps (head ch)
-
-------------------------------------------
-
-data InstanceConstruct = IC {
-  instanceType :: [String],
-  instanceFields :: [FieldType]
-}
-
 
 ------------------------------------------
 
