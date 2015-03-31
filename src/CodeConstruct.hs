@@ -315,7 +315,7 @@ genStmtAsm (DFIf cond trueBlock falseBlock) =
   let condCode = genExprAsm cond
       trueCode = concat $ map genStmtAsm trueBlock
       falseCode = concat $ map genStmtAsm falseBlock
-  in ["; If statement", "; cond"] ++ condCode ++ ["; true"] ++ trueCode ++ ["; false"]
+  in ["; If statement"] ++ condCode ++ ["cmp eax, 1", "jne false_part"] ++ trueCode ++ ["jmp end","false_part:"] ++ falseCode ++ ["end:"]
 genStmtAsm (DFWhile cond body) =
   let condCode = genExprAsm cond
       bodyCode = concat $ map genStmtAsm body
