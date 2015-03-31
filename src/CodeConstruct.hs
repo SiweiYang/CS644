@@ -43,8 +43,10 @@ data InstanceConstruct = IC {
 }
 
 
+
 buildClassConstruct :: TypeNode -> [[String]] -> Environment -> ClassConstruct
 
+buildClassConstruct db imps (ENV su@(SU _ Package _ _) ch) = buildClassConstruct db imps (head ch)
 buildClassConstruct db imps (ENV su@(SU cname Class st parent) ch) = CC cname ft sym mtdc
   where
     ft = filter isStatic $ buildFieldType st
