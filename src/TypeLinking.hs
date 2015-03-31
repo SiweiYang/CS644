@@ -364,7 +364,6 @@ scopeOffset su sym = if syms == [sym]
                        then scopeOffset' (inheritFrom su)
                        else scopeOffset (inheritFrom su) sym
   where
-    kd = kind su
     syms = symbolTable su
 
 scopeReturnType :: SemanticUnit -> Type

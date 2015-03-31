@@ -9,37 +9,66 @@ import           Environment
 import           TypeDatabase
 import           TypeLinking
 
+
+data FieldType = FT {
+  fieldName :: String,
+  fieldType :: Type,
+  isStatic :: Bool
+}
+
+--fieldTableOffset :: [FT] -> String -> Int
+--fieldTableOffset [] 
+--fieldTableOffset ft:
+
+buildFieldType :: [Symbol] -> [FieldType]
+buildFieldType st
+  | null st = []
+  | otherwise = case (head st) of
+                  SYM mds ls nm tp -> (FT nm tp (elem "static" mds)):remain
+                  FUNC _ _ _ _ _ -> remain
+                  _ -> error "buildFieldType: not SYM or FUNC"
+      where
+          remain = buildFieldType $ tail st
+
 data ClassConstruct = CC {
   className :: [String],
-  classFields :: [AST.TypedVar],
-  classMethods :: [MethodConstruct]--[MethodLayout]
+  classFields :: [FieldType],
+  classSymbol :: Symbol,
+  classMethods :: [MethodConstruct]
 }
+
+buildClassConstruct :: TypeNode -> [[String]] -> Environment -> ClassConstruct
+
+buildClassConstruct db imps (ENV su@(SU cname Class st parent) ch) = CC cname ft sym mtdc
+  where
+    ft = buildFieldType st
+    [sym] = symbolTable parent
+    mtds = [(ENV (SU cname' (Method sym') st' parent') ch') | (ENV (SU cname' (Method sym') st' parent') ch') <- ch]
+    mtdc = map (buildMethodConstruct db imps) mtds
+
+------------------------------------------
 
 data MethodConstruct = MC {
   methodName :: [String],
-  methodParameters :: [AST.TypedVar],
-  methodDefinition :: DFStatement
+  --methodParameters :: [AST.TypedVar],
+  methodSymbol :: Symbol,
+  methodDefinition :: [DFStatement]
 }
+
+buildMethodConstruct :: TypeNode -> [[String]] -> Environment -> MethodConstruct
+buildMethodConstruct db imps (ENV su@(SU cname (Method sym) _ _) ch) = MC cname sym stmts
+  where
+    stmts = buildDFStatement db imps (head ch)
+
+------------------------------------------
 
 data InstanceConstruct = IC {
   instanceType :: [String],
-  instanceFields :: [AST.TypedVar]
+  instanceFields :: [FieldType]
 }
 
-data DFExpression = FunctionCall Symbol [DFExpression]
-                  | Unary { op :: String, expr :: DFExpression }
-                  | Binary { op :: String, exprL :: DFExpression, exprR :: DFExpression }
-                  | Attribute { struct :: DFExpression, mem :: Symbol }
-                  | ArrayAccess { array :: DFExpression, index :: DFExpression }
-                  | NewArray { arraytype :: Type, dimexprs :: DFExpression }
-                  | NewObject { classtype :: Type, arguments :: [DFExpression] }
-                  | InstanceOf { reftype :: Type, expr :: DFExpression }
-                  | Cast {reftype :: Type, expr :: DFExpression }
-                  | ID { identifier :: Either Int Symbol }
-                  | Value { valuetype :: Type, value :: String }
-                  | This
-                  | Null
-                  | NOOP
+
+------------------------------------------
 
 data DFStatement = DFIf {
   condition :: DFExpression,
@@ -56,13 +85,6 @@ data DFStatement = DFIf {
 } | DFExpr DFExpression | DFReturn (Maybe DFExpression) | DFBlock [DFStatement]
 
 
-
---buildMethodConstruct :: TypeNode -> [[String]] -> Environment -> [MethodConstruct]
---buildMethodConstruct db imps ENVE = []
-
---buildMethodConstruct db imps (ENV (SU _ (Method sym) _ _) ch) = 
-
-
 buildDFStatement :: TypeNode -> [[String]] -> Environment -> [DFStatement]
 buildDFStatement db imps ENVE = []
 
@@ -72,6 +94,13 @@ buildDFStatement db imps (ENV (SU _ Statement _ _) ch) = (DFBlock block):remain
     block = head stmtch
     remain = last stmtch
 
+
+buildDFStatement db imps (ENV su@(SU _ (Var expr) st _) ch) = (DFExpr dfexpr):remain
+  where
+    remain = head $ map (buildDFStatement db imps) ch
+    [(SYM _ _ nm _)] = st
+    newExpr = AST.Binary "=" (AST.ID (AST.Name [nm]) 0) expr 0
+    dfexpr = buildDFExpression db imps su [] newExpr
 
 buildDFStatement db imps (ENV su@(SU _ (Exp expr) _ _) ch) = (DFExpr dfexpr):remain
   where
@@ -111,6 +140,22 @@ buildDFStatement db imps (ENV (SU _ ForBlock _ _) ch) = (DFFor initstmt expr for
     forblock = head $ tail $ tail $ tail stmtch
     remain = last $ stmtch
 
+------------------------------------------
+
+data DFExpression = FunctionCall Symbol [DFExpression]
+                  | Unary { op :: String, expr :: DFExpression }
+                  | Binary { op :: String, exprL :: DFExpression, exprR :: DFExpression }
+                  | Attribute { struct :: DFExpression, mem :: Symbol }
+                  | ArrayAccess { array :: DFExpression, index :: DFExpression }
+                  | NewArray { arraytype :: Type, dimexprs :: DFExpression }
+                  | NewObject { classtype :: Type, arguments :: [DFExpression] }
+                  | InstanceOf { reftype :: Type, expr :: DFExpression }
+                  | Cast {reftype :: Type, expr :: DFExpression }
+                  | ID { identifier :: Either Int Symbol }
+                  | Value { valuetype :: Type, value :: String }
+                  | This
+                  | Null
+                  | NOOP
 
 
 buildDFExpression :: TypeNode -> [[String]] -> SemanticUnit -> [Type] -> Expression -> DFExpression
