@@ -44,57 +44,83 @@ data Lex Lex66,67
 data Lex = Lex Lex66,67
 instance instance67,68
 
-./src/CodeConstruct.hs,2325
+./src/CodeConstruct.hs,3377
 module CodeConstruct CodeConstruct0,1
-data ClassLayout ClassLayout9,10
-data ClassLayout = CL CL9,10
-  className className10,11
-data MethodLayout MethodLayout13,14
-data MethodLayout = ML ML13,14
-  methodName methodName14,15
-data DFExpression DFExpression17,18
-data DFExpression = FunctionApplication FunctionApplication17,18
-                  | Unary Unary18,19
-                  | Unary { op op18,19
-                  | Unary { op :: String, expr expr18,19
-                  | Binary Binary19,20
-                  | Binary { op op19,20
-                  | Binary { op :: String, exprL exprL19,20
-                  | Binary { op :: String, exprL :: DFExpression, exprR exprR19,20
-                  | Attribute Attribute20,21
-                  | Attribute { struct struct20,21
-                  | Attribute { struct :: DFExpression, mem mem20,21
-                  | ArrayAccess ArrayAccess21,22
-                  | ArrayAccess { array array21,22
-                  | ArrayAccess { array :: DFExpression, index index21,22
-                  | NewArray NewArray22,23
-                  | NewArray { arraytype arraytype22,23
-                  | NewArray { arraytype :: Type, dimexprs dimexprs22,23
-                  | Dimension Dimension23,24
-                  | Dimension { left left23,24
-                  | Dimension { left :: DFExpression, index index23,24
-                  | NewObject NewObject24,25
-                  | NewObject { classtype classtype24,25
-                  | NewObject { classtype :: Type, arguments arguments24,25
-                  | InstanceOf InstanceOf28,29
-                  | InstanceOf { reftype reftype28,29
-                  | InstanceOf { reftype :: Type, expr expr28,29
-                  | ID ID29,30
-                  | ID { identifier identifier29,30
-                  | Value Value30,31
-                  | Value { valuetype valuetype30,31
-                  | Value { valuetype :: Type, value value30,31
-                  | ThisThis31,32
-                  | NullNull32,33
-data DFStatement DFStatement34,35
-data DFStatement = DFIf DFIf34,35
-  condition condition35,36
-  ifBlock ifBlock36,37
-  elseBlock elseBlock37,38
-buildDFExpression buildDFExpression49,50
-buildDFExpression buildDFExpression51,52
+data FieldType FieldType12,13
+data FieldType = FT FT12,13
+  fieldName fieldName13,14
+  fieldType fieldType14,15
+  isStatic isStatic15,16
+--fieldTableOffset --fieldTableOffset18,19
+buildFieldType buildFieldType22,23
+buildFieldType buildFieldType23,24
+data ClassConstruct ClassConstruct32,33
+data ClassConstruct = CC CC32,33
+  className className33,34
+  classFields classFields34,35
+  classSymbol classSymbol35,36
+  classMethods classMethods36,37
+data InstanceConstruct InstanceConstruct39,40
+data InstanceConstruct = IC IC39,40
+  instanceType instanceType40,41
+  instanceFields instanceFields41,42
+buildClassConstruct buildClassConstruct46,47
+buildClassConstruct buildClassConstruct48,49
+data MethodConstruct MethodConstruct58,59
+data MethodConstruct = MC MC58,59
+  methodName methodName59,60
+  --methodParameters --methodParameters60,61
+  methodSymbol methodSymbol61,62
+  methodDefinition methodDefinition62,63
+buildMethodConstruct buildMethodConstruct65,66
+buildMethodConstruct buildMethodConstruct66,67
+data DFStatement DFStatement72,73
+data DFStatement = DFIf DFIf72,73
+  condition condition73,74
+  ifBlock ifBlock74,75
+  elseBlock elseBlock75,76
+buildDFStatement buildDFStatement87,88
+buildDFStatement buildDFStatement88,89
+data DFExpression DFExpression144,145
+data DFExpression = FunctionCall FunctionCall144,145
+                  | Unary Unary145,146
+                  | Unary { op op145,146
+                  | Unary { op :: String, expr expr145,146
+                  | Binary Binary146,147
+                  | Binary { op op146,147
+                  | Binary { op :: String, exprL exprL146,147
+                  | Binary { op :: String, exprL :: DFExpression, exprR exprR146,147
+                  | Attribute Attribute147,148
+                  | Attribute { struct struct147,148
+                  | Attribute { struct :: DFExpression, mem mem147,148
+                  | ArrayAccess ArrayAccess148,149
+                  | ArrayAccess { array array148,149
+                  | ArrayAccess { array :: DFExpression, index index148,149
+                  | NewArray NewArray149,150
+                  | NewArray { arraytype arraytype149,150
+                  | NewArray { arraytype :: Type, dimexprs dimexprs149,150
+                  | NewObject NewObject150,151
+                  | NewObject { classtype classtype150,151
+                  | NewObject { classtype :: Type, arguments arguments150,151
+                  | InstanceOf InstanceOf151,152
+                  | InstanceOf { reftype reftype151,152
+                  | InstanceOf { reftype :: Type, expr expr151,152
+                  | Cast Cast152,153
+                  | Cast {reftype reftype152,153
+                  | Cast {reftype :: Type, expr expr152,153
+                  | ID ID153,154
+                  | ID { identifier identifier153,154
+                  | Value Value154,155
+                  | Value { valuetype valuetype154,155
+                  | Value { valuetype :: Type, value value154,155
+                  | ThisThis155,156
+                  | NullNull156,157
+                  | NOOPNOOP157,158
+buildDFExpression buildDFExpression160,161
+buildDFExpression buildDFExpression162,163
+buildMalloc buildMalloc222,223
 
-./src/Environment.hs,3054
+./src/Environment.hs,3078
 data Kind Kind9,10
 data Kind = Package Package9,10
 data Kind = Package | Class Class9,10
@@ -105,9 +131,9 @@ data Kind = Package | Class | Interface | Method Symbol | Field Symbol (Maybe Ex
 data Kind = Package | Class | Interface | Method Symbol | Field Symbol (Maybe Expression) | Statement | Var Var9,10
 data Kind = Package | Class | Interface | Method Symbol | Field Symbol (Maybe Expression) | Statement | Var Expression | Exp Exp9,10
 data Kind = Package | Class | Interface | Method Symbol | Field Symbol (Maybe Expression) | Statement | Var Expression | Exp Expression | Ret Ret9,10
-data Kind = Package | Class | Interface | Method Symbol | Field Symbol (Maybe Expression) | Statement | Var Expression | Exp Expression | Ret Expression | WhileBlock WhileBlock9,10
-data Kind = Package | Class | Interface | Method Symbol | Field Symbol (Maybe Expression) | Statement | Var Expression | Exp Expression | Ret Expression | WhileBlock Expression | IfBlock IfBlock9,10
-data Kind = Package | Class | Interface | Method Symbol | Field Symbol (Maybe Expression) | Statement | Var Expression | Exp Expression | Ret Expression | WhileBlock Expression | IfBlock Expression | ForBlock ForBlock9,10
+data Kind = Package | Class | Interface | Method Symbol | Field Symbol (Maybe Expression) | Statement | Var Expression | Exp Expression | Ret (Maybe Expression) | WhileBlock WhileBlock9,10
+data Kind = Package | Class | Interface | Method Symbol | Field Symbol (Maybe Expression) | Statement | Var Expression | Exp Expression | Ret (Maybe Expression) | WhileBlock Expression | IfBlock IfBlock9,10
+data Kind = Package | Class | Interface | Method Symbol | Field Symbol (Maybe Expression) | Statement | Var Expression | Exp Expression | Ret (Maybe Expression) | WhileBlock Expression | IfBlock Expression | ForBlock ForBlock9,10
 data Symbol Symbol11,12
 data Symbol = SYM SYM11,12
     symbolModifiers symbolModifiers12,13
@@ -162,10 +188,11 @@ main main99,100
 main' main'105,106
 main' main'106,107
 
-./src/A4.hs,56
+./src/A4.hs,75
 module Main Main0,1
-main main19,20
-main main20,21
+main main21,22
+main main22,23
+main' main'29,30
 
 ./src/Parser.hs,1073
 module Parser Parser0,1
@@ -206,52 +233,61 @@ readLR1 readLR185,86
 tokenToAST tokenToAST102,103
 tokenToAST tokenToAST103,104
 
-./src/TypeLinking.hs,1873
+./src/TypeLinking.hs,2257
 module TypeLinking TypeLinking0,1
-typeLinkingFailure typeLinkingFailure9,10
---typeLinkingFailure --typeLinkingFailure10,11
 typeLinkingFailure typeLinkingFailure11,12
-typeLinkingFailure' typeLinkingFailure'12,13
---typeLinkingFailure' --typeLinkingFailure'13,14
+--typeLinkingFailure --typeLinkingFailure12,13
+typeLinkingFailure typeLinkingFailure13,14
 typeLinkingFailure' typeLinkingFailure'14,15
-typeLinkingCheck typeLinkingCheck17,18
-typeLinkingCheck typeLinkingCheck18,19
-typeLinkingPrefix typeLinkingPrefix71,72
-typeLinkingPrefix typeLinkingPrefix72,73
-filterNonFunction filterNonFunction78,79
-typeLinkingExpr typeLinkingExpr82,83
-typeLinkingExpr typeLinkingExpr83,84
---if --if141,142
-typeLinkingExpr' typeLinkingExpr'239,240
-typeLinkingExpr' typeLinkingExpr'240,241
-argsMatching argsMatching256,257
-argsMatching argsMatching257,258
-typeLinkingName typeLinkingName272,273
-typeLinkingName typeLinkingName273,274
-typeLinkingName' typeLinkingName'277,278
-typeLinkingName' typeLinkingName'278,279
-lookUpThis lookUpThis306,307
-lookUpThis lookUpThis307,308
-scopeStatic scopeStatic309,310
-scopeStatic scopeStatic310,311
-scopeLocal scopeLocal320,321
-scopeLocal scopeLocal321,322
-scopeReturnType scopeReturnType330,331
-scopeReturnType scopeReturnType331,332
-lookUpSymbolTable lookUpSymbolTable338,339
-lookUpSymbolTable lookUpSymbolTable339,340
-lookUpDB lookUpDB347,348
-lookUpDB lookUpDB348,349
-checkSameNameInEnvironment checkSameNameInEnvironment362,363
-checkSameNameInEnvironment checkSameNameInEnvironment363,364
-checkSameNameUp checkSameNameUp369,370
-checkSameNameUp checkSameNameUp370,371
-checkSameNameInSymbolTable checkSameNameInSymbolTable386,387
-checkSameNameInSymbolTable checkSameNameInSymbolTable387,388
-forwardSYMInExpr forwardSYMInExpr393,394
-forwardSYMInExpr forwardSYMInExpr394,395
-finalArrayLength finalArrayLength415,416
-finalArrayLength finalArrayLength416,417
+--typeLinkingFailure' --typeLinkingFailure'15,16
+typeLinkingFailure' typeLinkingFailure'16,17
+typeLinkingCheck typeLinkingCheck19,20
+typeLinkingCheck typeLinkingCheck20,21
+typeLinkingPrefix typeLinkingPrefix77,78
+typeLinkingPrefix typeLinkingPrefix78,79
+filterNonFunction filterNonFunction84,85
+typeLinkingExpr typeLinkingExpr88,89
+typeLinkingExpr typeLinkingExpr89,90
+symbolLinkingExpr symbolLinkingExpr218,219
+symbolLinkingExpr symbolLinkingExpr219,220
+argsMatching argsMatching267,268
+argsMatching argsMatching268,269
+typeLinkingName typeLinkingName283,284
+typeLinkingName typeLinkingName284,285
+typeLinkingName' typeLinkingName'288,289
+typeLinkingName' typeLinkingName'289,290
+symbolLinkingName symbolLinkingName291,292
+symbolLinkingName symbolLinkingName292,293
+lookUpThis lookUpThis321,322
+lookUpThis lookUpThis322,323
+scopeConstructor scopeConstructor324,325
+scopeConstructor scopeConstructor325,326
+scopeStatic scopeStatic332,333
+scopeStatic scopeStatic333,334
+scopeLocal scopeLocal343,344
+scopeLocal scopeLocal344,345
+scopeOffsetPos scopeOffsetPos353,354
+scopeOffsetPos scopeOffsetPos354,355
+scopeOffset scopeOffset361,362
+scopeOffset scopeOffset362,363
+scopeReturnType scopeReturnType372,373
+scopeReturnType scopeReturnType373,374
+lookUpSymbolTable lookUpSymbolTable380,381
+lookUpSymbolTable lookUpSymbolTable381,382
+lookUpDB lookUpDB389,390
+lookUpDB lookUpDB390,391
+lookUpDBSymbol lookUpDBSymbol392,393
+lookUpDBSymbol lookUpDBSymbol393,394
+checkSameNameInEnvironment checkSameNameInEnvironment407,408
+checkSameNameInEnvironment checkSameNameInEnvironment408,409
+checkSameNameUp checkSameNameUp414,415
+checkSameNameUp checkSameNameUp415,416
+checkSameNameInSymbolTable checkSameNameInSymbolTable431,432
+checkSameNameInSymbolTable checkSameNameInSymbolTable432,433
+forwardSYMInExpr forwardSYMInExpr438,439
+forwardSYMInExpr forwardSYMInExpr439,440
+finalArrayLength finalArrayLength460,461
+finalArrayLength finalArrayLength461,462
 
 ./src/Reachability.hs,726
 module Reachability Reachability0,1
@@ -577,90 +613,105 @@ data Type = TypeByte | TypeShort | TypeInt | TypeChar | TypeBoolean | TypeNull |
           | TypeClass TypeClass451,452
           | Object Object452,453
           | Array Array453,454
-typeToName typeToName455,456
-data Name Name467,468
-data Name = Name Name467,468
-type Arguments Arguments470,471
-buildArgs buildArgs473,474
-buildArgs buildArgs474,475
-buildName buildName478,479
-buildName buildName479,480
-buildType buildType492,493
-buildType buildType493,494
-buildExp buildExp514,515
-buildExp buildExp515,516
-buildToken buildToken595,596
-buildToken buildToken596,597
---buildToken --buildToken597,598
-findProd findProd599,600
-findProd findProd600,601
-check check602,603
-check check603,604
-expandSingle expandSingle605,606
-expandSingle expandSingle606,607
-literalToType literalToType611,612
-literalToType literalToType612,613
-identifierInExpr identifierInExpr627,628
-identifierInExpr identifierInExpr628,629
+typeToName typeToName469,470
+data Name Name481,482
+data Name = Name Name481,482
+type Arguments Arguments484,485
+buildArgs buildArgs487,488
+buildArgs buildArgs488,489
+buildName buildName492,493
+buildName buildName493,494
+buildType buildType506,507
+buildType buildType507,508
+buildExp buildExp528,529
+buildExp buildExp529,530
+buildToken buildToken609,610
+buildToken buildToken610,611
+--buildToken --buildToken611,612
+findProd findProd613,614
+findProd findProd614,615
+check check616,617
+check check617,618
+expandSingle expandSingle619,620
+expandSingle expandSingle620,621
+literalToType literalToType625,626
+literalToType literalToType626,627
+identifierInExpr identifierInExpr641,642
+identifierInExpr identifierInExpr642,643
 
-./src/TypeDatabase.hs,2449
+./src/TypeDatabase.hs,3021
 module TypeDatabase TypeDatabase0,1
-data TypeNode TypeNode9,10
-data TypeNode = TN TN9,10
-    symbol symbol10,11
-    subNodes subNodes11,12
-arrayClass arrayClass14,15
-arrayUnit arrayUnit15,16
-nativeTypes nativeTypes16,17
-isVisibleClassNode isVisibleClassNode19,20
-isConcreteNode isConcreteNode26,27
-isSYMFUNCNode isSYMFUNCNode31,32
-instance instance36,37
-getTypeEntry getTypeEntry44,45
-getTypeEntry getTypeEntry45,46
-inheritFromNodes inheritFromNodes49,50
-inheritFromNodes inheritFromNodes50,51
-inheritFromTypes inheritFromTypes57,58
-inheritFromTypes inheritFromTypes58,59
-updateNode updateNode64,65
-updateNode updateNode65,66
-updateDBWithInheritance updateDBWithInheritance75,76
-updateDBWithInheritance updateDBWithInheritance76,77
-updateDBWithInheritances updateDBWithInheritances81,82
-updateDBWithInheritances updateDBWithInheritances82,83
-dumpDB dumpDB87,88
-dumpDB dumpDB88,89
-dumpDBNodes dumpDBNodes90,91
-dumpDBNodes dumpDBNodes91,92
-traverseNodeEntry traverseNodeEntry93,94
-traverseNodeEntry traverseNodeEntry94,95
-traverseTypeEntry traverseTypeEntry101,102
-traverseTypeEntry traverseTypeEntry102,103
-traverseTypeEntryWithImports traverseTypeEntryWithImports112,113
-traverseTypeEntryWithImports traverseTypeEntryWithImports113,114
-buildTypeEntryFromSymbol buildTypeEntryFromSymbol129,130
-buildTypeEntryFromSymbol buildTypeEntryFromSymbol130,131
-buildTypeEntryFromEnvironments buildTypeEntryFromEnvironments132,133
-buildTypeEntryFromEnvironments buildTypeEntryFromEnvironments133,134
-buildInstanceEntryFromEnvironments buildInstanceEntryFromEnvironments140,141
-buildInstanceEntryFromEnvironments buildInstanceEntryFromEnvironments141,142
-buildTypeEntry buildTypeEntry148,149
-buildTypeEntry buildTypeEntry149,150
-buildInstanceEntry buildInstanceEntry151,152
-buildInstanceEntry buildInstanceEntry152,153
-buildEntry buildEntry155,156
-buildEntry buildEntry156,157
-buildEntry' buildEntry'191,192
-buildEntry' buildEntry'192,193
-lookUpType lookUpType203,204
-lookUpType lookUpType204,205
-refineTypeWithType refineTypeWithType218,219
-refineTypeWithType refineTypeWithType219,220
-refineSymbolWithType refineSymbolWithType232,233
-refineSymbolWithType refineSymbolWithType233,234
-refineKindWithType refineKindWithType251,252
-refineEnvironmentWithType refineEnvironmentWithType259,260
-refineEnvironmentWithType refineEnvironmentWithType260,261
+data TypeNode TypeNode10,11
+data TypeNode = TN TN10,11
+    symbol symbol11,12
+    subNodes subNodes12,13
+arrayClass arrayClass15,16
+arrayUnit arrayUnit17,18
+arraySYM arraySYM19,20
+arrayConstructor arrayConstructor20,21
+arrayLength arrayLength21,22
+arrayTN arrayTN22,23
+runtimeClass runtimeClass24,25
+runtimeUnit runtimeUnit25,26
+runtimeSYM runtimeSYM27,28
+runtimeMalloc runtimeMalloc28,29
+runtimeTN runtimeTN29,30
+nativeTypes nativeTypes33,34
+isVisibleClassNode isVisibleClassNode37,38
+isConcreteNode isConcreteNode44,45
+isSYMFUNCNode isSYMFUNCNode49,50
+instance instance54,55
+symbolToLabel symbolToLabel62,63
+symbolToLabel symbolToLabel63,64
+symbolToLabel' symbolToLabel'65,66
+symbolToLabel' symbolToLabel'66,67
+getTypeEntry getTypeEntry68,69
+getTypeEntry getTypeEntry69,70
+visibleNodesUnderInheritance visibleNodesUnderInheritance73,74
+visibleNodesUnderInheritance visibleNodesUnderInheritance74,75
+inheritFromNodes inheritFromNodes80,81
+inheritFromNodes inheritFromNodes81,82
+inheritFromTypes inheritFromTypes91,92
+inheritFromTypes inheritFromTypes92,93
+updateNode updateNode98,99
+updateNode updateNode99,100
+updateDBWithInheritance updateDBWithInheritance109,110
+updateDBWithInheritance updateDBWithInheritance110,111
+updateDBWithInheritances updateDBWithInheritances115,116
+updateDBWithInheritances updateDBWithInheritances116,117
+dumpDB dumpDB121,122
+dumpDB dumpDB122,123
+dumpDBNodes dumpDBNodes124,125
+dumpDBNodes dumpDBNodes126,127
+traverseNodeEntry traverseNodeEntry130,131
+traverseNodeEntry traverseNodeEntry131,132
+traverseTypeEntry traverseTypeEntry138,139
+traverseTypeEntry traverseTypeEntry139,140
+traverseTypeEntryWithImports traverseTypeEntryWithImports149,150
+traverseTypeEntryWithImports traverseTypeEntryWithImports150,151
+buildTypeEntryFromSymbol buildTypeEntryFromSymbol166,167
+buildTypeEntryFromSymbol buildTypeEntryFromSymbol167,168
+buildTypeEntryFromEnvironments buildTypeEntryFromEnvironments169,170
+buildTypeEntryFromEnvironments buildTypeEntryFromEnvironments170,171
+buildInstanceEntryFromEnvironments buildInstanceEntryFromEnvironments177,178
+buildInstanceEntryFromEnvironments buildInstanceEntryFromEnvironments178,179
+buildTypeEntry buildTypeEntry185,186
+buildTypeEntry buildTypeEntry186,187
+buildInstanceEntry buildInstanceEntry188,189
+buildInstanceEntry buildInstanceEntry189,190
+buildEntry buildEntry192,193
+buildEntry buildEntry193,194
+buildEntry' buildEntry'228,229
+buildEntry' buildEntry'229,230
+lookUpType lookUpType240,241
+lookUpType lookUpType241,242
+refineTypeWithType refineTypeWithType255,256
+refineTypeWithType refineTypeWithType256,257
+refineSymbolWithType refineSymbolWithType269,270
+refineSymbolWithType refineSymbolWithType270,271
+refineKindWithType refineKindWithType288,289
+refineEnvironmentWithType refineEnvironmentWithType296,297
+refineEnvironmentWithType refineEnvironmentWithType297,298
 
 ./src/RPMain.hs,98
 module Main Main0,1
@@ -708,6 +759,9 @@ traverseInstanceEntryAccessible traverseInstanceEntryAccessible251,252
 module Main Main0,1
 main main18,19
 main main19,20
+
+./src/Completability.hs,42
+module Completability Completability0,1
 
 ./src/SMain.hs,504
 module Main Main0,1
@@ -831,3 +885,8 @@ splitOneOf splitOneOf5,6
 splitOneOf splitOneOf6,7
 indent indent13,14
 indent indent14,15
+
+./src/A5.hs,56
+module Main Main0,1
+main main19,20
+main main20,21
