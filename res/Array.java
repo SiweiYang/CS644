@@ -1,7 +1,7 @@
-public class NativeArray {
+public class Array {
     public int length;
     public int pointer;
-    public NativeArray(int i){
+    public Array(int i){
 	length = i;
         pointer = Runtime.malloc(i);
     }
