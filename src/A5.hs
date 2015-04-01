@@ -16,6 +16,7 @@ import Scanner
 import TypeDatabase
 import TypeLinking
 import Weeder
+import CodeConstruct
 
 main :: IO ()
 main = do
@@ -173,6 +174,12 @@ main = do
     exitWith (ExitFailure 42)
   else do
     hPutStrLn stderr "Completability: OK"
+
+
+  -- CLASS RECONSTRUCT
+  let reconstructedCLASS = map (\(imp, Just env, fn) -> (imp, Just (buildClassConstruct db' imp env), fn)) listImpEnvFns
+  do
+    hPutStrLn stderr (intercalate "\n------------------------\n" $ map (\(_, Just x, _) -> show x) reconstructedCLASS)
 
 
   -- The compiler is currently hard-coded to write an executable that will return exit code 200

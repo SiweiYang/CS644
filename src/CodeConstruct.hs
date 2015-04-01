@@ -14,7 +14,8 @@ data FieldType = FT {
   fieldName :: String,
   fieldType :: Type,
   isStatic :: Bool
-}
+} deriving (Show)
+
 
 --fieldTableOffset :: [FT] -> String -> Int
 --fieldTableOffset [] 
@@ -35,12 +36,15 @@ data ClassConstruct = CC {
   classFields :: [FieldType],
   classSymbol :: Symbol,
   classMethods :: [MethodConstruct]
-}
+} -- deriving (Show)
+
+instance Show ClassConstruct where
+  show (CC cname cfield csym cmtds) = (show cname) ++ "\n" ++ (show cfield) ++ "\n" ++ (show cmtds)
 
 data InstanceConstruct = IC {
   instanceType :: [String],
   instanceFields :: [FieldType]
-}
+} deriving (Show)
 
 
 
@@ -61,7 +65,10 @@ data MethodConstruct = MC {
   --methodParameters :: [AST.TypedVar],
   methodSymbol :: Symbol,
   methodDefinition :: [DFStatement]
-}
+}--deriving (Show)
+
+instance Show MethodConstruct where
+  show (MC mname msym mdefs) = (show mname) ++ "\n" ++ (show mdefs) ++ "\n"
 
 buildMethodConstruct :: TypeNode -> [[String]] -> Environment -> MethodConstruct
 buildMethodConstruct db imps (ENV su@(SU cname (Method sym) _ _) ch) = MC cname sym stmts
@@ -82,7 +89,7 @@ data DFStatement = DFIf {
   condition   :: DFExpression,
   finalizer   :: DFStatement,
   forBlock    :: [DFStatement]
-} | DFExpr DFExpression | DFReturn (Maybe DFExpression) | DFBlock [DFStatement]
+} | DFExpr DFExpression | DFReturn (Maybe DFExpression) | DFBlock [DFStatement] deriving (Show)
 
 
 buildDFStatement :: TypeNode -> [[String]] -> Environment -> [DFStatement]
@@ -131,13 +138,21 @@ buildDFStatement db imps (ENV su@(SU _ (WhileBlock expr) _ _) ch) = (DFWhile dfe
     whilepart = head stmtch
     remain = last $ stmtch
 
-buildDFStatement db imps (ENV (SU _ ForBlock _ _) ch) = (DFFor initstmt expr forstmt forblock):remain
+buildDFStatement db imps (ENV su@(SU _ ForBlock st _) ch) = (DFFor initstmt' expr forstmt forblock):remain
   where
-    stmtch = map (buildDFStatement db imps) ch
-    initstmt = head $ head stmtch
-    DFExpr expr = head $ head $ tail stmtch
-    forstmt = head $ head $ tail $ tail stmtch
-    forblock = head $ tail $ tail $ tail stmtch
+    initstmt = head ch
+    [DFExpr initR] = buildDFStatement db imps initstmt
+    [(SYM _ _ varL _)] = st
+    exprL = AST.ID (AST.Name [varL]) 0
+    initL = buildDFExpression db imps su [] exprL
+    initstmt' = DFExpr (Binary "=" initL initR)
+
+      --AST.Binary "=" (AST.ID (AST.Name [nm]) 0) expr 0
+
+    stmtch = map (buildDFStatement db imps) (tail ch)
+    DFExpr expr = head $ head stmtch
+    forstmt = head $ head $ tail stmtch
+    forblock = head $ tail $ tail stmtch
     remain = last $ stmtch
 
 ------------------------------------------
@@ -156,6 +171,7 @@ data DFExpression = FunctionCall Symbol [DFExpression]
                   | This
                   | Null
                   | NOOP
+                  deriving (Show)
 
 
 buildDFExpression :: TypeNode -> [[String]] -> SemanticUnit -> [Type] -> Expression -> DFExpression
