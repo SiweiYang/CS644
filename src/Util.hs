@@ -11,6 +11,9 @@ splitOneOf del (c:r) = h:(splitOneOf del (if t == [] then t else tail t))
         (h, t) = break pred l
 splitOneOf _ [] = []
 
+sortOn :: Ord b => (a -> b) -> [a] -> [a]
+sortOn conv l = sortBy (\x y -> compare (conv x) (conv y)) l
+
 indent :: Int -> String -> String
 indent i str = intercalate "\n" nlns
     where
