@@ -280,73 +280,73 @@ symbolToType' sym = case tp of
 --  \____|\___|_| |_|\___|_|  \__,_|\__|_|\___/|_| |_|
 
 
-generateAssembly :: ClassConstruct -> [String]
-generateAssembly (CC name fields _ methods) =
+genAsm :: ClassConstruct -> [String]
+genAsm (CC name fields _ methods) =
   let prefaceCode = ["; Code for: " ++ concat name, "section .text"]
-      fieldCode = concat $ map generateFieldAssembly fields
-      methodCode = concat $ map generateMethodAssembly methods
+      fieldCode = concat $ map genFieldAsm fields
+      methodCode = concat $ map genMthdAsm methods
   in prefaceCode ++ fieldCode ++ methodCode
 
-generateFieldAssembly :: FieldType -> [String]
-generateFieldAssembly (FT _ _ False) = []
-generateFieldAssembly (FT name _ True) = ["; Class field: " ++ name]
+genFieldAsm :: FieldType -> [String]
+genFieldAsm (FT _ _ False) = []
+genFieldAsm (FT name _ True) = ["; Class field: " ++ name]
 
-generateMethodAssembly :: MethodConstruct -> [String]
-generateMethodAssembly (MC name _ definition) =
+genMthdAsm :: MethodConstruct -> [String]
+genMthdAsm (MC name _ definition) =
   let header =  ["global _" ++ last name, "_" ++ last name ++ ":"]
-      body = concat $ map generateStatementAssembly definition
+      body = concat $ map genStmtAsm definition
   in header ++ body
 
-generateStatementAssembly :: DFStatement -> [String]
-generateStatementAssembly (DFExpr expr) = generateExpressionAssembly expr
-generateStatementAssembly (DFReturn Nothing) = ["; Void return", "ret"]
-generateStatementAssembly (DFReturn (Just retVal)) = ["; Value return", "ret"] ++ generateExpressionAssembly retVal
-generateStatementAssembly (DFBlock body) =
-  let bodyCode = concat $ map generateStatementAssembly body
+genStmtAsm :: DFStatement -> [String]
+genStmtAsm (DFExpr expr) = genExprAsm expr
+genStmtAsm (DFReturn Nothing) = ["; Void return", "ret"]
+genStmtAsm (DFReturn (Just retVal)) = ["; Value return", "ret"] ++ genExprAsm retVal
+genStmtAsm (DFBlock body) =
+  let bodyCode = concat $ map genStmtAsm body
   in ["; new block"] ++ bodyCode
-generateStatementAssembly (DFIf cond trueBlock falseBlock) =
-  let condCode = generateExpressionAssembly cond
-      trueCode = concat $ map generateStatementAssembly trueBlock
-      falseCode = concat $ map generateStatementAssembly falseBlock
+genStmtAsm (DFIf cond trueBlock falseBlock) =
+  let condCode = genExprAsm cond
+      trueCode = concat $ map genStmtAsm trueBlock
+      falseCode = concat $ map genStmtAsm falseBlock
   in ["; If statement", "; cond"] ++ condCode ++ ["; true"] ++ trueCode ++ ["; false"]
-generateStatementAssembly (DFWhile cond body) =
-  let condCode = generateExpressionAssembly cond
-      bodyCode = concat $ map generateStatementAssembly body
+genStmtAsm (DFWhile cond body) =
+  let condCode = genExprAsm cond
+      bodyCode = concat $ map genStmtAsm body
   in ["; While statement", "; cond"] ++ condCode ++ ["; body"] ++ bodyCode
-generateStatementAssembly (DFFor initializer condition finalizer body) =
-  let initializerCode = generateStatementAssembly initializer
-      conditionCode = generateExpressionAssembly condition
-      finalizerCode = generateStatementAssembly finalizer
-      bodyCode = concat $ map generateStatementAssembly body
+genStmtAsm (DFFor initializer condition finalizer body) =
+  let initializerCode = genStmtAsm initializer
+      conditionCode = genExprAsm condition
+      finalizerCode = genStmtAsm finalizer
+      bodyCode = concat $ map genStmtAsm body
   in ["; For statement", ";init"] ++ initializerCode ++ [";condition"] ++ conditionCode ++ [";finalizerCode"] ++ finalizerCode ++ [";bodyCode"] ++ bodyCode
 
-generateExpressionAssembly :: DFExpression -> [String]
-generateExpressionAssembly (FunctionCall callee arguments) =
-  let argumentCode = concat $ map generateExpressionAssembly arguments
+genExprAsm :: DFExpression -> [String]
+genExprAsm (FunctionCall callee arguments) =
+  let argumentCode = concat $ map genExprAsm arguments
   in ["; Function call to" ++ localName callee, "; arguments"] ++ argumentCode
-generateExpressionAssembly (Unary op expr) =
-  let exprCode = generateExpressionAssembly expr
+genExprAsm (Unary op expr) =
+  let exprCode = genExprAsm expr
   in [";Unary op: " ++ op] ++ exprCode
-generateExpressionAssembly (Binary op exprL exprR) =
-  let leftCode = generateExpressionAssembly exprL
-      rightCode = generateExpressionAssembly exprR
+genExprAsm (Binary op exprL exprR) =
+  let leftCode = genExprAsm exprL
+      rightCode = genExprAsm exprR
   in [";Binary op: " ++ op, ";left"] ++ leftCode ++ [";right"] ++ rightCode
-generateExpressionAssembly (Attribute struct member) =
-  let structCode = generateExpressionAssembly struct
+genExprAsm (Attribute struct member) =
+  let structCode = genExprAsm struct
   in [";Attribute"] ++ structCode
-generateExpressionAssembly (ArrayAccess array index) =
-  let arrayCode = generateExpressionAssembly array
-      indexCode = generateExpressionAssembly index
+genExprAsm (ArrayAccess array index) =
+  let arrayCode = genExprAsm array
+      indexCode = genExprAsm index
   in ["; newArray",";array"] ++ arrayCode ++ [";index"] ++ indexCode
-generateExpressionAssembly (NewArray arrayType dimExpr) = ["; newArray"] ++ generateExpressionAssembly dimExpr
-generateExpressionAssembly (NewObject classType args) =
-  let argCode = concat $ map generateExpressionAssembly args
+genExprAsm (NewArray arrayType dimExpr) = ["; newArray"] ++ genExprAsm dimExpr
+genExprAsm (NewObject classType args) =
+  let argCode = concat $ map genExprAsm args
   in ["; newObject"] ++ argCode
-generateExpressionAssembly (InstanceOf refType expr) = ["; instanceOf"] ++ generateExpressionAssembly expr
-generateExpressionAssembly (Cast refType expr) = ["; Casting"] ++ generateExpressionAssembly expr
-generateExpressionAssembly (ID (Right symbol)) = ["; variable named " ++ (localName symbol)]
-generateExpressionAssembly (ID (Left offset)) = ["; variable offset "]
-generateExpressionAssembly (Value valuetype value) = ["; const: " ++ value]
-generateExpressionAssembly This = ["; This"]
-generateExpressionAssembly Null = ["; Null"]
-generateExpressionAssembly NOOP = ["; NOOP"]
+genExprAsm (InstanceOf refType expr) = ["; instanceOf"] ++ genExprAsm expr
+genExprAsm (Cast refType expr) = ["; Casting"] ++ genExprAsm expr
+genExprAsm (ID (Right symbol)) = ["; variable named " ++ (localName symbol)]
+genExprAsm (ID (Left offset)) = ["; variable offset "]
+genExprAsm (Value valuetype value) = ["; const: " ++ value]
+genExprAsm This = ["; This"]
+genExprAsm Null = ["; Null"]
+genExprAsm NOOP = ["; NOOP"]

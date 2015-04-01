@@ -198,6 +198,6 @@ main = do
                                        "int 0x80"]
 
   let firstClass = head $ filter isJust $ map (\(_,cls,_) -> cls) reconstructedCLASS
-  writeFile "output/temp.s" $ unlines . generateAssembly $ fromJust firstClass
+  writeFile "output/temp.s" $ unlines . genAsm $ fromJust firstClass
 
 
