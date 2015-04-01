@@ -1,8 +1,9 @@
 module Main where
 
-import Data.List
+import Prelude hiding (lookup)
+import Data.List(find, partition, intercalate)
 import Data.Maybe
-import Data.Map(size, fromList)
+import Data.Map(size, lookup, fromList)
 import System.Environment
 import System.Exit
 import System.IO
@@ -190,12 +191,14 @@ main = do
 
   -- Create Hierarchy Information
   let typeIDMap = createTypeID db'
-  let functionIDMap = createFUNCID db'
+  let functionIDMap = createInstanceFUNCID db'
   let typeCharacteristicBM = createTypeCharacteristicBM db'
-  let funcTable = createFUNCTable db'
+  let instanceFUNCTable = createInstanceFUNCTable db'
+  let staticFUNCLabelMap = createFUNCLabel db'
   --hPutStrLn stderr $ "Total Number of Functions: " ++ show (size functionIDMap)
   --hPutStrLn stderr $ "Type Characteristic BitMap: " ++ show typeCharacteristicBM
   --hPutStrLn stderr $ "Func Table: " ++ show funcTable
+  hPutStrLn stderr $ (show (symbol runtimeMalloc)) ++ " -> " ++ (show $ lookup (symbol runtimeMalloc) staticFUNCLabelMap)
 
   -- CLASS RECONSTRUCT
   let reconstructedCLASS = map (\(imp, Just env, fn) -> (imp, (buildClassConstruct db' imp env), fn)) listImpEnvFns

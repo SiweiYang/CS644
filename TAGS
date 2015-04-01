@@ -137,7 +137,7 @@ genExprAsm genExprAsm345,346
 genExprAsm genExprAsm346,347
 genExprLhsAsm genExprLhsAsm398,399
 
-./src/Environment.hs,3142
+./src/Environment.hs,3147
 data Kind Kind9,10
 data Kind = Package Package9,10
 data Kind = Package | Class Class9,10
@@ -157,38 +157,38 @@ data Symbol = SYM SYM11,12
     localScope localScope13,14
     localName localName14,15
     localType localType15,16
-symbolToOrd symbolToOrd37,38
-funcToSigOrd funcToSigOrd43,44
-instance instance45,46
-symbolToType symbolToType50,51
-symbolToType symbolToType51,52
-isClass isClass56,57
-isFunction isFunction59,60
-data SemanticUnit SemanticUnit62,63
-data SemanticUnit = Root Root62,63
-    scope scope63,64
-buildSymbolFromConstructor buildSymbolFromConstructor75,76
-buildSymbolFromField buildSymbolFromField76,77
-buildSymbolFromMethod buildSymbolFromMethod77,78
-buildSymbolFromParameter buildSymbolFromParameter78,79
-data Environment Environment80,81
-data Environment = ENVE ENVE80,81
-data Environment = ENVE | ENV ENV80,81
-    semantic semantic81,82
-    children children82,83
-buildEnvironment buildEnvironment93,94
-buildEnvironment buildEnvironment94,95
-buildEnvironmentWithPackage buildEnvironmentWithPackage98,99
-buildEnvironmentFromClass buildEnvironmentFromClass116,117
-buildEnvironmentFromInterface buildEnvironmentFromInterface125,126
-buildEnvironmentFromField buildEnvironmentFromField133,134
-buildEnvironmentFromField buildEnvironmentFromField134,135
-buildEnvironmentFromMethod buildEnvironmentFromMethod139,140
-buildEnvironmentFromMethod buildEnvironmentFromMethod140,141
-buildEnvironmentFromConstructor buildEnvironmentFromConstructor148,149
-buildEnvironmentFromConstructor buildEnvironmentFromConstructor149,150
-buildEnvironmentFromStatements buildEnvironmentFromStatements159,160
-buildEnvironmentFromStatements buildEnvironmentFromStatements160,161
+instance instance36,37
+symbolToOrd symbolToOrd43,44
+funcToSigOrd funcToSigOrd49,50
+symbolToType symbolToType56,57
+symbolToType symbolToType57,58
+isClass isClass62,63
+isFunction isFunction65,66
+data SemanticUnit SemanticUnit68,69
+data SemanticUnit = Root Root68,69
+    scope scope69,70
+buildSymbolFromConstructor buildSymbolFromConstructor81,82
+buildSymbolFromField buildSymbolFromField82,83
+buildSymbolFromMethod buildSymbolFromMethod83,84
+buildSymbolFromParameter buildSymbolFromParameter84,85
+data Environment Environment86,87
+data Environment = ENVE ENVE86,87
+data Environment = ENVE | ENV ENV86,87
+    semantic semantic87,88
+    children children88,89
+buildEnvironment buildEnvironment99,100
+buildEnvironment buildEnvironment100,101
+buildEnvironmentWithPackage buildEnvironmentWithPackage104,105
+buildEnvironmentFromClass buildEnvironmentFromClass122,123
+buildEnvironmentFromInterface buildEnvironmentFromInterface131,132
+buildEnvironmentFromField buildEnvironmentFromField139,140
+buildEnvironmentFromField buildEnvironmentFromField140,141
+buildEnvironmentFromMethod buildEnvironmentFromMethod145,146
+buildEnvironmentFromMethod buildEnvironmentFromMethod146,147
+buildEnvironmentFromConstructor buildEnvironmentFromConstructor154,155
+buildEnvironmentFromConstructor buildEnvironmentFromConstructor155,156
+buildEnvironmentFromStatements buildEnvironmentFromStatements165,166
+buildEnvironmentFromStatements buildEnvironmentFromStatements166,167
 
 ./src/TMain.hs,435
 module Main Main0,1
@@ -663,7 +663,7 @@ literalToType literalToType633,634
 identifierInExpr identifierInExpr648,649
 identifierInExpr identifierInExpr649,650
 
-./src/TypeDatabase.hs,3487
+./src/TypeDatabase.hs,3521
 module TypeDatabase TypeDatabase0,1
 data TypeNode TypeNode10,11
 data TypeNode = TN TN10,11
@@ -679,73 +679,74 @@ runtimeClass runtimeClass24,25
 runtimeUnit runtimeUnit25,26
 runtimeSYM runtimeSYM27,28
 runtimeMalloc runtimeMalloc28,29
-runtimeTN runtimeTN29,30
-nativeTypes nativeTypes33,34
-isVisibleClassNode isVisibleClassNode37,38
-isCLNode isCLNode43,44
-isITNode isITNode46,47
-isSYMNode isSYMNode49,50
-isFUNCNode isFUNCNode52,53
-isConcreteNode isConcreteNode55,56
-isSYMFUNCNode isSYMFUNCNode57,58
-instance instance60,61
-generateConcretePair generateConcretePair68,69
+runtimeThrow runtimeThrow29,30
+runtimeTN runtimeTN30,31
+nativeTypes nativeTypes34,35
+isVisibleClassNode isVisibleClassNode38,39
+isCLNode isCLNode44,45
+isITNode isITNode47,48
+isSYMNode isSYMNode50,51
+isFUNCNode isFUNCNode53,54
+isConcreteNode isConcreteNode56,57
+isSYMFUNCNode isSYMFUNCNode58,59
+instance instance61,62
 generateConcretePair generateConcretePair69,70
-generateSYMSPair generateSYMSPair73,74
+generateConcretePair generateConcretePair70,71
 generateSYMSPair generateSYMSPair74,75
-generateSYMSPairFromNode generateSYMSPairFromNode78,79
+generateSYMSPair generateSYMSPair75,76
 generateSYMSPairFromNode generateSYMSPairFromNode79,80
-generateFUNCPair generateFUNCPair83,84
+generateSYMSPairFromNode generateSYMSPairFromNode80,81
 generateFUNCPair generateFUNCPair84,85
-generateFUNCPairFromNode generateFUNCPairFromNode89,90
+generateFUNCPair generateFUNCPair85,86
 generateFUNCPairFromNode generateFUNCPairFromNode90,91
-getTypeEntry getTypeEntry94,95
+generateFUNCPairFromNode generateFUNCPairFromNode91,92
 getTypeEntry getTypeEntry95,96
-visibleNodesUnderInheritance visibleNodesUnderInheritance99,100
+getTypeEntry getTypeEntry96,97
 visibleNodesUnderInheritance visibleNodesUnderInheritance100,101
-inheritFromNodes inheritFromNodes106,107
+visibleNodesUnderInheritance visibleNodesUnderInheritance101,102
 inheritFromNodes inheritFromNodes107,108
-inheritFromTypes inheritFromTypes117,118
+inheritFromNodes inheritFromNodes108,109
 inheritFromTypes inheritFromTypes118,119
-updateNode updateNode125,126
+inheritFromTypes inheritFromTypes119,120
 updateNode updateNode126,127
-updateDBWithInheritance updateDBWithInheritance136,137
+updateNode updateNode127,128
 updateDBWithInheritance updateDBWithInheritance137,138
-updateDBWithInheritances updateDBWithInheritances142,143
+updateDBWithInheritance updateDBWithInheritance138,139
 updateDBWithInheritances updateDBWithInheritances143,144
-dumpDB dumpDB148,149
+updateDBWithInheritances updateDBWithInheritances144,145
 dumpDB dumpDB149,150
-dumpDBNodes dumpDBNodes151,152
-dumpDBNodes dumpDBNodes153,154
-traverseNodeEntry traverseNodeEntry157,158
+dumpDB dumpDB150,151
+dumpDBNodes dumpDBNodes152,153
+dumpDBNodes dumpDBNodes154,155
 traverseNodeEntry traverseNodeEntry158,159
-traverseTypeEntry traverseTypeEntry165,166
+traverseNodeEntry traverseNodeEntry159,160
 traverseTypeEntry traverseTypeEntry166,167
-traverseTypeEntryWithImports traverseTypeEntryWithImports176,177
+traverseTypeEntry traverseTypeEntry167,168
 traverseTypeEntryWithImports traverseTypeEntryWithImports177,178
-buildTypeEntryFromSymbol buildTypeEntryFromSymbol193,194
+traverseTypeEntryWithImports traverseTypeEntryWithImports178,179
 buildTypeEntryFromSymbol buildTypeEntryFromSymbol194,195
-buildTypeEntryFromEnvironments buildTypeEntryFromEnvironments196,197
+buildTypeEntryFromSymbol buildTypeEntryFromSymbol195,196
 buildTypeEntryFromEnvironments buildTypeEntryFromEnvironments197,198
-buildInstanceEntryFromEnvironments buildInstanceEntryFromEnvironments204,205
+buildTypeEntryFromEnvironments buildTypeEntryFromEnvironments198,199
 buildInstanceEntryFromEnvironments buildInstanceEntryFromEnvironments205,206
-buildTypeEntry buildTypeEntry212,213
+buildInstanceEntryFromEnvironments buildInstanceEntryFromEnvironments206,207
 buildTypeEntry buildTypeEntry213,214
-buildInstanceEntry buildInstanceEntry215,216
+buildTypeEntry buildTypeEntry214,215
 buildInstanceEntry buildInstanceEntry216,217
-buildEntry buildEntry219,220
+buildInstanceEntry buildInstanceEntry217,218
 buildEntry buildEntry220,221
-buildEntry' buildEntry'255,256
+buildEntry buildEntry221,222
 buildEntry' buildEntry'256,257
-lookUpType lookUpType267,268
+buildEntry' buildEntry'257,258
 lookUpType lookUpType268,269
-refineTypeWithType refineTypeWithType282,283
+lookUpType lookUpType269,270
 refineTypeWithType refineTypeWithType283,284
-refineSymbolWithType refineSymbolWithType296,297
+refineTypeWithType refineTypeWithType284,285
 refineSymbolWithType refineSymbolWithType297,298
-refineKindWithType refineKindWithType315,316
-refineEnvironmentWithType refineEnvironmentWithType323,324
+refineSymbolWithType refineSymbolWithType298,299
+refineKindWithType refineKindWithType316,317
 refineEnvironmentWithType refineEnvironmentWithType324,325
+refineEnvironmentWithType refineEnvironmentWithType325,326
 
 ./src/RPMain.hs,98
 module Main Main0,1
@@ -849,20 +850,26 @@ weedFields weedFields154,155
 weedField weedField156,157
 weedField weedField157,158
 
-./src/Inheritance.hs,504
+./src/Inheritance.hs,838
 module Inheritance Inheritance0,1
-createTypeID createTypeID11,12
-createTypeID createTypeID12,13
-createFUNCID createFUNCID16,17
-createFUNCID createFUNCID17,18
-createTypeCharacteristicBM createTypeCharacteristicBM22,23
-createTypeCharacteristicBM createTypeCharacteristicBM23,24
-updateFUNC updateFUNC28,29
-updateFUNC updateFUNC29,30
-updateFUNCTable updateFUNCTable33,34
-updateFUNCTable updateFUNCTable34,35
-createFUNCTable createFUNCTable36,37
-createFUNCTable createFUNCTable37,38
+generateLabelFromFUNC generateLabelFromFUNC11,12
+generateLabelFromFUNC generateLabelFromFUNC12,13
+createTypeID createTypeID19,20
+createTypeID createTypeID20,21
+createInstanceFUNCID createInstanceFUNCID24,25
+createInstanceFUNCID createInstanceFUNCID25,26
+createStaticFUNCID createStaticFUNCID29,30
+createStaticFUNCID createStaticFUNCID30,31
+createFUNCLabel createFUNCLabel35,36
+createFUNCLabel createFUNCLabel36,37
+createTypeCharacteristicBM createTypeCharacteristicBM41,42
+createTypeCharacteristicBM createTypeCharacteristicBM42,43
+updateFUNC updateFUNC47,48
+updateFUNC updateFUNC48,49
+updateFUNCTable updateFUNCTable52,53
+updateFUNCTable updateFUNCTable53,54
+createInstanceFUNCTable createInstanceFUNCTable55,56
+createInstanceFUNCTable createInstanceFUNCTable56,57
 
 ./src/Scanner.hs,1898
 module Scanner Scanner0,1

@@ -1,7 +1,7 @@
 module Inheritance where
 
 import Data.Maybe
-import           Data.List    (sort)
+import           Data.List    (sort, intercalate)
 import           Data.Map     (Map, fromList, toAscList)
 
 import Util
@@ -9,16 +9,35 @@ import           Environment
 import           Hierarchy
 import           TypeDatabase
 
+generateLabelFromFUNC :: Symbol -> Int -> String
+generateLabelFromFUNC (FUNC mds ls ln _ _) i = if elem "native" mds
+                                                 then case ln of
+                                                        "malloc" -> "__malloc"
+                                                        "throw" -> "__exception"
+                                                        "nativeWrite" -> "NATIVEjava.io.OutputStream.nativeWrite"
+                                                 else intercalate "_" (ls ++ [ln, show i])
+
 createTypeID :: TypeNode -> Map Symbol Int
 createTypeID db = fromList (zip syms [0..])
   where
     syms = (sort . (map symbol) . dumpDBNodes) db
 
-createFUNCID :: TypeNode -> Map Symbol Int
-createFUNCID db = fromList (zip syms [0..])
+createInstanceFUNCID :: TypeNode -> Map Symbol Int
+createInstanceFUNCID db = fromList (zip syms [0..])
   where
-    syms = sort $ map symbol $ filter isFUNCNode $ concat $ map subNodes (dumpDBNodes db)
+    syms = sort $ filter (\(FUNC mds _ _ _ _) -> not $ elem "static" mds) $ map symbol $ filter isFUNCNode $ concat $ map subNodes (dumpDBNodes db)
 
+createStaticFUNCID :: TypeNode -> Map Symbol Int
+createStaticFUNCID db = fromList (zip syms' [0..])
+  where
+    syms = sort $ filter (\(FUNC mds _ _ _ _) -> elem "static" mds) $ map symbol $ filter isFUNCNode $ concat $ map subNodes (dumpDBNodes db)
+    syms' = (symbol runtimeMalloc):syms
+
+createFUNCLabel :: TypeNode -> Map Symbol String
+createFUNCLabel db = fromList pairs
+  where
+    funcMap = createStaticFUNCID db
+    pairs = map (\(sym, i) -> (sym, generateLabelFromFUNC sym i)) (toAscList funcMap)
 
 createTypeCharacteristicBM :: TypeNode -> [Bool]
 createTypeCharacteristicBM db = map snd smap
@@ -34,10 +53,10 @@ updateFUNC func imps = case filter (\imp -> funcToSigOrd func == funcToSigOrd im
 updateFUNCTable :: [Symbol] -> [Symbol] -> [Maybe Symbol]
 updateFUNCTable funcs imps = map (\func -> updateFUNC func imps) funcs
 
-createFUNCTable :: TypeNode -> [(Symbol, [Maybe Symbol])]
-createFUNCTable db = map (\(tp, imps) -> (tp, updateFUNCTable funcs imps)) pairs
+createInstanceFUNCTable :: TypeNode -> [(Symbol, [Maybe Symbol])]
+createInstanceFUNCTable db = map (\(tp, imps) -> (tp, updateFUNCTable funcs imps)) pairs
   where
     tps = ((sortOn symbol) . (filter isCLNode) . dumpDBNodes) db
-    funcsMap = createFUNCID db
+    funcsMap = createInstanceFUNCID db
     funcs = map fst (toAscList funcsMap)
     pairs = map (\tp -> (symbol tp, map symbol (filter isFUNCNode $ subNodes tp))) tps
