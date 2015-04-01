@@ -328,8 +328,13 @@ genOpAsm "%" = ["div ebx", "mov eax, edx"]
 genOpAsm "+" = ["add eax, ebx"]
 genOpAsm "-" = ["sub eax, ebx"]
 genOpAsm "==" = ["cmp eax, ebx", "mov eax, 1", "je short $+7", "mov eax, 0"]
+genOpAsm "!=" = ["cmp eax, ebx", "mov eax, 1", "jne short $+7", "mov eax, 0"]
+genOpAsm "<" = ["cmp eax, ebx", "mov eax, 1", "jl short $+7", "mov eax, 0"]
+genOpAsm "<=" = ["cmp eax, ebx", "mov eax, 1", "jle short $+7", "mov eax, 0"]
+genOpAsm ">" = ["cmp eax, ebx", "mov eax, 1", "jg short $+7", "mov eax, 0"]
+genOpAsm ">=" = ["cmp eax, ebx", "mov eax, 1", "jge short $+7", "mov eax, 0"]
 genOpAsm _ = ["; XXX: Unsupported binary operator"]
--- Unsupported: =, <, >, <=, >=, !=, !, &&, ||
+-- Unsupported: =, &&, ||
 
 genExprAsm :: DFExpression -> [String]
 genExprAsm (FunctionCall callee arguments) =
