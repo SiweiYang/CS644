@@ -31,7 +31,7 @@ runtimeTN  = TN (CL ["public"] "Runtime" runtimeSYM runtimeUnit) [runtimeMalloc]
 
 
 
-nativeTypes = TN (PKG []) [TN (PKG "joosc native") [arrayTN, runtimeTN]]
+nativeTypes = TN (PKG []) [TN (PKG "joosc native") [runtimeTN]]
 
 
 

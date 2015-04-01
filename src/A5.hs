@@ -25,7 +25,7 @@ main :: IO ()
 main = do
   -- Get the files to compile from the args
   givenFileNames <- getArgs
-  let allFileNames = givenFileNames ++ ["./res/ObjectInterface.java", "./res/NativeArray.java"]
+  let allFileNames = givenFileNames ++ ["./res/ObjectInterface.java", "./res/Array.java"]
 
   -- Read their contents
   fileContents <- mapM readFile allFileNames
@@ -71,7 +71,7 @@ main = do
 
   -- AST GENERATION
   let fileAsts' = map (\x -> ((buildAST . units . fst $ fst x), snd x)) validParsed
-  let fileAsts = map (\(cu, fn) -> if fn == "./res/NativeArray.java"
+  let fileAsts = map (\(cu, fn) -> if fn == "./res/Array.java"
                                       then (updatePackage cu ["joosc native"], fn)
                                       else (cu, fn)) fileAsts'
 
