@@ -48,10 +48,11 @@ data InstanceConstruct = IC {
 
 
 
-buildClassConstruct :: TypeNode -> [[String]] -> Environment -> ClassConstruct
+buildClassConstruct :: TypeNode -> [[String]] -> Environment -> Maybe ClassConstruct
 
 buildClassConstruct db imps (ENV su@(SU _ Package _ _) ch) = buildClassConstruct db imps (head ch)
-buildClassConstruct db imps (ENV su@(SU cname Class st parent) ch) = CC cname ft sym mtdc
+buildClassConstruct db imps (ENV su@(SU _ Interface _ _) _) = Nothing
+buildClassConstruct db imps (ENV su@(SU cname Class st parent) ch) = Just (CC cname ft sym mtdc)
   where
     ft = filter isStatic $ buildFieldType st
     [sym] = symbolTable parent
@@ -73,7 +74,7 @@ instance Show MethodConstruct where
 buildMethodConstruct :: TypeNode -> [[String]] -> Environment -> MethodConstruct
 buildMethodConstruct db imps (ENV su@(SU cname (Method sym) _ _) ch) = MC cname sym stmts
   where
-    stmts = buildDFStatement db imps (head ch)
+    stmts = if null ch then [] else buildDFStatement db imps (head ch)
 
 ------------------------------------------
 
@@ -145,9 +146,7 @@ buildDFStatement db imps (ENV su@(SU _ ForBlock st _) ch) = (DFFor initstmt' exp
     [(SYM _ _ varL _)] = st
     exprL = AST.ID (AST.Name [varL]) 0
     initL = buildDFExpression db imps su [] exprL
-    initstmt' = DFExpr (Binary "=" initL initR)
-
-      --AST.Binary "=" (AST.ID (AST.Name [nm]) 0) expr 0
+    initstmt' = if null st then (DFExpr initR) else (DFExpr (Binary "=" initL initR))
 
     stmtch = map (buildDFStatement db imps) (tail ch)
     DFExpr expr = head $ head stmtch
@@ -193,20 +192,27 @@ buildDFExpression db imps su tps e@(AST.ID n@(AST.Name cname@[nm]) _) = if (init
                                                                        then ID (Left (scopeOffset su sym))
                                                                        else ID (Right sym)
   where
+    --ls = case symbolLinkingName db imps su n of
+            --[sym@(SYM _ ls' _ _)] -> ls'
+            --err -> error $ "resolving ID " ++ (show e) ++ (show $  inheritFrom su)
+    --sym = head $ symbolLinkingName db imps su n
     [sym@(SYM _ ls _ _)] = symbolLinkingName db imps su n
     baseName = (AST.typeToName . lookUpThis) su
 buildDFExpression db imps su tps e@ (AST.ID n@(AST.Name cname@(nm:remain)) _) = if elem "static" (symbolModifiers sym)
                                                                                   then ID (Right sym)
-                                                                                  else Attribute (buildDFExpression db imps su [tps'] (AST.ID (AST.Name remain) 0)) sym
+                                                                                  else Attribute (buildDFExpression db imps su [tps'] (AST.ID (AST.Name (init cname)) 0)) sym
   where
     syms = symbolLinkingName db imps su n
-    [sym] = if tps == [] then syms else [sym | sym <- syms, elem (symbolToType sym) tps]
+    --[sym] = case if tps == [] then syms else [sym | sym <- syms, elem (symbolToType' sym) tps] of
+     --         [sym'] -> [sym']
+     --         err -> error $ "\n" ++ (show $ map symbolToType' syms) ++ "  " ++ (show tps)
+    [sym] = if tps == [] then syms else [sym | sym <- syms, elem (symbolToType' sym) tps]
     tps' = AST.Object (AST.Name (localScope sym))
 
 buildDFExpression db imps su tps e@(AST.Attribute expr mem _) = Attribute (buildDFExpression db imps su [tps'] expr) sym
   where
     syms = symbolLinkingExpr db imps su e
-    [sym] = if tps == [] then syms else [sym | sym <- syms, elem (symbolToType sym) tps]
+    [sym] = if tps == [] then syms else [sym | sym <- syms, elem (symbolToType' sym) tps]
     tps' = AST.Object (AST.Name (localScope sym))
 
 -- replace with function calls
@@ -215,8 +221,8 @@ buildDFExpression db imps su tps e@(AST.FunctionCall expr args _) = if elem "sta
                                                                       else FunctionCall sym (map (buildDFExpression db imps su []) args)
   where
     syms = symbolLinkingExpr db imps su e
-    [sym] = if tps == [] then syms else [sym | sym <- syms, elem (symbolToType sym) tps]
-    tps' = symbolToType sym
+    [sym] = if tps == [] then syms else [sym | sym <- syms, elem (symbolToType' sym) tps]
+    tps' = symbolToType' sym
     exprL = case buildDFExpression db imps su [tps'] expr of
               Attribute exprL sym -> exprL
               ID _ -> This
@@ -226,18 +232,36 @@ buildDFExpression db imps su tps e@(AST.FunctionCall expr args _) = if elem "sta
 buildDFExpression db imps su tps e@(AST.NewObject tp args _) = FunctionCall sym $ (buildMalloc sym):(map (buildDFExpression db imps su []) args)
   where
     syms = symbolLinkingExpr db imps su e
-    [sym] = if tps == [] then syms else [sym | sym <- syms, elem (symbolToType sym) tps]
+    [sym] = if tps == [] then syms else [sym | sym <- syms, elem (symbolToType' sym) tps]
               
 buildDFExpression db imps su tps (AST.NewArray tp expr _) = FunctionCall sym $ (buildMalloc sym):[buildDFExpression db imps su [] expr] 
   where
     sym = symbol arrayConstructor
+
+buildDFExpression db imps su tps (AST.Dimension dummy index _) = if dummy /= AST.Null then error $ "Dimension not NULL: " ++ (show dummy)
+                                                                 else buildDFExpression db imps su [] index
+
+buildDFExpression db imps su tps (AST.InstanceOf tp expr _) = InstanceOf tp (buildDFExpression db imps su [] expr)
+
 -- noop
 buildDFExpression db imps su tps (AST.ArrayAccess expr expri _) = ArrayAccess (buildDFExpression db imps su tps expr) (buildDFExpression db imps su tps expri)
 buildDFExpression db imps su tps (AST.Unary op expr _) = Unary op (buildDFExpression db imps su tps expr)
 buildDFExpression db imps su tps (AST.Binary op exprL exprR _) = Binary op (buildDFExpression db imps su tps exprL) (buildDFExpression db imps su tps exprR)
+
+buildDFExpression db imps su tps ow = error $ show ow
+
+
+---------------------------------------------------------------
 
 buildMalloc sym = FunctionCall sym' [arg]
   where
     sym' = symbol runtimeMalloc
     arg = ID $ Right (SYM ["static", "native"] (localScope sym) "object size" AST.TypeInt)
 
+
+symbolToType' :: Symbol -> Type
+symbolToType' sym = case tp of
+                      AST.Array _ -> AST.Object (AST.Name ["joosc native","Array"])
+                      ow -> ow
+  where
+    tp = symbolToType sym

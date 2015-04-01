@@ -181,9 +181,9 @@ main = do
 
 
   -- CLASS RECONSTRUCT
-  let reconstructedCLASS = map (\(imp, Just env, fn) -> (imp, Just (buildClassConstruct db' imp env), fn)) listImpEnvFns
+  let reconstructedCLASS = map (\(imp, Just env, fn) -> (imp, (buildClassConstruct db' imp env), fn)) listImpEnvFns
   do
-    hPutStrLn stderr (intercalate "\n------------------------\n" $ map (\(_, Just x, _) -> show x) reconstructedCLASS)
+    hPutStrLn stderr (intercalate "\n------------------------\n" $ map (\(_, x, _) -> show x) reconstructedCLASS)
 
 
   -- The compiler is currently hard-coded to write an executable that will return exit code 200
