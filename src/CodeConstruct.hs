@@ -1,5 +1,6 @@
 module CodeConstruct where
 
+import           Data.Char
 import           Data.Maybe
 import           Data.Either
 
@@ -300,7 +301,7 @@ genMthdAsm (MC name _ definition) =
 genStmtAsm :: DFStatement -> [String]
 genStmtAsm (DFExpr expr) = genExprAsm expr
 genStmtAsm (DFReturn Nothing) = ["; Void return", "ret"]
-genStmtAsm (DFReturn (Just retVal)) = ["; Value return", "ret"] ++ genExprAsm retVal
+genStmtAsm (DFReturn (Just retVal)) = ["; Value return"] ++ genExprAsm retVal ++ ["ret"];
 genStmtAsm (DFBlock body) =
   let bodyCode = concat $ map genStmtAsm body
   in ["; new block"] ++ bodyCode
@@ -330,7 +331,18 @@ genExprAsm (Unary op expr) =
 genExprAsm (Binary op exprL exprR) =
   let leftCode = genExprAsm exprL
       rightCode = genExprAsm exprR
-  in [";Binary op: " ++ op, ";left"] ++ leftCode ++ [";right"] ++ rightCode
+      instruction = case op of
+        "+" -> "add"
+        "-" -> "sub"
+        "*" -> "mul"
+        "/" -> "div"
+        _ -> "; XXX: Unsupported binary operator"
+  in [";Binary op: " ++ op, ";right"] ++
+     rightCode ++
+     ["push eax", ";left"] ++
+     leftCode ++
+     ["pop ebx"] ++
+     [instruction ++ " eax, ebx"]
 genExprAsm (Attribute struct member) =
   let structCode = genExprAsm struct
   in [";Attribute"] ++ structCode
@@ -346,7 +358,16 @@ genExprAsm (InstanceOf refType expr) = ["; instanceOf"] ++ genExprAsm expr
 genExprAsm (Cast refType expr) = ["; Casting"] ++ genExprAsm expr
 genExprAsm (ID (Right symbol)) = ["; variable named " ++ (localName symbol)]
 genExprAsm (ID (Left offset)) = ["; variable offset "]
-genExprAsm (Value valuetype value) = ["; const: " ++ value]
+genExprAsm (Value AST.TypeByte value) = ["mov eax, " ++ value]
+genExprAsm (Value AST.TypeShort value) = ["mov eax, " ++ value]
+genExprAsm (Value AST.TypeInt value) = ["mov eax, " ++ value]
+genExprAsm (Value AST.TypeChar value) =
+  let charValue = show . ord $ (read value :: Char)
+  in ["mov eax, " ++ charValue]
+genExprAsm (Value AST.TypeBoolean "true") = ["mov eax, 1"]
+genExprAsm (Value AST.TypeBoolean "false") = ["mov eax, 0"]
+genExprAsm (Value AST.TypeNull _) = ["mov eax, 0"]
+genExprAsm (Value valuetype value) = ["; XXX: Unsupported value: " ++ value]
 genExprAsm This = ["; This"]
 genExprAsm Null = ["; Null"]
 genExprAsm NOOP = ["; NOOP"]
