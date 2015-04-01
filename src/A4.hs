@@ -143,9 +143,12 @@ main' allFileNames = do
 
   -- Update DB with inheritance relations
   let cn = dumpDBNodes db
-  let relations = [((typeToName . localType . symbol) node, ["java","lang","Object"]:(map (typeToName . localType . symbol) (getClassHierarchyForSymbol node db))) | node <- cn]
+  let relationsCL = [((typeToName . localType . symbol) node, (map (typeToName . localType . symbol) (filter isCLNode $ getClassHierarchyForSymbol node db))) | node <- cn, isCLNode node]
+  let relationsIT = [((typeToName . localType . symbol) node, (map (typeToName . localType . symbol) (getClassHierarchyForSymbol node db))) | node <- cn, isITNode node]
+  hPutStrLn stderr (show relationsCL)
+  hPutStrLn stderr (show relationsIT)
 
-  let mdb' = updateDBWithInheritances db relations
+  let mdb' = updateDBWithInheritances db (relationsCL ++ relationsIT)
   if isNothing mdb' then do
     hPutStrLn stderr "Inheritance DB building error!"
     exitWith (ExitFailure 42)

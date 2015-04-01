@@ -2,6 +2,7 @@ module TypeDatabase where
 
 import Data.Maybe
 import Data.List
+import Data.Map hiding (map, filter)
 
 import Util
 import AST
@@ -40,11 +41,13 @@ isVisibleClassNode tn = case symbol tn of
                             IT _ _ _ _ -> True
                             FUNC _ _ _ _ _ -> False
                             _ -> True -- False -> True
-
-isConcreteNode tn = case symbol tn of
-                            CL  _ _ _ _ -> True
-                            IT _ _ _ _ -> True
-                            _ -> False
+isCLNode tn = case symbol tn of
+                CL _ _ _ _ -> True
+                _ -> False
+isITNode tn = case symbol tn of
+                IT _ _ _ _ -> True
+                _ -> False
+isConcreteNode tn = (isCLNode tn) || (isITNode tn) 
 
 isSYMFUNCNode tn = case symbol tn of
                             FUNC _ _ _ _ _ -> True
@@ -59,24 +62,41 @@ instance Show TypeNode where
         where
             lns = map show (filter isVisibleClassNode nodes)
 
+symbolToLabel :: TypeNode -> Symbol -> String
+symbolToLabel db sym = ""                                            
+
+symbolToLabel' :: TypeNode -> Symbol -> String
+symbolToLabel' node sym = ""
+
 getTypeEntry :: TypeNode -> [String] -> Maybe TypeNode
 getTypeEntry tn name = case traverseTypeEntry tn name of
   Just node -> Just . head . subNodes $ node
   Nothing -> Nothing
 
+visibleNodesUnderInheritance :: [TypeNode] -> [TypeNode]
+visibleNodesUnderInheritance nodes = symsS ++ syms ++ funcs ++ filter (not . isSYMFUNCNode) nodes 
+  where
+    syms = nubBy (\(TN sym1 _) (TN sym2 _) -> localName sym1 == localName sym2) [TN sym ch | TN sym@(SYM mds _ _ _) ch <- nodes, not $ elem "static" mds]
+    symsS = [TN sym ch | TN sym@(SYM mds _ _ _) ch <- nodes, elem "static" mds]
+    funcs = [TN sym ch | TN sym@(FUNC mds _ _ _ _) ch <- nodes]
+
 inheritFromNodes :: TypeNode -> [TypeNode] -> TypeNode
-inheritFromNodes (TN sym ch) nodes = (TN sym (syms ++ cons ++ funcs))
+inheritFromNodes node@(TN sym ch) nodes = (TN sym (symsS ++ syms ++ cons ++ funcs))
     where
-        inherits = (concat $ map subNodes nodes)
-        syms = nubBy (\(TN sym1 _) (TN sym2 _) -> localName sym1 == localName sym2) [TN sym ch | TN sym@(SYM _ _ _ _) ch <- ch ++ inherits]
+        nodes' = filter (node /=) nodes
+        inherits = (concat $ map subNodes nodes')
+        --syms = nubBy (\(TN sym1 _) (TN sym2 _) -> localName sym1 == localName sym2) [TN sym ch | TN sym@(SYM mds _ _ _) ch <- ch ++ inherits, not $ elem "static" mds]
+        syms = [TN sym ch | TN sym@(SYM mds _ _ _) ch <- ch ++ inherits, not $ elem "static" mds]
+        symsS =  [TN sym ch' | TN sym@(SYM mds _ _ _) ch' <- ch, elem "static" mds]
         cons = [TN sym ch | TN sym@(FUNC mds _ _ _ _) ch <- ch, elem "cons" mds]
         funcs = nubBy (\(TN sym1 _) (TN sym2 _) -> (localName sym1, parameterTypes sym1) == (localName sym2, parameterTypes sym2)) [TN sym ch | TN sym@(FUNC mds _ _ _ _) ch <- ch ++ inherits, not $ elem "cons" mds]
 
 inheritFromTypes :: TypeNode -> [String] -> [[String]] -> Maybe TypeNode
 inheritFromTypes tn cname cnames = if and tycs then Just $ inheritFromNodes (fromJust mtar) (map fromJust msrcs) else Nothing
     where
+        cnames' = filter (cname /=) cnames
         mtar = getTypeEntry tn cname
-        msrcs = map (getTypeEntry tn) cnames
+        msrcs = map (getTypeEntry tn) cnames'
         tycs = map isJust (mtar:msrcs)
 
 updateNode :: TypeNode -> [String] -> TypeNode -> Maybe TypeNode

@@ -133,7 +133,7 @@ typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
         equality = equalityCheck db typeL typeR
 
 
-typeLinkingExpr db imps su (ID nm _) = map symbolToType (symbolLinkingName db imps su nm)
+typeLinkingExpr db imps su expr@(ID nm _) = map symbolToType (symbolLinkingExpr db imps su expr)
 typeLinkingExpr db imps su This = if scopeStatic su then typeLinkingFailure "This not accessible from static scope" else [lookUpThis su]
 typeLinkingExpr db imps su (Value tp _ _) = [tp]
 --ToDO: check if instance of is legit
@@ -351,20 +351,24 @@ scopeLocal su
                 Method (FUNC mds _ _ _ _) -> True
                 _ -> scopeLocal (inheritFrom su)
 
-scopeOffset' :: SemanticUnit -> Int
-scopeOffset' su = case kd of
+scopeOffsetPos :: SemanticUnit -> Int
+scopeOffsetPos su = case kd of
                     Method _ -> 0
-                    Var _ -> 1 + scopeOffset' (inheritFrom su)
-                    _ -> scopeOffset' (inheritFrom su)
+                    Var _ -> 1 + scopeOffsetPos (inheritFrom su)
+                    _ -> scopeOffsetPos (inheritFrom su)
   where
     kd = kind su
 
 scopeOffset :: SemanticUnit -> Symbol -> Int
-scopeOffset su sym = if syms == [sym]
-                       then scopeOffset' (inheritFrom su)
-                       else scopeOffset (inheritFrom su) sym
+scopeOffset su sym = case kd of
+                       Method _ -> if syms' /= [] then 0 - (length syms') else error $ "symbol not found on stack: " ++ (show sym)
+		       _ -> if syms == [sym]
+                              then scopeOffsetPos (inheritFrom su)
+                              else scopeOffset (inheritFrom su) sym
   where
+    kd = kind su
     syms = symbolTable su
+    syms' = dropWhile (sym /=) syms
 
 scopeReturnType :: SemanticUnit -> Type
 scopeReturnType su = rst

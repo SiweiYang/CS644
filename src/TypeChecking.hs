@@ -255,7 +255,7 @@ traverseInstanceEntryAccessible root cname tn [] = []
 traverseInstanceEntryAccessible root cname tn@(TN (SYM mds ls ln lt) _) (nm:remain) = if accessibleSymbol root cname (symbol tn) then traverseInstanceEntryAccessible root cname root ((typeToName lt) ++ (nm:remain)) else []
 traverseInstanceEntryAccessible root cname cur (nm:remain) = case [node | node <- nodes, (localName . symbol) node == nm] of
                                                                 []            -> []
-                                                                targets      -> concat $ map (\target -> traverseInstanceEntryAccessible root cname target remain) targets
+                                                                targets      -> concat $ map (\target -> traverseInstanceEntryAccessible root cname target remain) (visibleNodesUnderInheritance targets)
     where
         nodes = if isConcreteNode cur
                 then [node | node <- subNodes cur, not $ elem "static" ((symbolModifiers . symbol) node), (accessibleType root cname (symbol cur)) || (not $ elem "protected" ((symbolModifiers . symbol) node))]
