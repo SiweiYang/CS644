@@ -321,6 +321,13 @@ genStmtAsm (DFFor initializer condition finalizer body) =
       bodyCode = concat $ map genStmtAsm body
   in ["; For statement", ";init"] ++ initializerCode ++ [";condition"] ++ conditionCode ++ [";finalizerCode"] ++ finalizerCode ++ [";bodyCode"] ++ bodyCode
 
+genOpAsm :: String -> [String]
+genOpAsm "*" = ["mul ebx"]
+genOpAsm "/" = ["div ebx"]
+genOpAsm "+" = ["add eax, ebx"]
+genOpAsm "-" = ["sub eax, ebx"]
+genOpAsm _ = ["; XXX: Unsupported binary operator"]
+
 genExprAsm :: DFExpression -> [String]
 genExprAsm (FunctionCall callee arguments) =
   let argumentCode = concat $ map genExprAsm arguments
@@ -331,18 +338,14 @@ genExprAsm (Unary op expr) =
 genExprAsm (Binary op exprL exprR) =
   let leftCode = genExprAsm exprL
       rightCode = genExprAsm exprR
-      instruction = case op of
-        "+" -> "add"
-        "-" -> "sub"
-        "*" -> "mul"
-        "/" -> "div"
-        _ -> "; XXX: Unsupported binary operator"
+      opCode = genOpAsm op
   in [";Binary op: " ++ op, ";right"] ++
      rightCode ++
      ["push eax", ";left"] ++
      leftCode ++
      ["pop ebx"] ++
-     [instruction ++ " eax, ebx"]
+     opCode
+
 genExprAsm (Attribute struct member) =
   let structCode = genExprAsm struct
   in [";Attribute"] ++ structCode
