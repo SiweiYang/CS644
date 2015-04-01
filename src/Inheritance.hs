@@ -15,7 +15,11 @@ generateLabelFromFUNC (FUNC mds ls ln _ _) i = if elem "native" mds
                                                         "malloc" -> "__malloc"
                                                         "throw" -> "__exception"
                                                         "nativeWrite" -> "NATIVEjava.io.OutputStream.nativeWrite"
-                                                 else intercalate "_" (ls ++ [ln, show i])
+                                                 else intercalate "_" (ls ++ [md, ln, show i])
+  where
+    md = if elem "static" mds
+            then "static"
+            else "instance"
 
 createTypeID :: TypeNode -> Map Symbol Int
 createTypeID db = fromList (zip syms [0..])

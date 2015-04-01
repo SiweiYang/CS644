@@ -44,7 +44,7 @@ data Lex Lex66,67
 data Lex = Lex Lex66,67
 instance instance67,68
 
-./src/CodeConstruct.hs,3900
+./src/CodeConstruct.hs,3948
 module CodeConstruct CodeConstruct0,1
 data FieldType FieldType14,15
 data FieldType = FT FT14,15
@@ -65,77 +65,79 @@ data InstanceConstruct InstanceConstruct45,46
 data InstanceConstruct = IC IC45,46
   instanceType instanceType46,47
   instanceFields instanceFields47,48
+buildClassConstruct buildClassConstruct50,51
 buildClassConstruct buildClassConstruct52,53
-buildClassConstruct buildClassConstruct54,55
-data MethodConstruct MethodConstruct65,66
-data MethodConstruct = MC MC65,66
-  methodName methodName66,67
-  --methodParameters --methodParameters67,68
-  methodSymbol methodSymbol68,69
-  methodDefinition methodDefinition69,70
-buildMethodConstruct buildMethodConstruct75,76
-buildMethodConstruct buildMethodConstruct76,77
-data DFStatement DFStatement82,83
-data DFStatement = DFIf DFIf82,83
-  condition condition83,84
-  ifBlock ifBlock84,85
-  elseBlock elseBlock85,86
-buildDFStatement buildDFStatement97,98
-buildDFStatement buildDFStatement98,99
-data DFExpression DFExpression162,163
-data DFExpression = FunctionCall FunctionCall162,163
-                  | Unary Unary163,164
-                  | Unary { op op163,164
-                  | Unary { op :: String, expr expr163,164
-                  | Binary Binary164,165
-                  | Binary { op op164,165
-                  | Binary { op :: String, exprL exprL164,165
-                  | Binary { op :: String, exprL :: DFExpression, exprR exprR164,165
-                  | Attribute Attribute165,166
-                  | Attribute { struct struct165,166
-                  | Attribute { struct :: DFExpression, mem mem165,166
-                  | ArrayAccess ArrayAccess166,167
-                  | ArrayAccess { array array166,167
-                  | ArrayAccess { array :: DFExpression, index index166,167
-                  | NewArray NewArray167,168
-                  | NewArray { arraytype arraytype167,168
-                  | NewArray { arraytype :: Type, dimexprs dimexprs167,168
-                  | NewObject NewObject168,169
-                  | NewObject { classtype classtype168,169
-                  | NewObject { classtype :: Type, arguments arguments168,169
-                  | InstanceOf InstanceOf169,170
-                  | InstanceOf { reftype reftype169,170
-                  | InstanceOf { reftype :: Type, expr expr169,170
-                  | Cast Cast170,171
-                  | Cast {reftype reftype170,171
-                  | Cast {reftype :: Type, expr expr170,171
-                  | ID ID171,172
-                  | ID { identifier identifier171,172
-                  | Value Value172,173
-                  | Value { valuetype valuetype172,173
-                  | Value { valuetype :: Type, value value172,173
-                  | ThisThis173,174
-                  | NullNull174,175
-                  | NOOPNOOP175,176
-buildDFExpression buildDFExpression179,180
+data MethodConstruct MethodConstruct63,64
+data MethodConstruct = MC MC63,64
+  methodName methodName64,65
+  --methodParameters --methodParameters65,66
+  methodSymbol methodSymbol66,67
+  methodDefinition methodDefinition67,68
+buildMethodConstruct buildMethodConstruct73,74
+buildMethodConstruct buildMethodConstruct74,75
+data DFStatement DFStatement80,81
+data DFStatement = DFIf DFIf80,81
+  condition condition81,82
+  ifBlock ifBlock82,83
+  elseBlock elseBlock83,84
+  nesting nesting84,85
+buildDFStatement buildDFStatement101,102
+buildDFStatement buildDFStatement102,103
+data DFExpression DFExpression164,165
+data DFExpression = FunctionCall FunctionCall164,165
+                  | Unary Unary165,166
+                  | Unary { op op165,166
+                  | Unary { op :: String, expr expr165,166
+                  | Binary Binary166,167
+                  | Binary { op op166,167
+                  | Binary { op :: String, exprL exprL166,167
+                  | Binary { op :: String, exprL :: DFExpression, exprR exprR166,167
+                  | Attribute Attribute167,168
+                  | Attribute { struct struct167,168
+                  | Attribute { struct :: DFExpression, mem mem167,168
+                  | ArrayAccess ArrayAccess168,169
+                  | ArrayAccess { array array168,169
+                  | ArrayAccess { array :: DFExpression, index index168,169
+                  | NewArray NewArray169,170
+                  | NewArray { arraytype arraytype169,170
+                  | NewArray { arraytype :: Type, dimexprs dimexprs169,170
+                  | NewObject NewObject170,171
+                  | NewObject { classtype classtype170,171
+                  | NewObject { classtype :: Type, arguments arguments170,171
+                  | InstanceOf InstanceOf171,172
+                  | InstanceOf { reftype reftype171,172
+                  | InstanceOf { reftype :: Type, expr expr171,172
+                  | Cast Cast172,173
+                  | Cast {reftype reftype172,173
+                  | Cast {reftype :: Type, expr expr172,173
+                  | ID ID173,174
+                  | ID { identifier identifier173,174
+                  | Value Value174,175
+                  | Value { valuetype valuetype174,175
+                  | Value { valuetype :: Type, value value174,175
+                  | ThisThis175,176
+                  | NullNull176,177
+                  | NOOPNOOP177,178
 buildDFExpression buildDFExpression181,182
-buildMalloc buildMalloc260,261
-symbolToType' symbolToType'266,267
-symbolToType' symbolToType'267,268
-genAsm genAsm287,288
-genAsm genAsm288,289
-genFieldAsm genFieldAsm294,295
-genFieldAsm genFieldAsm295,296
-genMthdAsm genMthdAsm298,299
-genMthdAsm genMthdAsm299,300
-genStmtAsm genStmtAsm304,305
-genStmtAsm genStmtAsm305,306
---genStmtAsm --genStmtAsm306,307
-genOpAsm genOpAsm329,330
-genOpAsm genOpAsm330,331
-genExprAsm genExprAsm345,346
-genExprAsm genExprAsm346,347
-genExprLhsAsm genExprLhsAsm398,399
+buildDFExpression buildDFExpression183,184
+buildMalloc buildMalloc262,263
+symbolToType' symbolToType'268,269
+symbolToType' symbolToType'269,270
+genLabel genLabel288,289
+genLabel genLabel289,290
+genAsm genAsm291,292
+genAsm genAsm292,293
+genFieldAsm genFieldAsm298,299
+genFieldAsm genFieldAsm299,300
+genMthdAsm genMthdAsm302,303
+genMthdAsm genMthdAsm303,304
+genStmtAsm genStmtAsm308,309
+genStmtAsm genStmtAsm309,310
+genOpAsm genOpAsm342,343
+genOpAsm genOpAsm343,344
+genExprAsm genExprAsm358,359
+genExprAsm genExprAsm360,361
+genExprLhsAsm genExprLhsAsm417,418
 
 ./src/Environment.hs,3147
 data Kind Kind9,10
@@ -854,22 +856,22 @@ weedField weedField157,158
 module Inheritance Inheritance0,1
 generateLabelFromFUNC generateLabelFromFUNC11,12
 generateLabelFromFUNC generateLabelFromFUNC12,13
-createTypeID createTypeID19,20
-createTypeID createTypeID20,21
-createInstanceFUNCID createInstanceFUNCID24,25
-createInstanceFUNCID createInstanceFUNCID25,26
-createStaticFUNCID createStaticFUNCID29,30
-createStaticFUNCID createStaticFUNCID30,31
-createFUNCLabel createFUNCLabel35,36
-createFUNCLabel createFUNCLabel36,37
-createTypeCharacteristicBM createTypeCharacteristicBM41,42
-createTypeCharacteristicBM createTypeCharacteristicBM42,43
-updateFUNC updateFUNC47,48
-updateFUNC updateFUNC48,49
-updateFUNCTable updateFUNCTable52,53
-updateFUNCTable updateFUNCTable53,54
-createInstanceFUNCTable createInstanceFUNCTable55,56
-createInstanceFUNCTable createInstanceFUNCTable56,57
+createTypeID createTypeID23,24
+createTypeID createTypeID24,25
+createInstanceFUNCID createInstanceFUNCID28,29
+createInstanceFUNCID createInstanceFUNCID29,30
+createStaticFUNCID createStaticFUNCID33,34
+createStaticFUNCID createStaticFUNCID34,35
+createFUNCLabel createFUNCLabel39,40
+createFUNCLabel createFUNCLabel40,41
+createTypeCharacteristicBM createTypeCharacteristicBM45,46
+createTypeCharacteristicBM createTypeCharacteristicBM46,47
+updateFUNC updateFUNC51,52
+updateFUNC updateFUNC52,53
+updateFUNCTable updateFUNCTable56,57
+updateFUNCTable updateFUNCTable57,58
+createInstanceFUNCTable createInstanceFUNCTable59,60
+createInstanceFUNCTable createInstanceFUNCTable60,61
 
 ./src/Scanner.hs,1898
 module Scanner Scanner0,1
@@ -946,5 +948,5 @@ indent indent17,18
 
 ./src/A5.hs,56
 module Main Main0,1
-main main23,24
 main main24,25
+main main25,26

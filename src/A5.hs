@@ -191,11 +191,14 @@ main = do
 
   -- Create Hierarchy Information
   let typeIDMap = createTypeID db'
-  let functionIDMap = createInstanceFUNCID db'
-  let typeCharacteristicBM = createTypeCharacteristicBM db'
+  let instanceFUNCIDMap = createInstanceFUNCID db'
   let instanceFUNCTable = createInstanceFUNCTable db'
+  let staticFUNCIDMap = createStaticFUNCID db'
   let staticFUNCLabelMap = createFUNCLabel db'
-  --hPutStrLn stderr $ "Total Number of Functions: " ++ show (size functionIDMap)
+  let typeCharacteristicBM = createTypeCharacteristicBM db'
+  
+  --hPutStrLn stderr $ "Total Number of Instance Functions: " ++ show (size instanceFUNCIDMap)
+  --hPutStrLn stderr $ "Total Number of Static Functions: " ++ show (size staticFUNCIDMap)
   --hPutStrLn stderr $ "Type Characteristic BitMap: " ++ show typeCharacteristicBM
   --hPutStrLn stderr $ "Func Table: " ++ show funcTable
   hPutStrLn stderr $ (show (symbol runtimeMalloc)) ++ " -> " ++ (show $ lookup (symbol runtimeMalloc) staticFUNCLabelMap)
