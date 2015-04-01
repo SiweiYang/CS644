@@ -17,7 +17,7 @@ data FieldType = FT {
 }
 
 --fieldTableOffset :: [FT] -> String -> Int
---fieldTableOffset [] 
+--fieldTableOffset []
 --fieldTableOffset ft:
 
 buildFieldType :: [Symbol] -> [FieldType]
@@ -211,8 +211,8 @@ buildDFExpression db imps su tps e@(AST.NewObject tp args _) = FunctionCall sym 
   where
     syms = symbolLinkingExpr db imps su e
     [sym] = if tps == [] then syms else [sym | sym <- syms, elem (symbolToType sym) tps]
-              
-buildDFExpression db imps su tps (AST.NewArray tp expr _) = FunctionCall sym $ (buildMalloc sym):[buildDFExpression db imps su [] expr] 
+
+buildDFExpression db imps su tps (AST.NewArray tp expr _) = FunctionCall sym $ (buildMalloc sym):[buildDFExpression db imps su [] expr]
   where
     sym = symbol arrayConstructor
 -- noop
@@ -225,3 +225,88 @@ buildMalloc sym = FunctionCall sym' [arg]
     sym' = symbol runtimeMalloc
     arg = ID $ Right (SYM ["static", "native"] (localScope sym) "object size" AST.TypeInt)
 
+
+
+--     _                           _     _
+--    / \   ___ ___  ___ _ __ ___ | |__ | |_   _
+--   / _ \ / __/ __|/ _ \ '_ ` _ \| '_ \| | | | |
+--  / ___ \\__ \__ \  __/ | | | | | |_) | | |_| |
+-- /_/   \_\___/___/\___|_| |_| |_|_.__/|_|\__, |
+--                                         |___/
+--   ____                           _   _
+--  / ___| ___ _ __   ___ _ __ __ _| |_(_) ___  _ __
+-- | |  _ / _ \ '_ \ / _ \ '__/ _` | __| |/ _ \| '_ \
+-- | |_| |  __/ | | |  __/ | | (_| | |_| | (_) | | | |
+--  \____|\___|_| |_|\___|_|  \__,_|\__|_|\___/|_| |_|
+
+
+generateAssembly :: ClassConstruct -> [String]
+generateAssembly (CC name fields _ methods) =
+  let prefaceCode = ["; Code for: " ++ concat name, "section .text"]
+      fieldCode = concat $ map generateFieldAssembly fields
+      methodCode = concat $ map generateMethodAssembly methods
+  in prefaceCode ++ fieldCode ++ methodCode
+
+generateFieldAssembly :: FieldType -> [String]
+generateFieldAssembly (FT _ _ False) = []
+generateFieldAssembly (FT name _ True) = ["; Class field: " ++ name]
+
+generateMethodAssembly :: MethodConstruct -> [String]
+generateMethodAssembly (MC name _ definition) =
+  let header =  ["global _" ++ last name, "_" ++ last name ++ ":"]
+      body = concat $ map generateStatementAssembly definition
+  in header ++ body
+
+generateStatementAssembly :: DFStatement -> [String]
+generateStatementAssembly (DFExpr expr) = generateExpressionAssembly expr
+generateStatementAssembly (DFReturn Nothing) = ["; Void return", "ret"]
+generateStatementAssembly (DFReturn (Just retVal)) = ["; Value return", "ret"] ++ generateExpressionAssembly retVal
+generateStatementAssembly (DFBlock body) =
+  let bodyCode = concat $ map generateStatementAssembly body
+  in ["; new block"] ++ bodyCode
+generateStatementAssembly (DFIf cond trueBlock falseBlock) =
+  let condCode = generateExpressionAssembly cond
+      trueCode = concat $ map generateStatementAssembly trueBlock
+      falseCode = concat $ map generateStatementAssembly falseBlock
+  in ["; If statement", "; cond"] ++ condCode ++ ["; true"] ++ trueCode ++ ["; false"]
+generateStatementAssembly (DFWhile cond body) =
+  let condCode = generateExpressionAssembly cond
+      bodyCode = concat $ map generateStatementAssembly body
+  in ["; While statement", "; cond"] ++ condCode ++ ["; body"] ++ bodyCode
+generateStatementAssembly (DFFor initializer condition finalizer body) =
+  let initializerCode = generateStatementAssembly initializer
+      conditionCode = generateExpressionAssembly condition
+      finalizerCode = generateStatementAssembly finalizer
+      bodyCode = concat $ map generateStatementAssembly body
+  in ["; For statement", ";init"] ++ initializerCode ++ [";condition"] ++ conditionCode ++ [";finalizerCode"] ++ finalizerCode ++ [";bodyCode"] ++ bodyCode
+
+generateExpressionAssembly :: DFExpression -> [String]
+generateExpressionAssembly (FunctionCall callee arguments) =
+  let argumentCode = concat $ map generateExpressionAssembly arguments
+  in ["; Function call to" ++ localName callee, "; arguments"] ++ argumentCode
+generateExpressionAssembly (Unary op expr) =
+  let exprCode = generateExpressionAssembly expr
+  in [";Unary op: " ++ op] ++ exprCode
+generateExpressionAssembly (Binary op exprL exprR) =
+  let leftCode = generateExpressionAssembly exprL
+      rightCode = generateExpressionAssembly exprR
+  in [";Binary op: " ++ op, ";left"] ++ leftCode ++ [";right"] ++ rightCode
+generateExpressionAssembly (Attribute struct member) =
+  let structCode = generateExpressionAssembly struct
+  in [";Attribute"] ++ structCode
+generateExpressionAssembly (ArrayAccess array index) =
+  let arrayCode = generateExpressionAssembly array
+      indexCode = generateExpressionAssembly index
+  in ["; newArray",";array"] ++ arrayCode ++ [";index"] ++ indexCode
+generateExpressionAssembly (NewArray arrayType dimExpr) = ["; newArray"] ++ generateExpressionAssembly dimExpr
+generateExpressionAssembly (NewObject classType args) =
+  let argCode = concat $ map generateExpressionAssembly args
+  in ["; newObject"] ++ argCode
+generateExpressionAssembly (InstanceOf refType expr) = ["; instanceOf"] ++ generateExpressionAssembly expr
+generateExpressionAssembly (Cast refType expr) = ["; Casting"] ++ generateExpressionAssembly expr
+generateExpressionAssembly (ID (Right symbol)) = ["; variable named " ++ (localName symbol)]
+generateExpressionAssembly (ID (Left offset)) = ["; variable offset "]
+generateExpressionAssembly (Value valuetype value) = ["; const: " ++ value]
+generateExpressionAssembly This = ["; This"]
+generateExpressionAssembly Null = ["; Null"]
+generateExpressionAssembly NOOP = ["; NOOP"]

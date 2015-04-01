@@ -7,6 +7,7 @@ import System.Exit
 import System.IO
 
 import AST
+import CodeConstruct
 import Environment
 import Hierarchy
 import Lexical
@@ -175,12 +176,18 @@ main = do
     hPutStrLn stderr "Completability: OK"
 
 
-  -- The compiler is currently hard-coded to write an executable that will return exit code 200
-  writeFile "output/temp.s" $ unlines ["global _start",
+  let fileCompilationPreps = map (\((ast,_),(env,fileName)) -> buildClassConstruct db' (visibleImports ast) env) $ zip fileAsts fileEnvironments
+
+  writeFile "output/main.s" $ unlines ["global _start",
+                                       "extern _test",
                                        "section .text",
-                                       "  _start:",
-                                       "  mov eax, 1",
-                                       "  mov ebx, 200",
-                                       "  int 0x80"]
+                                       "_start:",
+                                       "call _test",
+                                       "mov ebx, eax",
+                                       "mov eax, 1",
+                                       "int 0x80"]
+
+  -- The compiler is currently hard-coded to write an executable that will return exit code 200
+  writeFile "output/temp.s" $ unlines . generateAssembly . head $ fileCompilationPreps
 
 
