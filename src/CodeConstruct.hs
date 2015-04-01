@@ -324,6 +324,7 @@ genStmtAsm (DFFor initializer condition finalizer body) =
 genOpAsm :: String -> [String]
 genOpAsm "*" = ["mul ebx"]
 genOpAsm "/" = ["div ebx"]
+genOpAsm "%" = ["div ebx", "mov eax, edx"]
 genOpAsm "+" = ["add eax, ebx"]
 genOpAsm "-" = ["sub eax, ebx"]
 genOpAsm _ = ["; XXX: Unsupported binary operator"]
