@@ -1,6 +1,7 @@
 module CodeConstruct where
 
 import           Data.Char
+import           Data.List
 import           Data.Maybe
 import           Data.Either
 
@@ -191,7 +192,8 @@ buildDFExpression db imps su tps e@(AST.CastC _ _ expr _) = Cast tp (buildDFExpr
     [tp] = typeLinkingExpr db imps su e
 -- with modification to be more specific
 buildDFExpression db imps su tps e@(AST.ID n@(AST.Name cname@[nm]) _) = if (init ls) == baseName
-                                                                       then ID (Left (scopeOffset su sym))
+                                                                       then let offset = (scopeOffset su sym) in
+                                                                         if offset >= 0 then ID (Left offset) else ID (Left $ offset - 2)
                                                                        else ID (Right sym)
   where
     --ls = case symbolLinkingName db imps su n of
@@ -341,8 +343,9 @@ genOpAsm "=" = ["mov [eax], ebx"]
 
 genExprAsm :: DFExpression -> [String]
 genExprAsm (FunctionCall callee arguments) =
-  let argumentCode = concat $ map genExprAsm arguments
-  in ["; Function call to" ++ localName callee, "; arguments"] ++ argumentCode
+  let argumentCode = ((intersperse "push eax") . concat $ map genExprAsm arguments) ++ ["push eax"]
+      cleanupCode = ["add esp, " ++ (show $ 4 * (length arguments)) ++ " ; Pop arguments"]
+  in ["; Function call to" ++ localName callee, "; arguments"] ++ argumentCode ++ ["call _" ++ (localName callee)] ++ cleanupCode
 genExprAsm (Unary op expr) =
   let exprCode = genExprAsm expr
   in [";Unary op: " ++ op] ++ exprCode
@@ -375,8 +378,8 @@ genExprAsm (InstanceOf refType expr) = ["; instanceOf"] ++ genExprAsm expr
 genExprAsm (Cast refType expr) = ["; Casting"] ++ genExprAsm expr
 genExprAsm (ID (Right symbol)) = ["; variable named " ++ (localName symbol)]
 genExprAsm (ID (Left offset)) =
-  let distance = offset * 4 + 4
-  in ["mov eax, [ebp - " ++ show distance ++ "]"]
+  let distance = (offset + 1) * 4
+  in ["mov eax, [ebp - " ++ show distance ++ "];" ++ show offset]
 genExprAsm (Value AST.TypeByte value) = ["mov eax, " ++ value]
 genExprAsm (Value AST.TypeShort value) = ["mov eax, " ++ value]
 genExprAsm (Value AST.TypeInt value) = ["mov eax, " ++ value]
@@ -387,10 +390,10 @@ genExprAsm (Value AST.TypeBoolean "true") = ["mov eax, 1"]
 genExprAsm (Value AST.TypeBoolean "false") = ["mov eax, 0"]
 genExprAsm (Value AST.TypeNull _) = ["mov eax, 0"]
 genExprAsm (Value valuetype value) = ["; XXX: Unsupported value: " ++ value]
-genExprAsm This = ["; This"]
+genExprAsm This = ["mov eax, 0; This"]
 genExprAsm Null = ["; Null"]
 genExprAsm NOOP = ["; NOOP"]
 
 genExprLhsAsm (ID (Left offset)) =
-  let distance = offset * 4 + 4
+  let distance = (offset + 1) * 4
   in ["lea eax, [ebp - " ++ show distance ++ "] ; LHS for assignment"]
