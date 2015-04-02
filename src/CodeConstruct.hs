@@ -108,9 +108,10 @@ buildDFStatement db imps (ENV (SU _ Statement _ _) ch) = (DFBlock block):remain
 buildDFStatement db imps (ENV su@(SU _ (Var expr) st _) ch) = (DFLocal dfexpr):remain
   where
     remain = head $ map (buildDFStatement db imps) ch
-    [(SYM _ _ nm _)] = st
-    newExpr = AST.Binary "=" (AST.ID (AST.Name [nm]) 0) expr 0
-    dfexpr = buildDFExpression db imps su [] newExpr
+    dfexpr = buildDFExpression db imps su [] expr
+    --[(SYM _ _ nm _)] = st
+    --newExpr = AST.Binary "=" (AST.ID (AST.Name [nm]) 0) expr 0
+    --dfexpr = buildDFExpression db imps su [] newExpr
 
 buildDFStatement db imps (ENV su@(SU _ (Exp expr) _ _) ch) = (DFExpr dfexpr):remain
   where
@@ -301,7 +302,8 @@ genMthdAsm (MC name symbol definition) =
 
 genStmtAsm :: DFStatement -> [String]
 genStmtAsm (DFExpr expr) = genExprAsm expr
-genStmtAsm (DFLocal expr) = ["sub esp, 4 ; Allocating stack space for local var"] ++ genExprAsm expr
+--genStmtAsm (DFLocal expr) = ["sub esp, 4 ; Allocating stack space for local var"] ++ genExprAsm expr
+genStmtAsm (DFLocal expr) = genExprAsm expr ++ ["push eax ; Allocating stack space for local var"]
 genStmtAsm (DFReturn Nothing) = ["; Void return", "ret"]
 genStmtAsm (DFReturn (Just retVal)) = ["; Value return"] ++ genExprAsm retVal ++ ["; Cleaning stack frame", "mov esp, ebp", "pop ebp", "ret"];
 genStmtAsm (DFBlock body) =
