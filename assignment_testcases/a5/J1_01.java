@@ -17,7 +17,7 @@ public class J1_01 {
 	if (r4==6) r=r+1;
 	if (r5==9) r=r+1;
 	if (r6==6) r=r+1;
-	
+
 	return 117+r;
     }
 
