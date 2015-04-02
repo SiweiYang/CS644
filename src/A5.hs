@@ -26,6 +26,11 @@ main :: IO ()
 main = do
   -- Get the files to compile from the args
   givenFileNames <- getArgs
+  hPutStrLn stderr $ show givenFileNames
+  main' givenFileNames
+
+main' :: [String] -> IO ()
+main' givenFileNames = do
   let allFileNames = givenFileNames ++ ["./res/ObjectInterface.java", "./res/Array.java"]
 
   -- Read their contents
@@ -205,6 +210,9 @@ main = do
 
   -- CLASS RECONSTRUCT
   let reconstructedCLASS = map (\(imp, Just env, fn) -> (imp, (buildClassConstruct db' imp env), fn)) listImpEnvFns
+  let constructs = [cls | (_,Just cls,_) <- reconstructedCLASS]
+  let ordering = createClassInitOrdering constructs
+  hPutStrLn stderr $ show ordering
   -- do
     --hPutStrLn stderr (intercalate "\n------------------------\n" $ map (\(_, x, _) -> show x) reconstructedCLASS)
 

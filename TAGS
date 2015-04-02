@@ -44,102 +44,98 @@ data Lex Lex66,67
 data Lex = Lex Lex66,67
 instance instance67,68
 
-./src/CodeConstruct.hs,3948
+./src/CodeConstruct.hs,3630
 module CodeConstruct CodeConstruct0,1
 data FieldType FieldType14,15
 data FieldType = FT FT14,15
   fieldName fieldName15,16
   fieldType fieldType16,17
-  isStatic isStatic17,18
---fieldTableOffset --fieldTableOffset21,22
-buildFieldType buildFieldType25,26
-buildFieldType buildFieldType26,27
-data ClassConstruct ClassConstruct35,36
-data ClassConstruct = CC CC35,36
-  className className36,37
-  classFields classFields37,38
-  classSymbol classSymbol38,39
-  classMethods classMethods39,40
-instance instance42,43
-data InstanceConstruct InstanceConstruct45,46
-data InstanceConstruct = IC IC45,46
-  instanceType instanceType46,47
-  instanceFields instanceFields47,48
-buildClassConstruct buildClassConstruct50,51
+  fieldSYM fieldSYM17,18
+  fieldInit fieldInit18,19
+  isStatic isStatic19,20
+--fieldTableOffset --fieldTableOffset23,24
+buildFieldType buildFieldType27,28
+buildFieldType buildFieldType28,29
+data ClassConstruct ClassConstruct37,38
+data ClassConstruct = CC CC37,38
+  className className38,39
+  classFields classFields39,40
+  classSymbol classSymbol40,41
+  classMethods classMethods41,42
+instance instance44,45
+data InstanceConstruct InstanceConstruct47,48
+data InstanceConstruct = IC IC47,48
+  instanceType instanceType48,49
+  instanceFields instanceFields49,50
 buildClassConstruct buildClassConstruct52,53
-data MethodConstruct MethodConstruct63,64
-data MethodConstruct = MC MC63,64
-  methodName methodName64,65
-  --methodParameters --methodParameters65,66
-  methodSymbol methodSymbol66,67
-  methodDefinition methodDefinition67,68
-buildMethodConstruct buildMethodConstruct73,74
-buildMethodConstruct buildMethodConstruct74,75
-data DFStatement DFStatement80,81
-data DFStatement = DFIf DFIf80,81
-  condition condition81,82
-  ifBlock ifBlock82,83
-  elseBlock elseBlock83,84
-  nesting nesting84,85
-buildDFStatement buildDFStatement101,102
-buildDFStatement buildDFStatement102,103
-data DFExpression DFExpression164,165
-data DFExpression = FunctionCall FunctionCall164,165
-                  | Unary Unary165,166
-                  | Unary { op op165,166
-                  | Unary { op :: String, expr expr165,166
-                  | Binary Binary166,167
-                  | Binary { op op166,167
-                  | Binary { op :: String, exprL exprL166,167
-                  | Binary { op :: String, exprL :: DFExpression, exprR exprR166,167
-                  | Attribute Attribute167,168
-                  | Attribute { struct struct167,168
-                  | Attribute { struct :: DFExpression, mem mem167,168
-                  | ArrayAccess ArrayAccess168,169
-                  | ArrayAccess { array array168,169
-                  | ArrayAccess { array :: DFExpression, index index168,169
-                  | NewArray NewArray169,170
-                  | NewArray { arraytype arraytype169,170
-                  | NewArray { arraytype :: Type, dimexprs dimexprs169,170
-                  | NewObject NewObject170,171
-                  | NewObject { classtype classtype170,171
-                  | NewObject { classtype :: Type, arguments arguments170,171
-                  | InstanceOf InstanceOf171,172
-                  | InstanceOf { reftype reftype171,172
-                  | InstanceOf { reftype :: Type, expr expr171,172
-                  | Cast Cast172,173
-                  | Cast {reftype reftype172,173
-                  | Cast {reftype :: Type, expr expr172,173
-                  | ID ID173,174
-                  | ID { identifier identifier173,174
-                  | Value Value174,175
-                  | Value { valuetype valuetype174,175
-                  | Value { valuetype :: Type, value value174,175
-                  | ThisThis175,176
-                  | NullNull176,177
-                  | NOOPNOOP177,178
-buildDFExpression buildDFExpression181,182
-buildDFExpression buildDFExpression183,184
-buildMalloc buildMalloc262,263
-symbolToType' symbolToType'268,269
-symbolToType' symbolToType'269,270
-genLabel genLabel288,289
-genLabel genLabel289,290
-genAsm genAsm291,292
-genAsm genAsm292,293
-genFieldAsm genFieldAsm298,299
-genFieldAsm genFieldAsm299,300
-genMthdAsm genMthdAsm302,303
-genMthdAsm genMthdAsm303,304
-genStmtAsm genStmtAsm308,309
-genStmtAsm genStmtAsm309,310
-genOpAsm genOpAsm342,343
-genOpAsm genOpAsm343,344
-genExprAsm genExprAsm358,359
-genExprAsm genExprAsm360,361
-genExprLhsAsm genExprLhsAsm417,418
+buildClassConstruct buildClassConstruct54,55
+data MethodConstruct MethodConstruct69,70
+data MethodConstruct = MC MC69,70
+  methodName methodName70,71
+  --methodParameters --methodParameters71,72
+  methodSymbol methodSymbol72,73
+  methodDefinition methodDefinition73,74
+buildMethodConstruct buildMethodConstruct79,80
+buildMethodConstruct buildMethodConstruct80,81
+data DFStatement DFStatement86,87
+data DFStatement = DFIf DFIf86,87
+  condition condition87,88
+  ifBlock ifBlock88,89
+  elseBlock elseBlock89,90
+  nesting nesting90,91
+buildDFStatement buildDFStatement107,108
+buildDFStatement buildDFStatement108,109
+data DFExpression DFExpression170,171
+data DFExpression = FunctionCall FunctionCall170,171
+                  | Unary Unary171,172
+                  | Unary { op op171,172
+                  | Unary { op :: String, expr expr171,172
+                  | Binary Binary172,173
+                  | Binary { op op172,173
+                  | Binary { op :: String, exprL exprL172,173
+                  | Binary { op :: String, exprL :: DFExpression, exprR exprR172,173
+                  | Attribute Attribute173,174
+                  | Attribute { struct struct173,174
+                  | Attribute { struct :: DFExpression, mem mem173,174
+                  | ArrayAccess ArrayAccess174,175
+                  | ArrayAccess { array array174,175
+                  | ArrayAccess { array :: DFExpression, index index174,175
+                  | InstanceOf InstanceOf175,176
+                  | InstanceOf { reftype reftype175,176
+                  | InstanceOf { reftype :: Type, expr expr175,176
+                  | Cast Cast176,177
+                  | Cast {reftype reftype176,177
+                  | Cast {reftype :: Type, expr expr176,177
+                  | ID ID177,178
+                  | ID { identifier identifier177,178
+                  | Value Value178,179
+                  | Value { valuetype valuetype178,179
+                  | Value { valuetype :: Type, value value178,179
+                  | ThisThis179,180
+                  | NullNull180,181
+                  | NOOPNOOP181,182
+buildDFExpression buildDFExpression185,186
+buildDFExpression buildDFExpression187,188
+buildMalloc buildMalloc266,267
+symbolToType' symbolToType'272,273
+symbolToType' symbolToType'273,274
+genLabel genLabel292,293
+genLabel genLabel293,294
+genAsm genAsm295,296
+genAsm genAsm296,297
+genFieldAsm genFieldAsm302,303
+genFieldAsm genFieldAsm303,304
+genMthdAsm genMthdAsm306,307
+genMthdAsm genMthdAsm307,308
+genStmtAsm genStmtAsm312,313
+genStmtAsm genStmtAsm313,314
+genOpAsm genOpAsm365,366
+genOpAsm genOpAsm366,367
+genExprAsm genExprAsm381,382
+genExprAsm genExprAsm383,384
+genExprLhsAsm genExprLhsAsm442,443
 
-./src/Environment.hs,3147
+./src/Environment.hs,3206
 data Kind Kind9,10
 data Kind = Package Package9,10
 data Kind = Package | Class Class9,10
@@ -164,33 +160,35 @@ symbolToOrd symbolToOrd43,44
 funcToSigOrd funcToSigOrd49,50
 symbolToType symbolToType56,57
 symbolToType symbolToType57,58
-isClass isClass62,63
-isFunction isFunction65,66
-data SemanticUnit SemanticUnit68,69
-data SemanticUnit = Root Root68,69
-    scope scope69,70
-buildSymbolFromConstructor buildSymbolFromConstructor81,82
-buildSymbolFromField buildSymbolFromField82,83
-buildSymbolFromMethod buildSymbolFromMethod83,84
-buildSymbolFromParameter buildSymbolFromParameter84,85
-data Environment Environment86,87
-data Environment = ENVE ENVE86,87
-data Environment = ENVE | ENV ENV86,87
-    semantic semantic87,88
-    children children88,89
-buildEnvironment buildEnvironment99,100
-buildEnvironment buildEnvironment100,101
-buildEnvironmentWithPackage buildEnvironmentWithPackage104,105
-buildEnvironmentFromClass buildEnvironmentFromClass122,123
-buildEnvironmentFromInterface buildEnvironmentFromInterface131,132
-buildEnvironmentFromField buildEnvironmentFromField139,140
-buildEnvironmentFromField buildEnvironmentFromField140,141
-buildEnvironmentFromMethod buildEnvironmentFromMethod145,146
-buildEnvironmentFromMethod buildEnvironmentFromMethod146,147
-buildEnvironmentFromConstructor buildEnvironmentFromConstructor154,155
-buildEnvironmentFromConstructor buildEnvironmentFromConstructor155,156
-buildEnvironmentFromStatements buildEnvironmentFromStatements165,166
-buildEnvironmentFromStatements buildEnvironmentFromStatements166,167
+symbolToCN symbolToCN62,63
+symbolToCN symbolToCN63,64
+isClass isClass68,69
+isFunction isFunction71,72
+data SemanticUnit SemanticUnit74,75
+data SemanticUnit = Root Root74,75
+    scope scope75,76
+buildSymbolFromConstructor buildSymbolFromConstructor87,88
+buildSymbolFromField buildSymbolFromField88,89
+buildSymbolFromMethod buildSymbolFromMethod89,90
+buildSymbolFromParameter buildSymbolFromParameter90,91
+data Environment Environment92,93
+data Environment = ENVE ENVE92,93
+data Environment = ENVE | ENV ENV92,93
+    semantic semantic93,94
+    children children94,95
+buildEnvironment buildEnvironment105,106
+buildEnvironment buildEnvironment106,107
+buildEnvironmentWithPackage buildEnvironmentWithPackage110,111
+buildEnvironmentFromClass buildEnvironmentFromClass128,129
+buildEnvironmentFromInterface buildEnvironmentFromInterface137,138
+buildEnvironmentFromField buildEnvironmentFromField145,146
+buildEnvironmentFromField buildEnvironmentFromField146,147
+buildEnvironmentFromMethod buildEnvironmentFromMethod151,152
+buildEnvironmentFromMethod buildEnvironmentFromMethod152,153
+buildEnvironmentFromConstructor buildEnvironmentFromConstructor160,161
+buildEnvironmentFromConstructor buildEnvironmentFromConstructor161,162
+buildEnvironmentFromStatements buildEnvironmentFromStatements171,172
+buildEnvironmentFromStatements buildEnvironmentFromStatements172,173
 
 ./src/TMain.hs,435
 module Main Main0,1
@@ -852,26 +850,36 @@ weedFields weedFields154,155
 weedField weedField156,157
 weedField weedField157,158
 
-./src/Inheritance.hs,838
+./src/Inheritance.hs,1392
 module Inheritance Inheritance0,1
-generateLabelFromFUNC generateLabelFromFUNC11,12
 generateLabelFromFUNC generateLabelFromFUNC12,13
-createTypeID createTypeID23,24
+generateLabelFromFUNC generateLabelFromFUNC13,14
 createTypeID createTypeID24,25
-createInstanceFUNCID createInstanceFUNCID28,29
+createTypeID createTypeID25,26
 createInstanceFUNCID createInstanceFUNCID29,30
-createStaticFUNCID createStaticFUNCID33,34
+createInstanceFUNCID createInstanceFUNCID30,31
 createStaticFUNCID createStaticFUNCID34,35
-createFUNCLabel createFUNCLabel39,40
+createStaticFUNCID createStaticFUNCID35,36
 createFUNCLabel createFUNCLabel40,41
-createTypeCharacteristicBM createTypeCharacteristicBM45,46
+createFUNCLabel createFUNCLabel41,42
 createTypeCharacteristicBM createTypeCharacteristicBM46,47
-updateFUNC updateFUNC51,52
+createTypeCharacteristicBM createTypeCharacteristicBM47,48
 updateFUNC updateFUNC52,53
-updateFUNCTable updateFUNCTable56,57
+updateFUNC updateFUNC53,54
 updateFUNCTable updateFUNCTable57,58
-createInstanceFUNCTable createInstanceFUNCTable59,60
+updateFUNCTable updateFUNCTable58,59
 createInstanceFUNCTable createInstanceFUNCTable60,61
+createInstanceFUNCTable createInstanceFUNCTable61,62
+listStaticSYMFromDFExpr listStaticSYMFromDFExpr68,69
+listStaticSYMFromDFExpr listStaticSYMFromDFExpr69,70
+listStaticSYMFromStaticInit listStaticSYMFromStaticInit83,84
+listStaticSYMFromStaticInit listStaticSYMFromStaticInit84,85
+generateEdgeFromPairs generateEdgeFromPairs88,89
+generateEdgeFromPairs generateEdgeFromPairs89,90
+generateClassOrdering generateClassOrdering95,96
+generateClassOrdering generateClassOrdering96,97
+createClassInitOrdering createClassInitOrdering104,105
+createClassInitOrdering createClassInitOrdering105,106
 
 ./src/Scanner.hs,1898
 module Scanner Scanner0,1
@@ -946,7 +954,9 @@ sortOn sortOn14,15
 indent indent16,17
 indent indent17,18
 
-./src/A5.hs,56
+./src/A5.hs,94
 module Main Main0,1
 main main24,25
 main main25,26
+main' main'31,32
+main' main'32,33
