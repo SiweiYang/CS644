@@ -91,7 +91,7 @@ data DFStatement = DFIf {
   condition   :: DFExpression,
   finalizer   :: DFStatement,
   forBlock    :: [DFStatement]
-} | DFExpr DFExpression | DFReturn (Maybe DFExpression) | DFBlock [DFStatement] deriving (Show)
+} | DFExpr DFExpression | DFLocal DFExpression | DFReturn (Maybe DFExpression) | DFBlock [DFStatement] deriving (Show)
 
 
 buildDFStatement :: TypeNode -> [[String]] -> Environment -> [DFStatement]
@@ -104,7 +104,8 @@ buildDFStatement db imps (ENV (SU _ Statement _ _) ch) = (DFBlock block):remain
     remain = last stmtch
 
 
-buildDFStatement db imps (ENV su@(SU _ (Var expr) st _) ch) = (DFExpr dfexpr):remain
+-- HERE
+buildDFStatement db imps (ENV su@(SU _ (Var expr) st _) ch) = (DFLocal dfexpr):remain
   where
     remain = head $ map (buildDFStatement db imps) ch
     [(SYM _ _ nm _)] = st
@@ -293,15 +294,16 @@ genFieldAsm (FT _ _ False) = []
 genFieldAsm (FT name _ True) = ["; Class field: " ++ name]
 
 genMthdAsm :: MethodConstruct -> [String]
-genMthdAsm (MC name _ definition) =
-  let header =  ["global _" ++ last name, "_" ++ last name ++ ":"]
+genMthdAsm (MC name symbol definition) =
+  let header =  ["global _" ++ last name, "_" ++ last name ++ ":", "; Start a new stack frame", "push ebp", "mov ebp, esp"]
       body = concat $ map genStmtAsm definition
-  in header ++ body
+  in header ++ body ++ ["; End of " ++ last name]
 
 genStmtAsm :: DFStatement -> [String]
 genStmtAsm (DFExpr expr) = genExprAsm expr
+genStmtAsm (DFLocal expr) = ["sub esp, 4 ; Allocating stack space for local var"] ++ genExprAsm expr
 genStmtAsm (DFReturn Nothing) = ["; Void return", "ret"]
-genStmtAsm (DFReturn (Just retVal)) = ["; Value return"] ++ genExprAsm retVal ++ ["ret"];
+genStmtAsm (DFReturn (Just retVal)) = ["; Value return"] ++ genExprAsm retVal ++ ["; Cleaning stack frame", "mov esp, ebp", "pop ebp", "ret"];
 genStmtAsm (DFBlock body) =
   let bodyCode = concat $ map genStmtAsm body
   in ["; new block"] ++ bodyCode
@@ -335,8 +337,7 @@ genOpAsm ">" = ["cmp eax, ebx", "mov eax, 1", "jg short $+7", "mov eax, 0"]
 genOpAsm ">=" = ["cmp eax, ebx", "mov eax, 1", "jge short $+7", "mov eax, 0"]
 genOpAsm "&&" = ["and eax, ebx"]
 genOpAsm "||" = ["or eax, ebx"]
-genOpAsm _ = ["; XXX: Unsupported binary operator"]
--- Unsupported: =
+genOpAsm "=" = ["mov [eax], ebx"]
 
 genExprAsm :: DFExpression -> [String]
 genExprAsm (FunctionCall callee arguments) =
@@ -346,14 +347,17 @@ genExprAsm (Unary op expr) =
   let exprCode = genExprAsm expr
   in [";Unary op: " ++ op] ++ exprCode
 genExprAsm (Binary op exprL exprR) =
-  let leftCode = genExprAsm exprL
+  let
       rightCode = genExprAsm exprR
       opCode = genOpAsm op
-  in [";Binary op: " ++ op, ";right"] ++
+      leftCode = case op of
+        "=" -> genExprLhsAsm exprL
+        _ -> genExprAsm exprL
+  in [";Binary op: " ++ op] ++
      rightCode ++
-     ["push eax", ";left"] ++
+     ["push eax ; Push right value to stack"] ++
      leftCode ++
-     ["pop ebx"] ++
+     ["pop ebx ; Pop right value from stack"] ++
      opCode
 
 genExprAsm (Attribute struct member) =
@@ -370,7 +374,9 @@ genExprAsm (NewObject classType args) =
 genExprAsm (InstanceOf refType expr) = ["; instanceOf"] ++ genExprAsm expr
 genExprAsm (Cast refType expr) = ["; Casting"] ++ genExprAsm expr
 genExprAsm (ID (Right symbol)) = ["; variable named " ++ (localName symbol)]
-genExprAsm (ID (Left offset)) = ["; variable offset "]
+genExprAsm (ID (Left offset)) =
+  let distance = offset * 4 + 4
+  in ["mov eax, [ebp - " ++ show distance ++ "]"]
 genExprAsm (Value AST.TypeByte value) = ["mov eax, " ++ value]
 genExprAsm (Value AST.TypeShort value) = ["mov eax, " ++ value]
 genExprAsm (Value AST.TypeInt value) = ["mov eax, " ++ value]
@@ -384,3 +390,7 @@ genExprAsm (Value valuetype value) = ["; XXX: Unsupported value: " ++ value]
 genExprAsm This = ["; This"]
 genExprAsm Null = ["; Null"]
 genExprAsm NOOP = ["; NOOP"]
+
+genExprLhsAsm (ID (Left offset)) =
+  let distance = offset * 4 + 4
+  in ["lea eax, [ebp - " ++ show distance ++ "] ; LHS for assignment"]
