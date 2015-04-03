@@ -8,6 +8,7 @@ import           Data.Either
 import           AST          (Expression, Type)
 import qualified AST
 import           Environment
+import           Inheritance
 import           TypeDatabase
 import           TypeLinking
 
@@ -302,7 +303,8 @@ genFieldAsm (FT name _ True) = ["; Class field: " ++ name]
 
 genMthdAsm :: MethodConstruct -> [String]
 genMthdAsm (MC name symbol definition) =
-  let header =  ["global _" ++ last name, "_" ++ last name ++ ":", "; Start a new stack frame", "push ebp", "mov ebp, esp"]
+  let label = generateLabelFromFUNC symbol 0
+      header =  ["global " ++ label, label ++ ":", "; Start a new stack frame", "push ebp", "mov ebp, esp"]
       body = concat $ map genStmtAsm definition
   in header ++ body ++ ["; End of " ++ last name]
 

@@ -196,7 +196,7 @@ main = do
   let staticFUNCIDMap = createStaticFUNCID db'
   let staticFUNCLabelMap = createFUNCLabel db'
   let typeCharacteristicBM = createTypeCharacteristicBM db'
-  
+
   --hPutStrLn stderr $ "Total Number of Instance Functions: " ++ show (size instanceFUNCIDMap)
   --hPutStrLn stderr $ "Total Number of Static Functions: " ++ show (size staticFUNCIDMap)
   --hPutStrLn stderr $ "Type Characteristic BitMap: " ++ show typeCharacteristicBM
@@ -208,18 +208,18 @@ main = do
   -- do
     --hPutStrLn stderr (intercalate "\n------------------------\n" $ map (\(_, x, _) -> show x) reconstructedCLASS)
 
-
-  -- The compiler is currently hard-coded to write an executable that will return exit code 200
-  writeFile "output/main.s" $ unlines ["global _start",
-                                       "extern _test",
-                                       "section .text",
-                                       "_start:",
-                                       "call _test",
-                                       "mov ebx, eax",
-                                       "mov eax, 1",
-                                       "int 0x80"]
-
   let firstClass = head $ filter isJust $ map (\(_,cls,_) -> cls) reconstructedCLASS
   writeFile "output/temp.s" $ unlines . genAsm $ fromJust firstClass
 
+  let startFunction = methodSymbol . head $ filter (\mthd -> "test" == (last . methodName $ mthd)) (classMethods . fromJust $ firstClass)
+  let startFunctionLabel = generateLabelFromFUNC startFunction 0
+
+  writeFile "output/main.s" $ unlines ["global _start",
+                                       "extern " ++ startFunctionLabel,
+                                       "section .text",
+                                       "_start:",
+                                       "call " ++ startFunctionLabel,
+                                       "mov ebx, eax",
+                                       "mov eax, 1",
+                                       "int 0x80"]
 
