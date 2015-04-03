@@ -60,6 +60,12 @@ symbolToType (CL _ _ t _) = t
 symbolToType (IT _ _ t _) = t
 symbolToType (FUNC _ ls ln ps rt) = Function (Name (ls ++ [ln])) ps rt
 
+symbolToCN :: Symbol -> [String]
+symbolToCN (SYM _ ls _ t) = ls
+symbolToCN (CL _ _ t _) = typeToName t
+symbolToCN (IT _ _ t _) = typeToName t
+symbolToCN (FUNC _ ls ln ps rt) = ls
+
 isClass (CL _ _ _ _) = True
 isClass _ = False
 

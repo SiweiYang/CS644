@@ -1,13 +1,14 @@
 module Inheritance where
 
-import Data.Maybe
-import           Data.List    (sort, intercalate)
-import           Data.Map     (Map, fromList, toAscList)
+import           Data.List     (intercalate, nub, sort)
+import           Data.Map      (Map, fromList, toAscList)
+import           Data.Maybe
 
-import Util
+import           CodeConstruct
 import           Environment
 import           Hierarchy
 import           TypeDatabase
+import           Util
 
 generateLabelFromFUNC :: Symbol -> Int -> String
 generateLabelFromFUNC (FUNC mds ls ln _ _) i = if elem "native" mds
@@ -64,3 +65,46 @@ createInstanceFUNCTable db = map (\(tp, imps) -> (tp, updateFUNCTable funcs imps
     funcsMap = createInstanceFUNCID db
     funcs = map fst (toAscList funcsMap)
     pairs = map (\tp -> (symbol tp, map symbol (filter isFUNCNode $ subNodes tp))) tps
+
+listStaticSYMFromDFExpr :: DFExpression -> [Symbol]
+listStaticSYMFromDFExpr (FunctionCall _ exprs) = concat $ map listStaticSYMFromDFExpr exprs
+listStaticSYMFromDFExpr (Unary _ expr) = listStaticSYMFromDFExpr expr
+listStaticSYMFromDFExpr (Binary _ exprL exprR) = (listStaticSYMFromDFExpr exprL) ++ (listStaticSYMFromDFExpr exprR)
+listStaticSYMFromDFExpr (Attribute expr sym) = listStaticSYMFromDFExpr expr
+listStaticSYMFromDFExpr (ArrayAccess expr expri) = (listStaticSYMFromDFExpr expr) ++ (listStaticSYMFromDFExpr expri)
+listStaticSYMFromDFExpr (InstanceOf _ expr) = listStaticSYMFromDFExpr expr
+listStaticSYMFromDFExpr (Cast _ expr) = listStaticSYMFromDFExpr expr
+listStaticSYMFromDFExpr (ID (Right sym)) = case sym of
+                                                      SYM mds _ _ _ -> if (elem "static" mds) && (not $ elem "native" mds)
+                                                                          then [sym]
+                                                                          else []
+                                                      _ -> []
+listStaticSYMFromDFExpr _ = []
+
+listStaticSYMFromStaticInit :: ClassConstruct -> [Symbol]
+listStaticSYMFromStaticInit (CC cname ft sym mtdc) = concat $ map listStaticSYMFromDFExpr exprs
+  where
+    exprs = [expr | Just expr <- map fieldInit ft]
+
+generateEdgeFromPairs :: [(Symbol, [Symbol])] -> [([String], [String])]
+generateEdgeFromPairs [] = []
+generateEdgeFromPairs ((cSYM, syms):remain) = edges' ++ (generateEdgeFromPairs remain)
+  where
+    edges = nub [(symbolToCN cSYM, symbolToCN sym) | sym <- syms]
+    edges' = filter (\(a, b) -> a /= b) edges
+
+generateClassOrdering :: [[String]] -> [([String], [String])] -> [[String]]
+generateClassOrdering [] _ = []
+generateClassOrdering nodes edges = case cand of
+                                      node:_ -> node:(generateClassOrdering (filter (node /=) nodes) edges')
+                                      [] -> error $ "loop: " ++ (show edges)
+  where
+    edges' = filter (\(e1, e2) -> (elem e1 nodes) || (elem e2 nodes)) edges
+    cand = filter (\node -> not $ elem node (map fst edges')) nodes
+
+createClassInitOrdering :: [ClassConstruct] -> [[String]]
+createClassInitOrdering tps = generateClassOrdering nodes edges
+  where
+    pairs = [(classSymbol tp, listStaticSYMFromStaticInit tp) | tp <- tps]
+    nodes = map (symbolToCN . fst) pairs
+    edges = generateEdgeFromPairs pairs

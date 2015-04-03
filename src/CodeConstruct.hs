@@ -16,6 +16,8 @@ import           TypeLinking
 data FieldType = FT {
   fieldName :: String,
   fieldType :: Type,
+  fieldSYM :: Symbol,
+  fieldInit :: Maybe DFExpression,
   isStatic :: Bool
 } deriving (Show)
 
@@ -24,12 +26,12 @@ data FieldType = FT {
 --fieldTableOffset []
 --fieldTableOffset ft:
 
-buildFieldType :: [Symbol] -> [FieldType]
+buildFieldType :: [(Symbol, Maybe DFExpression)] -> [FieldType]
 buildFieldType st
   | null st = []
   | otherwise = case (head st) of
-                  SYM mds ls nm tp -> (FT nm tp (elem "static" mds)):remain
-                  FUNC _ _ _ _ _ -> remain
+                  (sym@(SYM mds ls nm tp), mval) -> (FT nm tp sym mval (elem "static" mds)):remain
+                  (FUNC _ _ _ _ _, _) -> remain
                   _ -> error "buildFieldType: not SYM or FUNC"
       where
           remain = buildFieldType $ tail st
@@ -55,7 +57,11 @@ buildClassConstruct db imps (ENV su@(SU _ Package _ _) ch) = buildClassConstruct
 buildClassConstruct db imps (ENV su@(SU _ Interface _ _) _) = Nothing
 buildClassConstruct db imps (ENV su@(SU cname Class st parent) ch) = Just (CC cname ft sym mtdc)
   where
-    ft = filter isStatic $ buildFieldType st
+    flds = [fld | fld@(Field sym mval) <- map (kind . semantic) ch]
+    flds' = map (\(Field sym mval) -> if isJust mval
+                                         then (sym, Just $ buildDFExpression db imps su [] (fromJust mval))
+                                         else (sym, Nothing)) flds
+    ft = buildFieldType flds'
     [sym] = symbolTable parent
     mtds = [(ENV (SU cname' (Method sym') st' parent') ch') | (ENV (SU cname' (Method sym') st' parent') ch') <- ch]
     mtdc = map (buildMethodConstruct db imps) mtds
@@ -168,8 +174,6 @@ data DFExpression = FunctionCall Symbol [DFExpression]
                   | Binary { op :: String, exprL :: DFExpression, exprR :: DFExpression }
                   | Attribute { struct :: DFExpression, mem :: Symbol }
                   | ArrayAccess { array :: DFExpression, index :: DFExpression }
-                  | NewArray { arraytype :: Type, dimexprs :: DFExpression }
-                  | NewObject { classtype :: Type, arguments :: [DFExpression] }
                   | InstanceOf { reftype :: Type, expr :: DFExpression }
                   | Cast {reftype :: Type, expr :: DFExpression }
                   | ID { identifier :: Either Int Symbol }
@@ -298,8 +302,8 @@ genAsm (CC name fields _ methods) =
   in prefaceCode ++ fieldCode ++ methodCode
 
 genFieldAsm :: FieldType -> [String]
-genFieldAsm (FT _ _ False) = []
-genFieldAsm (FT name _ True) = ["; Class field: " ++ name]
+genFieldAsm (FT _ _ _ _ False) = []
+genFieldAsm fld@(FT name _ _ _ True) = ["; Class field: " ++ (show fld)]
 
 genMthdAsm :: MethodConstruct -> [String]
 genMthdAsm (MC name symbol definition) =
@@ -412,10 +416,12 @@ genExprAsm (ArrayAccess array index) =
   let arrayCode = genExprAsm array
       indexCode = genExprAsm index
   in ["; newArray",";array"] ++ arrayCode ++ [";index"] ++ indexCode
+{-
 genExprAsm (NewArray arrayType dimExpr) = ["; newArray"] ++ genExprAsm dimExpr
 genExprAsm (NewObject classType args) =
   let argCode = concat $ map genExprAsm args
   in ["; newObject"] ++ argCode
+-}
 genExprAsm (InstanceOf refType expr) = ["; instanceOf"] ++ genExprAsm expr
 genExprAsm (Cast refType expr) = ["; Casting"] ++ genExprAsm expr
 genExprAsm (ID (Right symbol)) = ["; variable named " ++ (localName symbol)]
