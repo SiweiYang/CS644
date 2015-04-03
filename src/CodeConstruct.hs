@@ -173,8 +173,6 @@ data DFExpression = FunctionCall Symbol [DFExpression]
                   | Binary { op :: String, exprL :: DFExpression, exprR :: DFExpression }
                   | Attribute { struct :: DFExpression, mem :: Symbol }
                   | ArrayAccess { array :: DFExpression, index :: DFExpression }
-                  | NewArray { arraytype :: Type, dimexprs :: DFExpression }
-                  | NewObject { classtype :: Type, arguments :: [DFExpression] }
                   | InstanceOf { reftype :: Type, expr :: DFExpression }
                   | Cast {reftype :: Type, expr :: DFExpression }
                   | ID { identifier :: Either Int Symbol }
@@ -416,10 +414,12 @@ genExprAsm (ArrayAccess array index) =
   let arrayCode = genExprAsm array
       indexCode = genExprAsm index
   in ["; newArray",";array"] ++ arrayCode ++ [";index"] ++ indexCode
+{-
 genExprAsm (NewArray arrayType dimExpr) = ["; newArray"] ++ genExprAsm dimExpr
 genExprAsm (NewObject classType args) =
   let argCode = concat $ map genExprAsm args
   in ["; newObject"] ++ argCode
+-}
 genExprAsm (InstanceOf refType expr) = ["; instanceOf"] ++ genExprAsm expr
 genExprAsm (Cast refType expr) = ["; Casting"] ++ genExprAsm expr
 genExprAsm (ID (Right symbol)) = ["; variable named " ++ (localName symbol)]
