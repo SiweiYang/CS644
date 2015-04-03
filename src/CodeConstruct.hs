@@ -332,7 +332,15 @@ genStmtAsm (DFIf cond trueBlock falseBlock nesting) =
 genStmtAsm (DFWhile cond body nesting) =
   let condCode = genExprAsm cond
       bodyCode = concat $ map genStmtAsm body
-  in ["; While statement", "; cond"] ++ condCode ++ ["; body"] ++ bodyCode
+      topLabel = ".whileCond_" ++ genLabel nesting
+      bottomLabel = ".whileBottom_" ++ genLabel nesting
+  in [topLabel ++ ":", "; While statement"] ++
+     condCode ++
+     ["cmp eax, 1", "jne " ++ bottomLabel] ++
+     bodyCode ++
+     ["jmp " ++ topLabel] ++
+     [bottomLabel ++ ":"]
+
 genStmtAsm (DFFor initializer condition finalizer body nesting) =
   let initializerCode = genStmtAsm initializer
       conditionCode = genExprAsm condition
