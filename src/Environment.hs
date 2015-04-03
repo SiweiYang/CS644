@@ -90,7 +90,7 @@ instance Show Environment where
 
 buildEnvironment :: CompilationUnit -> Environment
 buildEnvironment comp@(Comp pkg imps def cui) = case pkg of
-                                            Nothing -> buildEnvironmentWithPackage ["unnamed package"] (Root []) comp
+                                            Nothing -> buildEnvironmentWithPackage ["unnamed_package"] (Root []) comp
                                             Just cname -> buildEnvironmentWithPackage cname (Root []) comp
 
 buildEnvironmentWithPackage [] parent unit = case def of

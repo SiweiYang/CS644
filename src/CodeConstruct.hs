@@ -48,8 +48,6 @@ data InstanceConstruct = IC {
   instanceFields :: [FieldType]
 } deriving (Show)
 
-
-
 buildClassConstruct :: TypeNode -> [[String]] -> Environment -> Maybe ClassConstruct
 
 buildClassConstruct db imps (ENV su@(SU _ Package _ _) ch) = buildClassConstruct db imps (head ch)
@@ -76,83 +74,87 @@ instance Show MethodConstruct where
 buildMethodConstruct :: TypeNode -> [[String]] -> Environment -> MethodConstruct
 buildMethodConstruct db imps (ENV su@(SU cname (Method sym) _ _) ch) = MC cname sym stmts
   where
-    stmts = if null ch then [] else buildDFStatement db imps (head ch)
+    stmts = if null ch then [] else buildDFStatement db imps [1] (head ch)
 
 ------------------------------------------
 
 data DFStatement = DFIf {
   condition :: DFExpression,
   ifBlock   :: [DFStatement],
-  elseBlock :: [DFStatement]
+  elseBlock :: [DFStatement],
+  nesting   :: [Int]
 } | DFWhile {
   condition  :: DFExpression,
-  whileBlock :: [DFStatement]
+  whileBlock :: [DFStatement],
+  nesting    :: [Int]
 } | DFFor {
   initializer :: DFStatement,
   condition   :: DFExpression,
   finalizer   :: DFStatement,
-  forBlock    :: [DFStatement]
-} | DFExpr DFExpression | DFLocal DFExpression | DFReturn (Maybe DFExpression) | DFBlock [DFStatement] deriving (Show)
+  forBlock    :: [DFStatement],
+  nesting     :: [Int]
+} | DFBlock {
+  block :: [DFStatement],
+  nesting :: [Int]
+} | DFExpr DFExpression | DFLocal DFExpression | DFReturn (Maybe DFExpression) deriving (Show)
 
 
-buildDFStatement :: TypeNode -> [[String]] -> Environment -> [DFStatement]
-buildDFStatement db imps ENVE = []
+buildDFStatement :: TypeNode -> [[String]] -> [Int] -> Environment -> [DFStatement]
+buildDFStatement _ _ _ ENVE  = []
 
-buildDFStatement db imps (ENV (SU _ Statement _ _) ch) = (DFBlock block):remain
+buildDFStatement db imps nesting (ENV (SU _ Statement _ _) ch) = (DFBlock block nesting):remain
   where
-    stmtch = map (buildDFStatement db imps) ch
+    stmtch = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
     block = head stmtch
     remain = last stmtch
 
-
--- HERE
-buildDFStatement db imps (ENV su@(SU _ (Var expr) st _) ch) = (DFLocal dfexpr):remain
+buildDFStatement db imps nesting (ENV su@(SU _ (Var expr) st _) ch) = (DFLocal dfexpr):remain
   where
-    remain = head $ map (buildDFStatement db imps) ch
+    remain = head $ zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
     dfexpr = buildDFExpression db imps su [] expr
     --[(SYM _ _ nm _)] = st
     --newExpr = AST.Binary "=" (AST.ID (AST.Name [nm]) 0) expr 0
     --dfexpr = buildDFExpression db imps su [] newExpr
 
-buildDFStatement db imps (ENV su@(SU _ (Exp expr) _ _) ch) = (DFExpr dfexpr):remain
+buildDFStatement db imps nesting (ENV su@(SU _ (Exp expr) _ _) ch) = (DFExpr dfexpr):remain
   where
-    remain = head $ map (buildDFStatement db imps) ch
+    remain = head $ zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
     dfexpr = buildDFExpression db imps su [] expr
 
 
-buildDFStatement db imps (ENV su@(SU _ (IfBlock expr) _ _) ch) = (DFIf dfexpr ifpart elsepart):remain
+buildDFStatement db imps nesting (ENV su@(SU scope (IfBlock expr) _ _) ch) = (DFIf dfexpr ifpart elsepart nesting):remain
   where
-    stmtch = map (buildDFStatement db imps) ch
+    stmtch = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
     dfexpr = buildDFExpression db imps su [] expr
     ifpart = head stmtch
     elsepart = head $ tail stmtch
     remain = last stmtch
 
 
-buildDFStatement db imps (ENV su@(SU _ (Ret expr) _ _) ch) = (DFReturn dfexpr):remain
+buildDFStatement db imps nesting (ENV su@(SU _ (Ret expr) _ _) ch) = (DFReturn dfexpr):remain
   where
-    remain = head $ map (buildDFStatement db imps) ch
+    remain = head $ zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
     dfexpr = if (isNothing expr) then Nothing else Just dfexpr'
     dfexpr' = buildDFExpression db imps su [] (fromJust expr)
 
 
-buildDFStatement db imps (ENV su@(SU _ (WhileBlock expr) _ _) ch) = (DFWhile dfexpr whilepart):remain
+buildDFStatement db imps nesting (ENV su@(SU _ (WhileBlock expr) _ _) ch) = (DFWhile dfexpr whilepart nesting):remain
   where
-    stmtch = map (buildDFStatement db imps) ch
+    stmtch = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
     dfexpr = buildDFExpression db imps su [] expr
     whilepart = head stmtch
     remain = last $ stmtch
 
-buildDFStatement db imps (ENV su@(SU _ ForBlock st _) ch) = (DFFor initstmt' expr forstmt forblock):remain
+buildDFStatement db imps nesting (ENV su@(SU _ ForBlock st _) ch) = (DFFor initstmt' expr forstmt forblock nesting):remain
   where
     initstmt = head ch
-    [DFExpr initR] = buildDFStatement db imps initstmt
+    [DFExpr initR] = buildDFStatement db imps (nesting ++ [1]) initstmt
     [(SYM _ _ varL _)] = st
     exprL = AST.ID (AST.Name [varL]) 0
     initL = buildDFExpression db imps su [] exprL
     initstmt' = if null st then (DFExpr initR) else (DFExpr (Binary "=" initL initR))
 
-    stmtch = map (buildDFStatement db imps) (tail ch)
+    stmtch = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [2..] (tail ch)
     DFExpr expr = head $ head stmtch
     forstmt = head $ head $ tail stmtch
     forblock = head $ tail $ tail stmtch
@@ -284,6 +286,8 @@ symbolToType' sym = case tp of
 -- | |_| |  __/ | | |  __/ | | (_| | |_| | (_) | | | |
 --  \____|\___|_| |_|\___|_|  \__,_|\__|_|\___/|_| |_|
 
+genLabel :: [Int] -> String
+genLabel nesting = concat $ intersperse "_" $ map show nesting
 
 genAsm :: ClassConstruct -> [String]
 genAsm (CC name fields _ methods) =
@@ -304,23 +308,32 @@ genMthdAsm (MC name symbol definition) =
 
 genStmtAsm :: DFStatement -> [String]
 genStmtAsm (DFExpr expr) = genExprAsm expr
---genStmtAsm (DFLocal expr) = ["sub esp, 4 ; Allocating stack space for local var"] ++ genExprAsm expr
 genStmtAsm (DFLocal expr) = genExprAsm expr ++ ["push eax ; Allocating stack space for local var"]
 genStmtAsm (DFReturn Nothing) = ["; Void return", "ret"]
 genStmtAsm (DFReturn (Just retVal)) = ["; Value return"] ++ genExprAsm retVal ++ ["; Cleaning stack frame", "mov esp, ebp", "pop ebp", "ret"];
-genStmtAsm (DFBlock body) =
+genStmtAsm (DFBlock body nesting) =
   let bodyCode = concat $ map genStmtAsm body
   in ["; new block"] ++ bodyCode
-genStmtAsm (DFIf cond trueBlock falseBlock) =
+genStmtAsm (DFIf cond trueBlock falseBlock nesting) =
   let condCode = genExprAsm cond
       trueCode = concat $ map genStmtAsm trueBlock
       falseCode = concat $ map genStmtAsm falseBlock
-  in ["; If statement"] ++ condCode ++ ["cmp eax, 1", "jne false_part"] ++ trueCode ++ ["jmp end","false_part:"] ++ falseCode ++ ["end:"]
-genStmtAsm (DFWhile cond body) =
+      falseLabel = ".falsePart_" ++ genLabel nesting
+      endLabel = ".end_" ++ genLabel nesting
+  in ["; If statement"] ++
+     condCode ++
+     ["; If statement comparison", "cmp eax, 1", "jne " ++ falseLabel ++ "; If statement true case"] ++
+     trueCode ++
+     ["jmp " ++ endLabel, "; If statement false case", falseLabel ++ ":"] ++
+     falseCode ++
+     [endLabel ++ ":"]
+
+
+genStmtAsm (DFWhile cond body nesting) =
   let condCode = genExprAsm cond
       bodyCode = concat $ map genStmtAsm body
   in ["; While statement", "; cond"] ++ condCode ++ ["; body"] ++ bodyCode
-genStmtAsm (DFFor initializer condition finalizer body) =
+genStmtAsm (DFFor initializer condition finalizer body nesting) =
   let initializerCode = genStmtAsm initializer
       conditionCode = genExprAsm condition
       finalizerCode = genStmtAsm finalizer
@@ -328,9 +341,9 @@ genStmtAsm (DFFor initializer condition finalizer body) =
   in ["; For statement", ";init"] ++ initializerCode ++ [";condition"] ++ conditionCode ++ [";finalizerCode"] ++ finalizerCode ++ [";bodyCode"] ++ bodyCode
 
 genOpAsm :: String -> [String]
-genOpAsm "*" = ["mul ebx"]
-genOpAsm "/" = ["div ebx"]
-genOpAsm "%" = ["div ebx", "mov eax, edx"]
+genOpAsm "*" = ["imul ebx"]
+genOpAsm "/" = ["cdq", "idiv ebx"]
+genOpAsm "%" = ["cdq", "idiv ebx", "mov eax, edx"]
 genOpAsm "+" = ["add eax, ebx"]
 genOpAsm "-" = ["sub eax, ebx"]
 genOpAsm "==" = ["cmp eax, ebx", "mov eax, 1", "je short $+7", "mov eax, 0"]
@@ -344,13 +357,19 @@ genOpAsm "||" = ["or eax, ebx"]
 genOpAsm "=" = ["mov [eax], ebx"]
 
 genExprAsm :: DFExpression -> [String]
+
 genExprAsm (FunctionCall callee arguments) =
   let argumentCode = ((intersperse "push eax") . concat $ map genExprAsm arguments) ++ ["push eax"]
       cleanupCode = ["add esp, " ++ (show $ 4 * (length arguments)) ++ " ; Pop arguments"]
-  in ["; Function call to" ++ localName callee, "; arguments"] ++ argumentCode ++ ["call _" ++ (localName callee)] ++ cleanupCode
+  in ["; Function call to" ++ localName callee, "; arguments"] ++
+     argumentCode ++
+     ["call _" ++ (localName callee)] ++
+     cleanupCode
+
 genExprAsm (Unary op expr) =
   let exprCode = genExprAsm expr
   in [";Unary op: " ++ op] ++ exprCode
+
 genExprAsm (Binary op exprL exprR) =
   let
       rightCode = genExprAsm exprR

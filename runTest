@@ -53,7 +53,8 @@ function run_test_dir {
 export -f run_test_dir
 
 function run_assembler {
-  for f in output/*
+  rm output/*.o
+  for f in output/*.s
   do
     nasm -O1 -f elf -g -F dwarf $f
   done
