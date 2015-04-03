@@ -314,6 +314,7 @@ genStmtAsm (DFReturn (Just retVal)) = ["; Value return"] ++ genExprAsm retVal ++
 genStmtAsm (DFBlock body nesting) =
   let bodyCode = concat $ map genStmtAsm body
   in ["; new block"] ++ bodyCode
+
 genStmtAsm (DFIf cond trueBlock falseBlock nesting) =
   let condCode = genExprAsm cond
       trueCode = concat $ map genStmtAsm trueBlock
@@ -346,7 +347,17 @@ genStmtAsm (DFFor initializer condition finalizer body nesting) =
       conditionCode = genExprAsm condition
       finalizerCode = genStmtAsm finalizer
       bodyCode = concat $ map genStmtAsm body
-  in ["; For statement", ";init"] ++ initializerCode ++ [";condition"] ++ conditionCode ++ [";finalizerCode"] ++ finalizerCode ++ [";bodyCode"] ++ bodyCode
+      topLabel = ".forCond_" ++ genLabel nesting
+      bottomLabel = ".forBottom_" ++ genLabel nesting
+  in ["; For statement init"] ++
+     initializerCode ++
+     [topLabel ++ ": ; For condition evaluation"] ++
+     conditionCode ++
+     ["cmp eax, 1", "jne " ++ bottomLabel] ++
+     bodyCode ++
+     finalizerCode ++
+     ["jmp " ++ topLabel] ++
+     [bottomLabel ++ ":"]
 
 genOpAsm :: String -> [String]
 genOpAsm "*" = ["imul ebx"]
