@@ -44,83 +44,100 @@ data Lex Lex66,67
 data Lex = Lex Lex66,67
 instance instance67,68
 
-./src/CodeConstruct.hs,3377
+./src/CodeConstruct.hs,3900
 module CodeConstruct CodeConstruct0,1
-data FieldType FieldType12,13
-data FieldType = FT FT12,13
-  fieldName fieldName13,14
-  fieldType fieldType14,15
-  isStatic isStatic15,16
---fieldTableOffset --fieldTableOffset18,19
-buildFieldType buildFieldType22,23
-buildFieldType buildFieldType23,24
-data ClassConstruct ClassConstruct32,33
-data ClassConstruct = CC CC32,33
-  className className33,34
-  classFields classFields34,35
-  classSymbol classSymbol35,36
-  classMethods classMethods36,37
-data InstanceConstruct InstanceConstruct39,40
-data InstanceConstruct = IC IC39,40
-  instanceType instanceType40,41
-  instanceFields instanceFields41,42
-buildClassConstruct buildClassConstruct46,47
-buildClassConstruct buildClassConstruct48,49
-data MethodConstruct MethodConstruct58,59
-data MethodConstruct = MC MC58,59
-  methodName methodName59,60
-  --methodParameters --methodParameters60,61
-  methodSymbol methodSymbol61,62
-  methodDefinition methodDefinition62,63
-buildMethodConstruct buildMethodConstruct65,66
-buildMethodConstruct buildMethodConstruct66,67
-data DFStatement DFStatement72,73
-data DFStatement = DFIf DFIf72,73
-  condition condition73,74
-  ifBlock ifBlock74,75
-  elseBlock elseBlock75,76
-buildDFStatement buildDFStatement87,88
-buildDFStatement buildDFStatement88,89
-data DFExpression DFExpression144,145
-data DFExpression = FunctionCall FunctionCall144,145
-                  | Unary Unary145,146
-                  | Unary { op op145,146
-                  | Unary { op :: String, expr expr145,146
-                  | Binary Binary146,147
-                  | Binary { op op146,147
-                  | Binary { op :: String, exprL exprL146,147
-                  | Binary { op :: String, exprL :: DFExpression, exprR exprR146,147
-                  | Attribute Attribute147,148
-                  | Attribute { struct struct147,148
-                  | Attribute { struct :: DFExpression, mem mem147,148
-                  | ArrayAccess ArrayAccess148,149
-                  | ArrayAccess { array array148,149
-                  | ArrayAccess { array :: DFExpression, index index148,149
-                  | NewArray NewArray149,150
-                  | NewArray { arraytype arraytype149,150
-                  | NewArray { arraytype :: Type, dimexprs dimexprs149,150
-                  | NewObject NewObject150,151
-                  | NewObject { classtype classtype150,151
-                  | NewObject { classtype :: Type, arguments arguments150,151
-                  | InstanceOf InstanceOf151,152
-                  | InstanceOf { reftype reftype151,152
-                  | InstanceOf { reftype :: Type, expr expr151,152
-                  | Cast Cast152,153
-                  | Cast {reftype reftype152,153
-                  | Cast {reftype :: Type, expr expr152,153
-                  | ID ID153,154
-                  | ID { identifier identifier153,154
-                  | Value Value154,155
-                  | Value { valuetype valuetype154,155
-                  | Value { valuetype :: Type, value value154,155
-                  | ThisThis155,156
-                  | NullNull156,157
-                  | NOOPNOOP157,158
-buildDFExpression buildDFExpression160,161
-buildDFExpression buildDFExpression162,163
-buildMalloc buildMalloc222,223
+data FieldType FieldType14,15
+data FieldType = FT FT14,15
+  fieldName fieldName15,16
+  fieldType fieldType16,17
+  isStatic isStatic17,18
+--fieldTableOffset --fieldTableOffset21,22
+buildFieldType buildFieldType25,26
+buildFieldType buildFieldType26,27
+data ClassConstruct ClassConstruct35,36
+data ClassConstruct = CC CC35,36
+  className className36,37
+  classFields classFields37,38
+  classSymbol classSymbol38,39
+  classMethods classMethods39,40
+instance instance42,43
+data InstanceConstruct InstanceConstruct45,46
+data InstanceConstruct = IC IC45,46
+  instanceType instanceType46,47
+  instanceFields instanceFields47,48
+buildClassConstruct buildClassConstruct52,53
+buildClassConstruct buildClassConstruct54,55
+data MethodConstruct MethodConstruct65,66
+data MethodConstruct = MC MC65,66
+  methodName methodName66,67
+  --methodParameters --methodParameters67,68
+  methodSymbol methodSymbol68,69
+  methodDefinition methodDefinition69,70
+buildMethodConstruct buildMethodConstruct75,76
+buildMethodConstruct buildMethodConstruct76,77
+data DFStatement DFStatement82,83
+data DFStatement = DFIf DFIf82,83
+  condition condition83,84
+  ifBlock ifBlock84,85
+  elseBlock elseBlock85,86
+buildDFStatement buildDFStatement97,98
+buildDFStatement buildDFStatement98,99
+data DFExpression DFExpression162,163
+data DFExpression = FunctionCall FunctionCall162,163
+                  | Unary Unary163,164
+                  | Unary { op op163,164
+                  | Unary { op :: String, expr expr163,164
+                  | Binary Binary164,165
+                  | Binary { op op164,165
+                  | Binary { op :: String, exprL exprL164,165
+                  | Binary { op :: String, exprL :: DFExpression, exprR exprR164,165
+                  | Attribute Attribute165,166
+                  | Attribute { struct struct165,166
+                  | Attribute { struct :: DFExpression, mem mem165,166
+                  | ArrayAccess ArrayAccess166,167
+                  | ArrayAccess { array array166,167
+                  | ArrayAccess { array :: DFExpression, index index166,167
+                  | NewArray NewArray167,168
+                  | NewArray { arraytype arraytype167,168
+                  | NewArray { arraytype :: Type, dimexprs dimexprs167,168
+                  | NewObject NewObject168,169
+                  | NewObject { classtype classtype168,169
+                  | NewObject { classtype :: Type, arguments arguments168,169
+                  | InstanceOf InstanceOf169,170
+                  | InstanceOf { reftype reftype169,170
+                  | InstanceOf { reftype :: Type, expr expr169,170
+                  | Cast Cast170,171
+                  | Cast {reftype reftype170,171
+                  | Cast {reftype :: Type, expr expr170,171
+                  | ID ID171,172
+                  | ID { identifier identifier171,172
+                  | Value Value172,173
+                  | Value { valuetype valuetype172,173
+                  | Value { valuetype :: Type, value value172,173
+                  | ThisThis173,174
+                  | NullNull174,175
+                  | NOOPNOOP175,176
+buildDFExpression buildDFExpression179,180
+buildDFExpression buildDFExpression181,182
+buildMalloc buildMalloc260,261
+symbolToType' symbolToType'266,267
+symbolToType' symbolToType'267,268
+genAsm genAsm287,288
+genAsm genAsm288,289
+genFieldAsm genFieldAsm294,295
+genFieldAsm genFieldAsm295,296
+genMthdAsm genMthdAsm298,299
+genMthdAsm genMthdAsm299,300
+genStmtAsm genStmtAsm304,305
+genStmtAsm genStmtAsm305,306
+--genStmtAsm --genStmtAsm306,307
+genOpAsm genOpAsm329,330
+genOpAsm genOpAsm330,331
+genExprAsm genExprAsm345,346
+genExprAsm genExprAsm346,347
+genExprLhsAsm genExprLhsAsm398,399
 
-./src/Environment.hs,3078
+./src/Environment.hs,3142
 data Kind Kind9,10
 data Kind = Package Package9,10
 data Kind = Package | Class Class9,10
@@ -140,36 +157,38 @@ data Symbol = SYM SYM11,12
     localScope localScope13,14
     localName localName14,15
     localType localType15,16
-symbolToType symbolToType36,37
-symbolToType symbolToType37,38
-isClass isClass42,43
-isFunction isFunction45,46
-data SemanticUnit SemanticUnit48,49
-data SemanticUnit = Root Root48,49
-    scope scope49,50
-instance instance57,58
-buildSymbolFromConstructor buildSymbolFromConstructor61,62
-buildSymbolFromField buildSymbolFromField62,63
-buildSymbolFromMethod buildSymbolFromMethod63,64
-buildSymbolFromParameter buildSymbolFromParameter64,65
-data Environment Environment66,67
-data Environment = ENVE ENVE66,67
-data Environment = ENVE | ENV ENV66,67
-    semantic semantic67,68
-    children children68,69
-buildEnvironment buildEnvironment79,80
-buildEnvironment buildEnvironment80,81
-buildEnvironmentWithPackage buildEnvironmentWithPackage84,85
-buildEnvironmentFromClass buildEnvironmentFromClass102,103
-buildEnvironmentFromInterface buildEnvironmentFromInterface111,112
-buildEnvironmentFromField buildEnvironmentFromField119,120
-buildEnvironmentFromField buildEnvironmentFromField120,121
-buildEnvironmentFromMethod buildEnvironmentFromMethod125,126
-buildEnvironmentFromMethod buildEnvironmentFromMethod126,127
-buildEnvironmentFromConstructor buildEnvironmentFromConstructor134,135
-buildEnvironmentFromConstructor buildEnvironmentFromConstructor135,136
-buildEnvironmentFromStatements buildEnvironmentFromStatements145,146
-buildEnvironmentFromStatements buildEnvironmentFromStatements146,147
+symbolToOrd symbolToOrd37,38
+funcToSigOrd funcToSigOrd43,44
+instance instance45,46
+symbolToType symbolToType50,51
+symbolToType symbolToType51,52
+isClass isClass56,57
+isFunction isFunction59,60
+data SemanticUnit SemanticUnit62,63
+data SemanticUnit = Root Root62,63
+    scope scope63,64
+buildSymbolFromConstructor buildSymbolFromConstructor75,76
+buildSymbolFromField buildSymbolFromField76,77
+buildSymbolFromMethod buildSymbolFromMethod77,78
+buildSymbolFromParameter buildSymbolFromParameter78,79
+data Environment Environment80,81
+data Environment = ENVE ENVE80,81
+data Environment = ENVE | ENV ENV80,81
+    semantic semantic81,82
+    children children82,83
+buildEnvironment buildEnvironment93,94
+buildEnvironment buildEnvironment94,95
+buildEnvironmentWithPackage buildEnvironmentWithPackage98,99
+buildEnvironmentFromClass buildEnvironmentFromClass116,117
+buildEnvironmentFromInterface buildEnvironmentFromInterface125,126
+buildEnvironmentFromField buildEnvironmentFromField133,134
+buildEnvironmentFromField buildEnvironmentFromField134,135
+buildEnvironmentFromMethod buildEnvironmentFromMethod139,140
+buildEnvironmentFromMethod buildEnvironmentFromMethod140,141
+buildEnvironmentFromConstructor buildEnvironmentFromConstructor148,149
+buildEnvironmentFromConstructor buildEnvironmentFromConstructor149,150
+buildEnvironmentFromStatements buildEnvironmentFromStatements159,160
+buildEnvironmentFromStatements buildEnvironmentFromStatements160,161
 
 ./src/TMain.hs,435
 module Main Main0,1
@@ -236,11 +255,11 @@ tokenToAST tokenToAST103,104
 ./src/TypeLinking.hs,2257
 module TypeLinking TypeLinking0,1
 typeLinkingFailure typeLinkingFailure11,12
---typeLinkingFailure --typeLinkingFailure12,13
-typeLinkingFailure typeLinkingFailure13,14
+typeLinkingFailure typeLinkingFailure12,13
+--typeLinkingFailure --typeLinkingFailure13,14
 typeLinkingFailure' typeLinkingFailure'14,15
---typeLinkingFailure' --typeLinkingFailure'15,16
-typeLinkingFailure' typeLinkingFailure'16,17
+typeLinkingFailure' typeLinkingFailure'15,16
+--typeLinkingFailure' --typeLinkingFailure'16,17
 typeLinkingCheck typeLinkingCheck19,20
 typeLinkingCheck typeLinkingCheck20,21
 typeLinkingPrefix typeLinkingPrefix77,78
@@ -258,36 +277,36 @@ typeLinkingName' typeLinkingName'288,289
 typeLinkingName' typeLinkingName'289,290
 symbolLinkingName symbolLinkingName291,292
 symbolLinkingName symbolLinkingName292,293
-lookUpThis lookUpThis321,322
 lookUpThis lookUpThis322,323
-scopeConstructor scopeConstructor324,325
+lookUpThis lookUpThis323,324
 scopeConstructor scopeConstructor325,326
-scopeStatic scopeStatic332,333
+scopeConstructor scopeConstructor326,327
 scopeStatic scopeStatic333,334
-scopeLocal scopeLocal343,344
+scopeStatic scopeStatic334,335
 scopeLocal scopeLocal344,345
-scopeOffsetPos scopeOffsetPos353,354
+scopeLocal scopeLocal345,346
 scopeOffsetPos scopeOffsetPos354,355
-scopeOffset scopeOffset361,362
+scopeOffsetPos scopeOffsetPos355,356
 scopeOffset scopeOffset362,363
-scopeReturnType scopeReturnType372,373
+scopeOffset scopeOffset363,364
 scopeReturnType scopeReturnType373,374
-lookUpSymbolTable lookUpSymbolTable380,381
+scopeReturnType scopeReturnType374,375
 lookUpSymbolTable lookUpSymbolTable381,382
-lookUpDB lookUpDB389,390
+lookUpSymbolTable lookUpSymbolTable382,383
 lookUpDB lookUpDB390,391
-lookUpDBSymbol lookUpDBSymbol392,393
+lookUpDB lookUpDB391,392
 lookUpDBSymbol lookUpDBSymbol393,394
-checkSameNameInEnvironment checkSameNameInEnvironment407,408
+lookUpDBSymbol lookUpDBSymbol394,395
 checkSameNameInEnvironment checkSameNameInEnvironment408,409
-checkSameNameUp checkSameNameUp414,415
+checkSameNameInEnvironment checkSameNameInEnvironment409,410
 checkSameNameUp checkSameNameUp415,416
-checkSameNameInSymbolTable checkSameNameInSymbolTable431,432
+checkSameNameUp checkSameNameUp416,417
 checkSameNameInSymbolTable checkSameNameInSymbolTable432,433
-forwardSYMInExpr forwardSYMInExpr438,439
+checkSameNameInSymbolTable checkSameNameInSymbolTable433,434
 forwardSYMInExpr forwardSYMInExpr439,440
-finalArrayLength finalArrayLength460,461
+forwardSYMInExpr forwardSYMInExpr440,441
 finalArrayLength finalArrayLength461,462
+finalArrayLength finalArrayLength462,463
 
 ./src/Reachability.hs,726
 module Reachability Reachability0,1
@@ -355,7 +374,7 @@ main' main'18,19
 main main155,156
 main main156,157
 
-./src/Hierarchy.hs,1633
+./src/Hierarchy.hs,1667
 module Hierarchy Hierarchy0,1
 type HierarchyError HierarchyError11,12
 checkHierarchies checkHierarchies13,14
@@ -391,10 +410,12 @@ functionImplemented functionImplemented208,209
 higherInChain higherInChain216,217
   | symA `elem`elem218,219
 higherInChain higherInChain237,238
-hasDefaultConstructor hasDefaultConstructor245,246
+isA isA239,240
+isA isA240,241
 hasDefaultConstructor hasDefaultConstructor246,247
+hasDefaultConstructor hasDefaultConstructor247,248
 
-./src/AST.hs,13270
+./src/AST.hs,13373
 module AST AST0,1
 data ASTInfo ASTInfo10,11
 data ASTInfo = AI AI10,11
@@ -433,213 +454,216 @@ data CompilationUnit = Comp { package package96,97
                               imports imports97,98
                               definition definition98,99
                               cui cui99,100
-data CompilationUnitInfo CompilationUnitInfo102,103
-data CompilationUnitInfo = CompI CompI102,103
-data CompilationUnitInfo = CompI { packageInfo packageInfo102,103
-                                   importsInfo importsInfo103,104
-instance instance106,107
-data TypeDec TypeDec120,121
-data TypeDec = CLS CLS120,121
-data TypeDec = CLS { modifiers modifiers120,121
-                     className className121,122
-                     extends extends122,123
-                     implements implements123,124
-                     constructors constructors124,125
-                     fields fields125,126
-                     methods methods126,127
-                     clsi clsi127,128
-             | ITF ITF128,129
-             | ITF { modifiers modifiers128,129
-                     interfaceName interfaceName129,130
-                     implements implements130,131
-                     methods methods131,132
-                     itfi itfi132,133
-data TDInfo TDInfo140,141
-data TDInfo = CLSI CLSI140,141
-data TDInfo = CLSI { modifiersInfo modifiersInfo140,141
-                      classNameInfo classNameInfo141,142
-                      extendsInfo extendsInfo142,143
-                      implementsInfo implementsInfo143,144
-            | ITFI ITFI145,146
-            | ITFI { modifiersInfo modifiersInfo145,146
-                      interfaceNameInfo interfaceNameInfo146,147
-                      implementsInfo implementsInfo147,148
-unitName unitName176,177
-isInterface isInterface182,183
-visibleImports visibleImports186,187
-visibleImports visibleImports187,188
-buildAST buildAST197,198
-buildAST buildAST198,199
-data FieldInfo FieldInfo245,246
-data FieldInfo = FLDI FLDI245,246
-data FieldInfo = FLDI {fieldModifiersInfo fieldModifiersInfo245,246
-data FieldInfo = FLDI {fieldModifiersInfo :: [ASTInfo], fieldValueInfo fieldValueInfo245,246
-data Field Field246,247
-data Field = FLD FLD246,247
-data Field = FLD { fieldModifiers fieldModifiers246,247
-data Field = FLD { fieldModifiers :: [String], fieldVar fieldVar246,247
-data Field = FLD { fieldModifiers :: [String], fieldVar :: TypedVar, fieldValue fieldValue246,247
-data Field = FLD { fieldModifiers :: [String], fieldVar :: TypedVar, fieldValue :: Maybe Expression, fldi fldi246,247
-buildField buildField247,248
-buildField buildField248,249
-data MethodInfo MethodInfo265,266
-data MethodInfo = MTDI MTDI265,266
-data MethodInfo = MTDI {methodModifiersInfo methodModifiersInfo265,266
-data Method Method266,267
-data Method = MTD MTD266,267
-data Method = MTD { methodModifiers methodModifiers266,267
-data Method = MTD { methodModifiers :: [String], methodVar methodVar266,267
-data Method = MTD { methodModifiers :: [String], methodVar :: TypedVar, methodParameters methodParameters266,267
-data Method = MTD { methodModifiers :: [String], methodVar :: TypedVar, methodParameters :: [TypedVar], methodDefinition methodDefinition266,267
-data Method = MTD { methodModifiers :: [String], methodVar :: TypedVar, methodParameters :: [TypedVar], methodDefinition :: Maybe StatementBlock, mtdi mtdi266,267
-buildMethod buildMethod267,268
-buildMethod buildMethod268,269
-data ConstructorInfo ConstructorInfo293,294
-data ConstructorInfo = ConsI ConsI293,294
-data ConstructorInfo = ConsI {constructorModifiersInfo constructorModifiersInfo293,294
-data ConstructorInfo = ConsI {constructorModifiersInfo :: [ASTInfo], constructorNameInfo constructorNameInfo293,294
-data ConstructorInfo = ConsI {constructorModifiersInfo :: [ASTInfo], constructorNameInfo :: ASTInfo, constructorInvocationInfo constructorInvocationInfo293,294
-data Constructor Constructor294,295
-data Constructor = Cons Cons294,295
-data Constructor = Cons { constructorModifiers constructorModifiers294,295
-data Constructor = Cons { constructorModifiers :: [String], constructorName constructorName294,295
-data Constructor = Cons { constructorModifiers :: [String], constructorName :: String, constructorParameters constructorParameters294,295
-data Constructor = Cons { constructorModifiers :: [String], constructorName :: String, constructorParameters :: [TypedVar], constructorInvocation constructorInvocation294,295
-data Constructor = Cons { constructorModifiers :: [String], constructorName :: String, constructorParameters :: [TypedVar], constructorInvocation :: Maybe Expression, constructorDefinition constructorDefinition294,295
-data Constructor = Cons { constructorModifiers :: [String], constructorName :: String, constructorParameters :: [TypedVar], constructorInvocation :: Maybe Expression, constructorDefinition :: Maybe StatementBlock, consi consi294,295
-buildConstructor buildConstructor295,296
-buildConstructor buildConstructor296,297
-data StatementBlock StatementBlock324,325
-data StatementBlock = SB SB324,325
-data StatementBlock = SB { statements statements324,325
-data StatementBlock = SB { statements :: [Statement], statementsInfo statementsInfo324,325
-buildBlock buildBlock325,326
-buildBlock buildBlock326,327
-data TypedVar TypedVar330,331
-data TypedVar = TV TV330,331
-data TypedVar = TV {typeName typeName330,331
-data TypedVar = TV {typeName :: Type, varName varName330,331
-data TypedVar = TV {typeName :: Type, varName :: String, varInfo varInfo330,331
-buildTypedVar buildTypedVar331,332
-buildTypedVar buildTypedVar332,333
-toLexeme toLexeme338,339
-toLexeme toLexeme339,340
-listToLexeme listToLexeme343,344
-listToLexeme listToLexeme344,345
-toList toList346,347
-toList toList347,348
-flatten flatten356,357
-flatten flatten357,358
-flattenL flattenL365,366
-flattenL flattenL366,367
-expand expand374,375
-expand expand375,376
-nameToPackage nameToPackage377,378
-nameToPackage nameToPackage378,379
-importToPackage importToPackage388,389
-importToPackage importToPackage389,390
-data Expression Expression404,405
-data Expression = Unary Unary404,405
-data Expression = Unary { op op404,405
-data Expression = Unary { op :: String, expr expr404,405
-data Expression = Unary { op :: String, expr :: Expression, depth depth404,405
-                | Binary Binary405,406
-                | Binary { op op405,406
-                | Binary { op :: String, exprL exprL405,406
-                | Binary { op :: String, exprL :: Expression, exprR exprR405,406
-                | Binary { op :: String, exprL :: Expression, exprR :: Expression, depth depth405,406
-                | Attribute Attribute406,407
-                | Attribute { struct struct406,407
-                | Attribute { struct :: Expression, mem mem406,407
-                | Attribute { struct :: Expression, mem :: String, depth depth406,407
-                | ArrayAccess ArrayAccess407,408
-                | ArrayAccess { array array407,408
-                | ArrayAccess { array :: Expression, index index407,408
-                | ArrayAccess { array :: Expression, index :: Expression, depth depth407,408
-                | NewArray NewArray408,409
-                | NewArray { arraytype arraytype408,409
-                | NewArray { arraytype :: Type, dimexprs dimexprs408,409
-                | NewArray { arraytype :: Type, dimexprs :: Expression, depth depth408,409
-                | Dimension Dimension409,410
-                | Dimension { left left409,410
-                | Dimension { left :: Expression, index index409,410
-                | Dimension { left :: Expression, index :: Expression, depth depth409,410
-                | NewObject NewObject410,411
-                | NewObject { classtype classtype410,411
-                | NewObject { classtype :: Type, arguments arguments410,411
-                | NewObject { classtype :: Type, arguments :: Arguments, depth depth410,411
-                | FunctionCall FunctionCall411,412
-                | FunctionCall { func func411,412
-                | FunctionCall { func :: Expression, arguments arguments411,412
-                | FunctionCall { func :: Expression, arguments :: Arguments, depth depth411,412
-                | CastA CastA412,413
-                | CastA { casttype casttype412,413
-                | CastA { casttype :: Type, dims dims412,413
-                | CastA { casttype :: Type, dims :: Expression, expr expr412,413
-                | CastA { casttype :: Type, dims :: Expression, expr :: Expression, depth depth412,413
-                | CastB CastB413,414
-                | CastB { castexpr castexpr413,414
-                | CastB { castexpr :: Expression, expr expr413,414
-                | CastB { castexpr :: Expression, expr :: Expression, depth depth413,414
-                | CastC CastC414,415
-                | CastC { castname castname414,415
-                | CastC { castname :: Name, dims dims414,415
-                | CastC { castname :: Name, dims :: Expression, expr expr414,415
-                | CastC { castname :: Name, dims :: Expression, expr :: Expression, depth depth414,415
-                | InstanceOf InstanceOf415,416
-                | InstanceOf { reftype reftype415,416
-                | InstanceOf { reftype :: Type, expr expr415,416
-                | InstanceOf { reftype :: Type, expr :: Expression, depth depth415,416
-                | ID ID416,417
-                | ID { identifier identifier416,417
-                | ID { identifier :: Name, depth depth416,417
-                | Value Value417,418
-                | Value { valuetype valuetype417,418
-                | Value { valuetype :: Type, value value417,418
-                | Value { valuetype :: Type, value :: String, depth depth417,418
-                | ThisThis418,419
-                | NullNull419,420
-conditionConstant conditionConstant422,423
-conditionConstant conditionConstant423,424
-data Type Type449,450
-data Type = TypeByte TypeByte449,450
-data Type = TypeByte | TypeShort TypeShort449,450
-data Type = TypeByte | TypeShort | TypeInt TypeInt449,450
-data Type = TypeByte | TypeShort | TypeInt | TypeChar TypeChar449,450
-data Type = TypeByte | TypeShort | TypeInt | TypeChar | TypeBoolean TypeBoolean449,450
-data Type = TypeByte | TypeShort | TypeInt | TypeChar | TypeBoolean | TypeNull TypeNull449,450
-data Type = TypeByte | TypeShort | TypeInt | TypeChar | TypeBoolean | TypeNull | TypeVoidTypeVoid449,450
-          | Function Function450,451
-          | TypeClass TypeClass451,452
-          | Object Object452,453
-          | Array Array453,454
-typeToName typeToName469,470
-data Name Name481,482
-data Name = Name Name481,482
-type Arguments Arguments484,485
-buildArgs buildArgs487,488
-buildArgs buildArgs488,489
-buildName buildName492,493
-buildName buildName493,494
-buildType buildType506,507
-buildType buildType507,508
-buildExp buildExp528,529
-buildExp buildExp529,530
-buildToken buildToken609,610
-buildToken buildToken610,611
---buildToken --buildToken611,612
-findProd findProd613,614
-findProd findProd614,615
-check check616,617
-check check617,618
-expandSingle expandSingle619,620
-expandSingle expandSingle620,621
-literalToType literalToType625,626
-literalToType literalToType626,627
-identifierInExpr identifierInExpr641,642
-identifierInExpr identifierInExpr642,643
+updatePackage updatePackage102,103
+updatePackage updatePackage103,104
+data CompilationUnitInfo CompilationUnitInfo105,106
+data CompilationUnitInfo = CompI CompI105,106
+data CompilationUnitInfo = CompI { packageInfo packageInfo105,106
+                                   importsInfo importsInfo106,107
+instance instance109,110
+data TypeDec TypeDec123,124
+data TypeDec = CLS CLS123,124
+data TypeDec = CLS { modifiers modifiers123,124
+                     className className124,125
+                     extends extends125,126
+                     implements implements126,127
+                     constructors constructors127,128
+                     fields fields128,129
+                     methods methods129,130
+                     clsi clsi130,131
+             | ITF ITF131,132
+             | ITF { modifiers modifiers131,132
+                     interfaceName interfaceName132,133
+                     implements implements133,134
+                     methods methods134,135
+                     itfi itfi135,136
+data TDInfo TDInfo143,144
+data TDInfo = CLSI CLSI143,144
+data TDInfo = CLSI { modifiersInfo modifiersInfo143,144
+                      classNameInfo classNameInfo144,145
+                      extendsInfo extendsInfo145,146
+                      implementsInfo implementsInfo146,147
+            | ITFI ITFI148,149
+            | ITFI { modifiersInfo modifiersInfo148,149
+                      interfaceNameInfo interfaceNameInfo149,150
+                      implementsInfo implementsInfo150,151
+unitName unitName179,180
+isInterface isInterface185,186
+visibleImports visibleImports189,190
+visibleImports visibleImports190,191
+buildAST buildAST200,201
+buildAST buildAST201,202
+data FieldInfo FieldInfo248,249
+data FieldInfo = FLDI FLDI248,249
+data FieldInfo = FLDI {fieldModifiersInfo fieldModifiersInfo248,249
+data FieldInfo = FLDI {fieldModifiersInfo :: [ASTInfo], fieldValueInfo fieldValueInfo248,249
+data Field Field249,250
+data Field = FLD FLD249,250
+data Field = FLD { fieldModifiers fieldModifiers249,250
+data Field = FLD { fieldModifiers :: [String], fieldVar fieldVar249,250
+data Field = FLD { fieldModifiers :: [String], fieldVar :: TypedVar, fieldValue fieldValue249,250
+data Field = FLD { fieldModifiers :: [String], fieldVar :: TypedVar, fieldValue :: Maybe Expression, fldi fldi249,250
+buildField buildField250,251
+buildField buildField251,252
+data MethodInfo MethodInfo268,269
+data MethodInfo = MTDI MTDI268,269
+data MethodInfo = MTDI {methodModifiersInfo methodModifiersInfo268,269
+data Method Method269,270
+data Method = MTD MTD269,270
+data Method = MTD { methodModifiers methodModifiers269,270
+data Method = MTD { methodModifiers :: [String], methodVar methodVar269,270
+data Method = MTD { methodModifiers :: [String], methodVar :: TypedVar, methodParameters methodParameters269,270
+data Method = MTD { methodModifiers :: [String], methodVar :: TypedVar, methodParameters :: [TypedVar], methodDefinition methodDefinition269,270
+data Method = MTD { methodModifiers :: [String], methodVar :: TypedVar, methodParameters :: [TypedVar], methodDefinition :: Maybe StatementBlock, mtdi mtdi269,270
+buildMethod buildMethod270,271
+buildMethod buildMethod271,272
+data ConstructorInfo ConstructorInfo296,297
+data ConstructorInfo = ConsI ConsI296,297
+data ConstructorInfo = ConsI {constructorModifiersInfo constructorModifiersInfo296,297
+data ConstructorInfo = ConsI {constructorModifiersInfo :: [ASTInfo], constructorNameInfo constructorNameInfo296,297
+data ConstructorInfo = ConsI {constructorModifiersInfo :: [ASTInfo], constructorNameInfo :: ASTInfo, constructorInvocationInfo constructorInvocationInfo296,297
+data Constructor Constructor297,298
+data Constructor = Cons Cons297,298
+data Constructor = Cons { constructorModifiers constructorModifiers297,298
+data Constructor = Cons { constructorModifiers :: [String], constructorName constructorName297,298
+data Constructor = Cons { constructorModifiers :: [String], constructorName :: String, constructorParameters constructorParameters297,298
+data Constructor = Cons { constructorModifiers :: [String], constructorName :: String, constructorParameters :: [TypedVar], constructorInvocation constructorInvocation297,298
+data Constructor = Cons { constructorModifiers :: [String], constructorName :: String, constructorParameters :: [TypedVar], constructorInvocation :: Maybe Expression, constructorDefinition constructorDefinition297,298
+data Constructor = Cons { constructorModifiers :: [String], constructorName :: String, constructorParameters :: [TypedVar], constructorInvocation :: Maybe Expression, constructorDefinition :: Maybe StatementBlock, consi consi297,298
+buildConstructor buildConstructor298,299
+buildConstructor buildConstructor299,300
+data StatementBlock StatementBlock327,328
+data StatementBlock = SB SB327,328
+data StatementBlock = SB { statements statements327,328
+data StatementBlock = SB { statements :: [Statement], statementsInfo statementsInfo327,328
+buildBlock buildBlock328,329
+buildBlock buildBlock329,330
+data TypedVar TypedVar333,334
+data TypedVar = TV TV333,334
+data TypedVar = TV {typeName typeName333,334
+data TypedVar = TV {typeName :: Type, varName varName333,334
+data TypedVar = TV {typeName :: Type, varName :: String, varInfo varInfo333,334
+buildTypedVar buildTypedVar334,335
+buildTypedVar buildTypedVar335,336
+toLexeme toLexeme341,342
+toLexeme toLexeme342,343
+listToLexeme listToLexeme346,347
+listToLexeme listToLexeme347,348
+toList toList349,350
+toList toList350,351
+flatten flatten359,360
+flatten flatten360,361
+flattenL flattenL368,369
+flattenL flattenL369,370
+expand expand377,378
+expand expand378,379
+nameToPackage nameToPackage380,381
+nameToPackage nameToPackage381,382
+importToPackage importToPackage391,392
+importToPackage importToPackage392,393
+data Expression Expression407,408
+data Expression = Unary Unary407,408
+data Expression = Unary { op op407,408
+data Expression = Unary { op :: String, expr expr407,408
+data Expression = Unary { op :: String, expr :: Expression, depth depth407,408
+                | Binary Binary408,409
+                | Binary { op op408,409
+                | Binary { op :: String, exprL exprL408,409
+                | Binary { op :: String, exprL :: Expression, exprR exprR408,409
+                | Binary { op :: String, exprL :: Expression, exprR :: Expression, depth depth408,409
+                | Attribute Attribute409,410
+                | Attribute { struct struct409,410
+                | Attribute { struct :: Expression, mem mem409,410
+                | Attribute { struct :: Expression, mem :: String, depth depth409,410
+                | ArrayAccess ArrayAccess410,411
+                | ArrayAccess { array array410,411
+                | ArrayAccess { array :: Expression, index index410,411
+                | ArrayAccess { array :: Expression, index :: Expression, depth depth410,411
+                | NewArray NewArray411,412
+                | NewArray { arraytype arraytype411,412
+                | NewArray { arraytype :: Type, dimexprs dimexprs411,412
+                | NewArray { arraytype :: Type, dimexprs :: Expression, depth depth411,412
+                | Dimension Dimension412,413
+                | Dimension { left left412,413
+                | Dimension { left :: Expression, index index412,413
+                | Dimension { left :: Expression, index :: Expression, depth depth412,413
+                | NewObject NewObject413,414
+                | NewObject { classtype classtype413,414
+                | NewObject { classtype :: Type, arguments arguments413,414
+                | NewObject { classtype :: Type, arguments :: Arguments, depth depth413,414
+                | FunctionCall FunctionCall414,415
+                | FunctionCall { func func414,415
+                | FunctionCall { func :: Expression, arguments arguments414,415
+                | FunctionCall { func :: Expression, arguments :: Arguments, depth depth414,415
+                | CastA CastA415,416
+                | CastA { casttype casttype415,416
+                | CastA { casttype :: Type, dims dims415,416
+                | CastA { casttype :: Type, dims :: Expression, expr expr415,416
+                | CastA { casttype :: Type, dims :: Expression, expr :: Expression, depth depth415,416
+                | CastB CastB416,417
+                | CastB { castexpr castexpr416,417
+                | CastB { castexpr :: Expression, expr expr416,417
+                | CastB { castexpr :: Expression, expr :: Expression, depth depth416,417
+                | CastC CastC417,418
+                | CastC { castname castname417,418
+                | CastC { castname :: Name, dims dims417,418
+                | CastC { castname :: Name, dims :: Expression, expr expr417,418
+                | CastC { castname :: Name, dims :: Expression, expr :: Expression, depth depth417,418
+                | InstanceOf InstanceOf418,419
+                | InstanceOf { reftype reftype418,419
+                | InstanceOf { reftype :: Type, expr expr418,419
+                | InstanceOf { reftype :: Type, expr :: Expression, depth depth418,419
+                | ID ID419,420
+                | ID { identifier identifier419,420
+                | ID { identifier :: Name, depth depth419,420
+                | Value Value420,421
+                | Value { valuetype valuetype420,421
+                | Value { valuetype :: Type, value value420,421
+                | Value { valuetype :: Type, value :: String, depth depth420,421
+                | ThisThis421,422
+                | NullNull422,423
+conditionConstant conditionConstant425,426
+conditionConstant conditionConstant426,427
+data Type Type452,453
+data Type = TypeByte TypeByte452,453
+data Type = TypeByte | TypeShort TypeShort452,453
+data Type = TypeByte | TypeShort | TypeInt TypeInt452,453
+data Type = TypeByte | TypeShort | TypeInt | TypeChar TypeChar452,453
+data Type = TypeByte | TypeShort | TypeInt | TypeChar | TypeBoolean TypeBoolean452,453
+data Type = TypeByte | TypeShort | TypeInt | TypeChar | TypeBoolean | TypeNull TypeNull452,453
+data Type = TypeByte | TypeShort | TypeInt | TypeChar | TypeBoolean | TypeNull | TypeVoidTypeVoid452,453
+          | Function Function453,454
+          | TypeClass TypeClass454,455
+          | Object Object455,456
+          | Array Array456,457
+typeToOrd typeToOrd472,473
+typeToName typeToName476,477
+data Name Name488,489
+data Name = Name Name488,489
+type Arguments Arguments491,492
+buildArgs buildArgs494,495
+buildArgs buildArgs495,496
+buildName buildName499,500
+buildName buildName500,501
+buildType buildType513,514
+buildType buildType514,515
+buildExp buildExp535,536
+buildExp buildExp536,537
+buildToken buildToken616,617
+buildToken buildToken617,618
+--buildToken --buildToken618,619
+findProd findProd620,621
+findProd findProd621,622
+check check623,624
+check check624,625
+expandSingle expandSingle626,627
+expandSingle expandSingle627,628
+literalToType literalToType632,633
+literalToType literalToType633,634
+identifierInExpr identifierInExpr648,649
+identifierInExpr identifierInExpr649,650
 
-./src/TypeDatabase.hs,3021
+./src/TypeDatabase.hs,3487
 module TypeDatabase TypeDatabase0,1
 data TypeNode TypeNode10,11
 data TypeNode = TN TN10,11
@@ -658,60 +682,70 @@ runtimeMalloc runtimeMalloc28,29
 runtimeTN runtimeTN29,30
 nativeTypes nativeTypes33,34
 isVisibleClassNode isVisibleClassNode37,38
-isConcreteNode isConcreteNode44,45
-isSYMFUNCNode isSYMFUNCNode49,50
-instance instance54,55
-symbolToLabel symbolToLabel62,63
-symbolToLabel symbolToLabel63,64
-symbolToLabel' symbolToLabel'65,66
-symbolToLabel' symbolToLabel'66,67
-getTypeEntry getTypeEntry68,69
-getTypeEntry getTypeEntry69,70
-visibleNodesUnderInheritance visibleNodesUnderInheritance73,74
-visibleNodesUnderInheritance visibleNodesUnderInheritance74,75
-inheritFromNodes inheritFromNodes80,81
-inheritFromNodes inheritFromNodes81,82
-inheritFromTypes inheritFromTypes91,92
-inheritFromTypes inheritFromTypes92,93
-updateNode updateNode98,99
-updateNode updateNode99,100
-updateDBWithInheritance updateDBWithInheritance109,110
-updateDBWithInheritance updateDBWithInheritance110,111
-updateDBWithInheritances updateDBWithInheritances115,116
-updateDBWithInheritances updateDBWithInheritances116,117
-dumpDB dumpDB121,122
-dumpDB dumpDB122,123
-dumpDBNodes dumpDBNodes124,125
-dumpDBNodes dumpDBNodes126,127
-traverseNodeEntry traverseNodeEntry130,131
-traverseNodeEntry traverseNodeEntry131,132
-traverseTypeEntry traverseTypeEntry138,139
-traverseTypeEntry traverseTypeEntry139,140
-traverseTypeEntryWithImports traverseTypeEntryWithImports149,150
-traverseTypeEntryWithImports traverseTypeEntryWithImports150,151
-buildTypeEntryFromSymbol buildTypeEntryFromSymbol166,167
-buildTypeEntryFromSymbol buildTypeEntryFromSymbol167,168
-buildTypeEntryFromEnvironments buildTypeEntryFromEnvironments169,170
-buildTypeEntryFromEnvironments buildTypeEntryFromEnvironments170,171
-buildInstanceEntryFromEnvironments buildInstanceEntryFromEnvironments177,178
-buildInstanceEntryFromEnvironments buildInstanceEntryFromEnvironments178,179
-buildTypeEntry buildTypeEntry185,186
-buildTypeEntry buildTypeEntry186,187
-buildInstanceEntry buildInstanceEntry188,189
-buildInstanceEntry buildInstanceEntry189,190
-buildEntry buildEntry192,193
-buildEntry buildEntry193,194
-buildEntry' buildEntry'228,229
-buildEntry' buildEntry'229,230
-lookUpType lookUpType240,241
-lookUpType lookUpType241,242
-refineTypeWithType refineTypeWithType255,256
-refineTypeWithType refineTypeWithType256,257
-refineSymbolWithType refineSymbolWithType269,270
-refineSymbolWithType refineSymbolWithType270,271
-refineKindWithType refineKindWithType288,289
-refineEnvironmentWithType refineEnvironmentWithType296,297
-refineEnvironmentWithType refineEnvironmentWithType297,298
+isCLNode isCLNode43,44
+isITNode isITNode46,47
+isSYMNode isSYMNode49,50
+isFUNCNode isFUNCNode52,53
+isConcreteNode isConcreteNode55,56
+isSYMFUNCNode isSYMFUNCNode57,58
+instance instance60,61
+generateConcretePair generateConcretePair68,69
+generateConcretePair generateConcretePair69,70
+generateSYMSPair generateSYMSPair73,74
+generateSYMSPair generateSYMSPair74,75
+generateSYMSPairFromNode generateSYMSPairFromNode78,79
+generateSYMSPairFromNode generateSYMSPairFromNode79,80
+generateFUNCPair generateFUNCPair83,84
+generateFUNCPair generateFUNCPair84,85
+generateFUNCPairFromNode generateFUNCPairFromNode89,90
+generateFUNCPairFromNode generateFUNCPairFromNode90,91
+getTypeEntry getTypeEntry94,95
+getTypeEntry getTypeEntry95,96
+visibleNodesUnderInheritance visibleNodesUnderInheritance99,100
+visibleNodesUnderInheritance visibleNodesUnderInheritance100,101
+inheritFromNodes inheritFromNodes106,107
+inheritFromNodes inheritFromNodes107,108
+inheritFromTypes inheritFromTypes117,118
+inheritFromTypes inheritFromTypes118,119
+updateNode updateNode125,126
+updateNode updateNode126,127
+updateDBWithInheritance updateDBWithInheritance136,137
+updateDBWithInheritance updateDBWithInheritance137,138
+updateDBWithInheritances updateDBWithInheritances142,143
+updateDBWithInheritances updateDBWithInheritances143,144
+dumpDB dumpDB148,149
+dumpDB dumpDB149,150
+dumpDBNodes dumpDBNodes151,152
+dumpDBNodes dumpDBNodes153,154
+traverseNodeEntry traverseNodeEntry157,158
+traverseNodeEntry traverseNodeEntry158,159
+traverseTypeEntry traverseTypeEntry165,166
+traverseTypeEntry traverseTypeEntry166,167
+traverseTypeEntryWithImports traverseTypeEntryWithImports176,177
+traverseTypeEntryWithImports traverseTypeEntryWithImports177,178
+buildTypeEntryFromSymbol buildTypeEntryFromSymbol193,194
+buildTypeEntryFromSymbol buildTypeEntryFromSymbol194,195
+buildTypeEntryFromEnvironments buildTypeEntryFromEnvironments196,197
+buildTypeEntryFromEnvironments buildTypeEntryFromEnvironments197,198
+buildInstanceEntryFromEnvironments buildInstanceEntryFromEnvironments204,205
+buildInstanceEntryFromEnvironments buildInstanceEntryFromEnvironments205,206
+buildTypeEntry buildTypeEntry212,213
+buildTypeEntry buildTypeEntry213,214
+buildInstanceEntry buildInstanceEntry215,216
+buildInstanceEntry buildInstanceEntry216,217
+buildEntry buildEntry219,220
+buildEntry buildEntry220,221
+buildEntry' buildEntry'255,256
+buildEntry' buildEntry'256,257
+lookUpType lookUpType267,268
+lookUpType lookUpType268,269
+refineTypeWithType refineTypeWithType282,283
+refineTypeWithType refineTypeWithType283,284
+refineSymbolWithType refineSymbolWithType296,297
+refineSymbolWithType refineSymbolWithType297,298
+refineKindWithType refineKindWithType315,316
+refineEnvironmentWithType refineEnvironmentWithType323,324
+refineEnvironmentWithType refineEnvironmentWithType324,325
 
 ./src/RPMain.hs,98
 module Main Main0,1
@@ -815,6 +849,21 @@ weedFields weedFields154,155
 weedField weedField156,157
 weedField weedField157,158
 
+./src/Inheritance.hs,504
+module Inheritance Inheritance0,1
+createTypeID createTypeID11,12
+createTypeID createTypeID12,13
+createFUNCID createFUNCID16,17
+createFUNCID createFUNCID17,18
+createTypeCharacteristicBM createTypeCharacteristicBM22,23
+createTypeCharacteristicBM createTypeCharacteristicBM23,24
+updateFUNC updateFUNC28,29
+updateFUNC updateFUNC29,30
+updateFUNCTable updateFUNCTable33,34
+updateFUNCTable updateFUNCTable34,35
+createFUNCTable createFUNCTable36,37
+createFUNCTable createFUNCTable37,38
+
 ./src/Scanner.hs,1898
 module Scanner Scanner0,1
 lineTerminators lineTerminators9,10
@@ -879,14 +928,16 @@ module Main Main0,1
 main main14,15
 main main15,16
 
-./src/Util.hs,118
+./src/Util.hs,160
 module Util Util0,1
 splitOneOf splitOneOf5,6
 splitOneOf splitOneOf6,7
-indent indent13,14
-indent indent14,15
+sortOn sortOn13,14
+sortOn sortOn14,15
+indent indent16,17
+indent indent17,18
 
 ./src/A5.hs,56
 module Main Main0,1
-main main19,20
-main main20,21
+main main23,24
+main main24,25

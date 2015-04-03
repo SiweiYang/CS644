@@ -32,14 +32,23 @@ data Symbol = SYM {
     localName       :: String,
     parameterTypes  :: [Type],
     localType       :: Type
-} deriving (Show)
+}
 
+instance Show Symbol where
+  show (SYM mds ls ln lt) = (show ls) ++ (show ln) ++ " :: " ++ (show lt)
+  show (PKG nm) = (show nm)
+  show (CL mds ln lt _) = (show lt)
+  show (IT mds ln lt _) = (show lt)
+  show (FUNC mds ls ln pt rt) = (show ls) ++ (show ln) ++ (show pt) ++ " -> " ++ (show rt)
 
 symbolToOrd (PKG nm)    = (0, [], nm, [])
 symbolToOrd (CL _ _ lt _)= (1, typeToOrd lt, "", [])
 symbolToOrd (IT _ _ lt _)= (2, typeToOrd lt, "", [])
 symbolToOrd (SYM mds ls ln tp)= (3, ls, ln, [])
 symbolToOrd (FUNC _ ls ln pt _)= (4, ls, ln, map typeToOrd pt)
+
+funcToSigOrd (FUNC _ _ ln pt _) = (ln, map typeToOrd pt)
+
 instance Eq Symbol where
   sym1 == sym2 = symbolToOrd sym1 == symbolToOrd sym2
 instance Ord Symbol where

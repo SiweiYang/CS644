@@ -192,8 +192,10 @@ main = do
   let typeIDMap = createTypeID db'
   let functionIDMap = createFUNCID db'
   let typeCharacteristicBM = createTypeCharacteristicBM db'
-  hPutStrLn stderr $ "Total Number of Functions: " ++ show (size functionIDMap)
-  hPutStrLn stderr $ "Type Characteristic BitMap: " ++ show typeCharacteristicBM
+  let funcTable = createFUNCTable db'
+  --hPutStrLn stderr $ "Total Number of Functions: " ++ show (size functionIDMap)
+  --hPutStrLn stderr $ "Type Characteristic BitMap: " ++ show typeCharacteristicBM
+  --hPutStrLn stderr $ "Func Table: " ++ show funcTable
 
   -- CLASS RECONSTRUCT
   let reconstructedCLASS = map (\(imp, Just env, fn) -> (imp, (buildClassConstruct db' imp env), fn)) listImpEnvFns
