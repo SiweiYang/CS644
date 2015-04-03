@@ -296,9 +296,9 @@ symbolLinkingName db imps su (Name cname@(nm:remain)) = case syms'' of
                                                                 [] -> lookUpDBSymbol db imps su cname
                                                                 _ -> symsInheritance''
                                                         _ -> syms''
-	where
+    where
                 baseName = (typeToName . lookUpThis) su
-		syms = [sym | sym <- lookUpSymbolTable su nm, not $ elem "cons" (symbolModifiers sym)]
+                syms = [sym | sym <- lookUpSymbolTable su nm, not $ elem "cons" (symbolModifiers sym)]
                 symsLocal = [sym | sym@(SYM mds scope _ _) <- syms, (scope /= baseName)]
                 symsStatic = symsLocal ++ [sym | sym@(SYM mds scope _ _) <- syms, elem "static" mds] ++ [func | func@(FUNC mds _ _ _ _) <- syms, elem "static" mds, (length cname) > 1]
                 symsNStatic = symsLocal ++ [sym | sym <- syms, not $ elem sym symsStatic]
@@ -313,8 +313,8 @@ symbolLinkingName db imps su (Name cname@(nm:remain)) = case syms'' of
                 symsInheritanceNStatic = [sym | sym <- symsInheritance, not $ elem sym symsInheritanceStatic]
                 symsInheritance' = if scopeStatic su then symsInheritanceStatic else symsInheritanceNStatic
                 symsInheritance'' = if remain == []
-                            then symsInheritance'
-                            else map symbol $ concat $ map (traverseInstanceEntryAccessible db baseName db) [((typeToName . localType) sym) ++ remain | sym@(SYM mds _ _ _) <- symsInheritance']
+                                    then symsInheritance'
+                                    else map symbol $ concat $ map (traverseInstanceEntryAccessible db baseName db) [((typeToName . localType) sym) ++ remain | sym@(SYM mds _ _ _) <- symsInheritance']
                 symsInheritance''' = if scopeLocal su then symsInheritance'' else []
 
 
@@ -362,14 +362,22 @@ scopeOffsetPos su = case kd of
 
 scopeOffset :: SemanticUnit -> Symbol -> Int
 scopeOffset su sym = case kd of
-                       Method _ -> if syms' /= [] then 0 - (length syms') else error $ "symbol not found on stack: " ++ (show sym)
-		       _ -> if syms == [sym]
-                              then scopeOffsetPos (inheritFrom su)
-                              else scopeOffset (inheritFrom su) sym
-  where
-    kd = kind su
-    syms = symbolTable su
-    syms' = dropWhile (sym /=) syms
+                        Method _ -> if syms' /= [] then 0 - (length syms') else error $ "symbol not found on stack: " ++ (show sym)
+                        _ -> if syms == [sym]
+                                then scopeOffsetPos (inheritFrom su)
+                                else scopeOffset (inheritFrom su) sym
+    where
+        kd = kind su
+        syms = symbolTable su
+        syms' = dropWhile (sym /=) syms
+
+thisOffset :: SemanticUnit -> Int
+thisOffset su = case kd of
+                    Method _ -> -1 - (length syms)
+                    _ -> thisOffset (inheritFrom su)
+    where
+        kd = kind su
+        syms = symbolTable su
 
 scopeReturnType :: SemanticUnit -> Type
 scopeReturnType su = rst

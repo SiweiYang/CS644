@@ -8,6 +8,7 @@ import System.Environment
 import System.Exit
 import System.IO
 
+import Util
 import AST
 import CodeConstruct
 import Environment
@@ -217,7 +218,9 @@ main' givenFileNames = do
     --hPutStrLn stderr (intercalate "\n------------------------\n" $ map (\(_, x, _) -> show x) reconstructedCLASS)
 
   let firstClass = head $ filter isJust $ map (\(_,cls,_) -> cls) reconstructedCLASS
-  writeFile "output/temp.s" $ unlines . genAsm $ fromJust firstClass
+
+  let filenamef = \x -> head $ splitOneOf "." $ last $ splitOneOf "/" x
+  mapM (\(_, cls, fn) -> writeFile ("output/" ++ (filenamef fn) ++ ".s") $ unlines . genAsm $ fromJust cls) reconstructedCLASS
 
   let startFunction = methodSymbol . head $ filter (\mthd -> "test" == (last . methodName $ mthd)) (classMethods . fromJust $ firstClass)
   let startFunctionLabel = generateLabelFromFUNC startFunction 0

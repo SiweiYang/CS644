@@ -13,6 +13,7 @@ data TypeNode = TN {
     subNodes :: [TypeNode]
 } deriving (Eq)
 
+{-
 arrayClass = CLS ["public"] "Array" (Just ["Object"]) [[]] [] [] [] (CLSI [] (AI "" 0 0 0 0) Nothing [])
 
 arrayUnit = Comp (Just ["joosc native"]) [] arrayClass (CompI Nothing [])
@@ -21,14 +22,15 @@ arraySYM = (TypeClass (Name ["joosc native", "Array"]))
 arrayConstructor = TN (FUNC ["public", "final"] ["joosc native", "Array"] "Array" [TypeInt] (Array TypeVoid)) []
 arrayLength = TN (SYM ["public", "final"] ["joosc native", "Array"] "length" TypeInt) []
 arrayTN = TN (CL ["public"] "Array" arraySYM arrayUnit) [arrayConstructor, arrayLength]
+-}
 
 runtimeClass = CLS ["public"] "Runtime" (Just ["Object"]) [[]] [] [] [] (CLSI [] (AI "" 0 0 0 0) Nothing [])
 runtimeUnit = Comp (Just ["joosc native"]) [] runtimeClass (CompI Nothing [])
 
 runtimeSYM = (TypeClass (Name ["joosc native", "Runtime"]))
 runtimeMalloc = TN (FUNC ["public", "static", "native", "final"] ["joosc native", "Runtime"] "malloc" [TypeInt] TypeInt) []
-runtimeThrow = TN (FUNC ["public", "static", "native", "final"] ["joosc native", "Runtime"] "throw" [TypeInt] TypeInt) []
-runtimeTN  = TN (CL ["public"] "Runtime" runtimeSYM runtimeUnit) [runtimeMalloc]
+runtimeException = TN (FUNC ["public", "static", "native", "final"] ["joosc native", "Runtime"] "exception" [] TypeInt) []
+runtimeTN  = TN (CL ["public"] "Runtime" runtimeSYM runtimeUnit) [runtimeMalloc, runtimeException]
 
 
 

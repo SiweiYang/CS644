@@ -173,12 +173,11 @@ data DFExpression = FunctionCall Symbol [DFExpression]
                   | Unary { op :: String, expr :: DFExpression }
                   | Binary { op :: String, exprL :: DFExpression, exprR :: DFExpression }
                   | Attribute { struct :: DFExpression, mem :: Symbol }
-                  | ArrayAccess { array :: DFExpression, index :: DFExpression }
+--                  | ArrayAccess { array :: DFExpression, index :: DFExpression }
                   | InstanceOf { reftype :: Type, expr :: DFExpression }
                   | Cast {reftype :: Type, expr :: DFExpression }
                   | ID { identifier :: Either Int Symbol }
                   | Value { valuetype :: Type, value :: String }
-                  | This
                   | Null
                   | NOOP
                   deriving (Show)
@@ -187,7 +186,7 @@ data DFExpression = FunctionCall Symbol [DFExpression]
 buildDFExpression :: TypeNode -> [[String]] -> SemanticUnit -> [Type] -> Expression -> DFExpression
 -- trivial ones
 buildDFExpression db imps su tps AST.Null = Null
-buildDFExpression db imps su tps AST.This = This
+buildDFExpression db imps su tps AST.This = ID (Left $ thisOffset su)
 buildDFExpression db imps su tps (AST.Value t v _) = Value t v
 buildDFExpression db imps su tps e@(AST.CastA _ _ expr _) = Cast tp (buildDFExpression db imps su tps expr)
   where
@@ -237,7 +236,7 @@ buildDFExpression db imps su tps e@(AST.FunctionCall expr args _) = if elem "sta
     tps' = symbolToType' sym
     exprL = case buildDFExpression db imps su [tps'] expr of
               Attribute exprL sym -> exprL
-              ID _ -> This
+              ID _ -> ID (Left $ thisOffset su)
 
 
 -- inject malloc calls
@@ -248,7 +247,8 @@ buildDFExpression db imps su tps e@(AST.NewObject tp args _) = FunctionCall sym 
 
 buildDFExpression db imps su tps (AST.NewArray tp expr _) = FunctionCall sym $ (buildMalloc sym):[buildDFExpression db imps su [] expr]
   where
-    sym = symbol arrayConstructor
+    [sym] = symbolLinkingName db imps su (AST.Name ["joosc native", "Array", "Array"])
+    --sym = symbol arrayConstructor
 
 buildDFExpression db imps su tps (AST.Dimension dummy index _) = if dummy /= AST.Null then error $ "Dimension not NULL: " ++ (show dummy)
                                                                  else buildDFExpression db imps su [] index
@@ -256,12 +256,47 @@ buildDFExpression db imps su tps (AST.Dimension dummy index _) = if dummy /= AST
 buildDFExpression db imps su tps (AST.InstanceOf tp expr _) = InstanceOf tp (buildDFExpression db imps su [] expr)
 
 -- noop
-buildDFExpression db imps su tps (AST.ArrayAccess expr expri _) = ArrayAccess (buildDFExpression db imps su tps expr) (buildDFExpression db imps su tps expri)
+buildDFExpression db imps su tps (AST.ArrayAccess expr expri _) = FunctionCall sym $ [dfexpr, dfexpri]
+    where
+      [sym] = symbolLinkingName db imps su (AST.Name ["joosc native", "Array", "get"])
+      dfexpr = buildDFExpression db imps su tps expr
+      dfexpri = buildDFExpression db imps su tps expri
+
 buildDFExpression db imps su tps (AST.Unary op expr _) = Unary op (buildDFExpression db imps su tps expr)
 buildDFExpression db imps su tps (AST.Binary op exprL exprR _) = Binary op (buildDFExpression db imps su tps exprL) (buildDFExpression db imps su tps exprR)
 
 buildDFExpression db imps su tps ow = error $ show ow
 
+
+---------------------------------------------------------------
+
+
+createClassInitOrdering :: [ClassConstruct] -> [[String]]
+createClassInitOrdering tps = generateClassOrdering nodes edges
+  where
+    pairs = [(classSymbol tp, listStaticSYMFromStaticInit tp) | tp <- tps]
+    nodes = map (symbolToCN . fst) pairs
+    edges = generateEdgeFromPairs pairs
+
+listStaticSYMFromStaticInit :: ClassConstruct -> [Symbol]
+listStaticSYMFromStaticInit (CC cname ft sym mtdc) = concat $ map listStaticSYMFromDFExpr exprs
+  where
+    exprs = [expr | Just expr <- map fieldInit ft]
+
+
+listStaticSYMFromDFExpr :: DFExpression -> [Symbol]
+listStaticSYMFromDFExpr (FunctionCall _ exprs) = concat $ map listStaticSYMFromDFExpr exprs
+listStaticSYMFromDFExpr (Unary _ expr) = listStaticSYMFromDFExpr expr
+listStaticSYMFromDFExpr (Binary _ exprL exprR) = (listStaticSYMFromDFExpr exprL) ++ (listStaticSYMFromDFExpr exprR)
+listStaticSYMFromDFExpr (Attribute expr sym) = listStaticSYMFromDFExpr expr
+listStaticSYMFromDFExpr (InstanceOf _ expr) = listStaticSYMFromDFExpr expr
+listStaticSYMFromDFExpr (Cast _ expr) = listStaticSYMFromDFExpr expr
+listStaticSYMFromDFExpr (ID (Right sym)) = case sym of
+                                                      SYM mds _ _ _ -> if (elem "static" mds) && (not $ elem "native" mds)
+                                                                          then [sym]
+                                                                          else []
+                                                      _ -> []
+listStaticSYMFromDFExpr _ = []
 
 ---------------------------------------------------------------
 
@@ -412,10 +447,12 @@ genExprAsm (Binary op exprL exprR) =
 genExprAsm (Attribute struct member) =
   let structCode = genExprAsm struct
   in [";Attribute"] ++ structCode
+{-
 genExprAsm (ArrayAccess array index) =
   let arrayCode = genExprAsm array
       indexCode = genExprAsm index
   in ["; newArray",";array"] ++ arrayCode ++ [";index"] ++ indexCode
+-}
 {-
 genExprAsm (NewArray arrayType dimExpr) = ["; newArray"] ++ genExprAsm dimExpr
 genExprAsm (NewObject classType args) =
@@ -438,7 +475,7 @@ genExprAsm (Value AST.TypeBoolean "true") = ["mov eax, 1"]
 genExprAsm (Value AST.TypeBoolean "false") = ["mov eax, 0"]
 genExprAsm (Value AST.TypeNull _) = ["mov eax, 0"]
 genExprAsm (Value valuetype value) = ["; XXX: Unsupported value: " ++ value]
-genExprAsm This = ["mov eax, 0; This"]
+--genExprAsm This = ["mov eax, 0; This"]
 genExprAsm Null = ["; Null"]
 genExprAsm NOOP = ["; NOOP"]
 
