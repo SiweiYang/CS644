@@ -10,6 +10,7 @@ import qualified AST
 import           Environment
 import           TypeDatabase
 import           TypeLinking
+import           Inheritance
 
 
 data FieldType = FT {
@@ -327,18 +328,6 @@ symbolToType' sym = case tp of
 
 genLabel :: [Int] -> String
 genLabel nesting = concat $ intersperse "_" $ map show nesting
-
-generateLabelFromFUNC :: Symbol -> Int -> String
-generateLabelFromFUNC (FUNC mds ls ln _ _) i = if elem "native" mds
-                                                 then case ln of
-                                                        "malloc" -> "__malloc"
-                                                        "throw" -> "__exception"
-                                                        "nativeWrite" -> "NATIVEjava.io.OutputStream.nativeWrite"
-                                                 else intercalate "_" (ls ++ [md, ln, show i])
-  where
-    md = if elem "static" mds
-            then "static"
-            else "instance"
 
 genAsm :: ClassConstruct -> [String]
 genAsm (CC name fields _ methods) =
