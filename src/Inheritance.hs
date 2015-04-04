@@ -4,6 +4,7 @@ import           Data.List     (intercalate, nub, sort)
 import           Data.Map      (Map, fromList, toAscList)
 import           Data.Maybe
 
+import           AST (typeToName, Type(..))
 import           Environment
 import           Hierarchy
 import           TypeDatabase
@@ -43,6 +44,9 @@ createTypeSize db = fromList (map (\tp -> (symbol tp, instanceMiscOffset + (leng
   where
     tps = filter isCLNode $ dumpDBNodes db
     
+generateTypeSizeSymbol :: Symbol -> Symbol
+generateTypeSizeSymbol (CL _ _ lt _) = (SYM ["static", "native"] (typeToName lt) "object size" AST.TypeInt)
+
 
 generateInstanceFieldOffset :: [TypeNode] -> [(Symbol, Int)]
 generateInstanceFieldOffset nodes = zip syms [instanceMiscOffset..]
@@ -60,10 +64,12 @@ createInstanceFieldOffset db = if length offsets == length offsets'
     offsets' = toAscList offsetMap
 
 createStaticFieldLabel :: TypeNode -> Map Symbol String
-createStaticFieldLabel db = fromList [(sym, generateLabelFromSYM sym i) | (sym, i) <- zip syms [0..]]
+createStaticFieldLabel db = fromList [(sym, generateLabelFromSYM sym i) | (sym, i) <- zip syms'' [0..]]
   where
     tps = filter isCLNode $ dumpDBNodes db
+    syms' = map (generateTypeSizeSymbol . symbol) tps
     syms = nub $ filter (\(SYM mds _ _ _) -> elem "static" mds) $ map symbol $ filter isSYMNode $ concat $ map subNodes tps
+    syms'' = syms' ++ syms
 
 
 createInstanceFUNCID :: TypeNode -> Map Symbol Int
