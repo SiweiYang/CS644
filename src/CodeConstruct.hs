@@ -12,6 +12,7 @@ import           Environment
 import           TypeDatabase
 import           TypeLinking
 import           Inheritance
+import           TypeChecking
 
 
 data FieldType = FT {
@@ -54,13 +55,14 @@ data InstanceConstruct = IC {
 } deriving (Show)
 -}
 
-
---objectInitializer :: ClassConstruct -> [DFExpression]
---objectInitializer (CC cname flds sym mtds) =
---  where
---    nonstatic = filter (not . isStatic) flds
---    mallocAll = 
-
+objectInitializer :: ClassConstruct -> [DFExpression]
+objectInitializer (CC cname flds sym mtds) = map newexpr nonstatic
+  where
+    nonstatic = filter (not . isStatic) flds
+    capsule = \sym -> ID $ Right sym
+    initialTPvalue = \tp -> if isPrimitive tp then (Value AST.TypeInt "0") else Null
+    initialvalue = \expr tp -> if isNothing expr then initialTPvalue tp else fromJust expr
+    newexpr = \(FT _ tp sym expr _) -> Binary "=" (capsule sym) (initialvalue expr tp)
 
 ---------------------------------------------------------------
 
