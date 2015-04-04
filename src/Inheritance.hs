@@ -9,8 +9,13 @@ import           Hierarchy
 import           TypeDatabase
 import           Util
 
+instanceMiscOffset = 3
+
 generateLabelFromSYM :: Symbol -> Int -> String
-generateLabelFromSYM (SYM mds ls ln _) i = intercalate "_" (["field", last ls, md, ln, show i])
+generateLabelFromSYM (SYM mds ls ln _) i = if elem "native" mds
+                                             then case ln of
+                                                    "object size" -> intercalate "_" (["native", "field", last ls, md, "object_size", show i])
+                                             else intercalate "_" (["field", last ls, md, ln, show i])
   where
     md = if elem "static" mds
             then "static"
@@ -33,8 +38,14 @@ createTypeID db = fromList (zip syms [0..])
   where
     syms = (sort . (map symbol) . dumpDBNodes) db
 
+createTypeSize :: TypeNode -> Map Symbol Int
+createTypeSize db = fromList (map (\tp -> (symbol tp, instanceMiscOffset + (length $ generateInstanceFieldOffset (subNodes tp)))) tps)
+  where
+    tps = filter isCLNode $ dumpDBNodes db
+    
+
 generateInstanceFieldOffset :: [TypeNode] -> [(Symbol, Int)]
-generateInstanceFieldOffset nodes = zip syms [0..]
+generateInstanceFieldOffset nodes = zip syms [instanceMiscOffset..]
   where
     syms = reverse $ filter (\(SYM mds _ _ _) -> not $ elem "static" mds) $ map symbol $ filter isSYMNode nodes
 
