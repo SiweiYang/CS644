@@ -200,8 +200,9 @@ main' givenFileNames = do
   let typeIDMap = createTypeID db'
   let instanceFUNCIDMap = createInstanceFUNCID db'
   let instanceFUNCTable = createInstanceFUNCTable db'
+  let instanceFUNCLabelMap = createInstanceFUNCLabel db'
   let staticFUNCIDMap = createStaticFUNCID db'
-  let staticFUNCLabelMap = createFUNCLabel db'
+  let staticFUNCLabelMap = createStaticFUNCLabel db'
   let typeCharacteristicBM = createTypeCharacteristicBM db'
 
   --hPutStrLn stderr $ "Total Number of Instance Functions: " ++ show (size instanceFUNCIDMap)
