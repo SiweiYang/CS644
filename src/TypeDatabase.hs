@@ -42,7 +42,7 @@ isVisibleClassNode tn = case symbol tn of
                             PKG _ -> True
                             CL _ _ _ _ -> True
                             IT _ _ _ _ -> True
-                            FUNC _ _ _ _ _ -> False
+                            FUNC _ _ _ _ _ -> True
                             _ -> True -- False -> True
 isCLNode tn = case symbol tn of
                 CL _ _ _ _ -> True

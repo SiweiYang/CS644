@@ -214,6 +214,7 @@ main' givenFileNames = do
   let constructs = [cls | (_,Just cls,_) <- reconstructedCLASS]
   let ordering = createClassInitOrdering constructs
   hPutStrLn stderr $ show ordering
+  --hPutStrLn stderr $ show $ symbolLinkingName db' [] (Root []) (AST.Name ["joosc native", "Array", "get"])
   -- do
     --hPutStrLn stderr (intercalate "\n------------------------\n" $ map (\(_, x, _) -> show x) reconstructedCLASS)
 

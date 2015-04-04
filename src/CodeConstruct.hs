@@ -197,7 +197,7 @@ buildDFExpression db imps su tps e@(AST.CastC _ _ expr _) = Cast tp (buildDFExpr
   where
     [tp] = typeLinkingExpr db imps su e
 -- with modification to be more specific
-buildDFExpression db imps su tps e@(AST.ID n@(AST.Name cname@[nm]) _) = if (init ls) == baseName
+buildDFExpression db imps su tps e@(AST.ID n@(AST.Name cname@[nm]) _) = if take (length baseName) (init ls) == baseName
                                                                        then let offset = (scopeOffset su sym) in
                                                                          if offset >= 0 then ID (Left offset) else ID (Left $ offset - 2)
                                                                        else ID (Right sym)
@@ -257,7 +257,9 @@ buildDFExpression db imps su tps (AST.InstanceOf tp expr _) = InstanceOf tp (bui
 -- noop
 buildDFExpression db imps su tps (AST.ArrayAccess expr expri _) = FunctionCall sym $ [dfexpr, dfexpri]
     where
-      [sym] = symbolLinkingName db imps su (AST.Name ["joosc native", "Array", "get"])
+      sym = case lookUpDBSymbol db imps su (["joosc native", "Array", "get"]) of
+                [sym'] -> sym'
+                [] -> error $ "buildDFExpression Empty lookup Name" ++ (show db)
       dfexpr = buildDFExpression db imps su tps expr
       dfexpri = buildDFExpression db imps su tps expri
 
@@ -470,7 +472,7 @@ genExprAsm (NewObject classType args) =
 -}
 genExprAsm (InstanceOf refType expr) = ["; instanceOf"] ++ genExprAsm expr
 genExprAsm (Cast refType expr) = ["; Casting"] ++ genExprAsm expr
-genExprAsm (ID (Right symbol)) = ["; variable named " ++ (localName symbol)]
+genExprAsm (ID (Right symbol)) = ["; variable named " ++ (localName symbol) ++ " symbol: " ++ (show symbol)]
 genExprAsm (ID (Left offset)) =
   let distance = (offset + 1) * 4
   in ["mov eax, [ebp - " ++ show distance ++ "];" ++ show offset]
