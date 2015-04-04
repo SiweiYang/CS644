@@ -504,7 +504,7 @@ genExprAsm sd (Value AST.TypeBoolean "false") = ["mov eax, 0"]
 genExprAsm sd (Value AST.TypeNull _) = ["mov eax, 0"]
 genExprAsm sd (Value valuetype value) = ["; XXX: Unsupported value: " ++ value]
 --genExprAsm This = ["mov eax, 0; This"]
-genExprAsm sd Null = ["; Null"]
+genExprAsm sd Null = ["; Null", "mov eax, 0"]
 genExprAsm sd NOOP = ["; NOOP"]
 
 genExprLhsAsm sd (ID (Left offset)) =
