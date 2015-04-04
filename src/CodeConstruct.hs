@@ -47,10 +47,22 @@ data ClassConstruct = CC {
 instance Show ClassConstruct where
   show (CC cname cfield csym cmtds) = (show cname) ++ "\n" ++ (show cfield) ++ "\n" ++ (show cmtds)
 
+{-
 data InstanceConstruct = IC {
   instanceType :: [String],
   instanceFields :: [FieldType]
 } deriving (Show)
+-}
+
+
+--objectInitializer :: ClassConstruct -> [DFExpression]
+--objectInitializer (CC cname flds sym mtds) =
+--  where
+--    nonstatic = filter (not . isStatic) flds
+--    mallocAll = 
+
+
+---------------------------------------------------------------
 
 buildClassConstruct :: TypeNode -> [[String]] -> Environment -> Maybe ClassConstruct
 
@@ -112,61 +124,46 @@ buildDFStatement _ _ _ ENVE  = []
 
 buildDFStatement db imps nesting (ENV (SU _ Statement _ _) ch) = (DFBlock block nesting):remain
   where
-    stmtch = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
-    block = head stmtch
-    remain = last stmtch
+    [block, remain] = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
 
 buildDFStatement db imps nesting (ENV su@(SU _ (Var expr) st _) ch) = (DFLocal dfexpr):remain
   where
-    remain = head $ zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
+    [remain] = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
     dfexpr = buildDFExpression db imps su [] expr
-    --[(SYM _ _ nm _)] = st
-    --newExpr = AST.Binary "=" (AST.ID (AST.Name [nm]) 0) expr 0
-    --dfexpr = buildDFExpression db imps su [] newExpr
 
 buildDFStatement db imps nesting (ENV su@(SU _ (Exp expr) _ _) ch) = (DFExpr dfexpr):remain
   where
-    remain = head $ zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
+    [remain] = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
     dfexpr = buildDFExpression db imps su [] expr
 
 
 buildDFStatement db imps nesting (ENV su@(SU scope (IfBlock expr) _ _) ch) = (DFIf dfexpr ifpart elsepart nesting):remain
   where
-    stmtch = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
+    [ifpart, elsepart, remain] = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
     dfexpr = buildDFExpression db imps su [] expr
-    ifpart = head stmtch
-    elsepart = head $ tail stmtch
-    remain = last stmtch
-
-
+    
 buildDFStatement db imps nesting (ENV su@(SU _ (Ret expr) _ _) ch) = (DFReturn dfexpr):remain
   where
-    remain = head $ zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
+    [remain] = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
     dfexpr = if (isNothing expr) then Nothing else Just dfexpr'
     dfexpr' = buildDFExpression db imps su [] (fromJust expr)
 
 
 buildDFStatement db imps nesting (ENV su@(SU _ (WhileBlock expr) _ _) ch) = (DFWhile dfexpr whilepart nesting):remain
   where
-    stmtch = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
+    [whilepart, remain] = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
     dfexpr = buildDFExpression db imps su [] expr
-    whilepart = head stmtch
-    remain = last $ stmtch
 
-buildDFStatement db imps nesting (ENV su@(SU _ ForBlock st _) ch) = (DFFor initstmt' expr forstmt forblock nesting):remain
+buildDFStatement db imps nesting (ENV su@(SU _ ForBlock st _) ch) = (DFFor initstmt expr' forstmt' forblock nesting):remain
   where
-    initstmt = head ch
-    [DFExpr initR] = buildDFStatement db imps (nesting ++ [1]) initstmt
-    --[(SYM _ _ varL _)] = st
-    --exprL = AST.ID (AST.Name [varL]) 0
-    --initL = buildDFExpression db imps su [] exprL
-    initstmt' = if null st then (DFExpr initR) else (DFLocal initR)
-
-    stmtch = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [2..] (tail ch)
-    DFExpr expr = head $ head stmtch
-    forstmt = head $ head $ tail stmtch
-    forblock = head $ tail $ tail stmtch
-    remain = last $ stmtch
+    [initializer, cond, finalizer, forblock, remain] = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
+    [DFExpr initR] = initializer
+    initstmt = if null initializer then (DFExpr NOOP) else
+               if null st then (DFExpr initR) else (DFLocal initR)
+    [DFExpr expr] = cond
+    expr' = if null cond then NOOP else expr
+    [forstmt] = finalizer
+    forstmt' = if null finalizer then (DFExpr NOOP) else forstmt
 
 ------------------------------------------
 
