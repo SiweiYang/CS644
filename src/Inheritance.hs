@@ -9,13 +9,20 @@ import           Hierarchy
 import           TypeDatabase
 import           Util
 
+generateLabelFromSYM :: Symbol -> Int -> String
+generateLabelFromSYM (SYM mds ls ln _) i = intercalate "_" (["field", last ls, md, ln, show i])
+  where
+    md = if elem "static" mds
+            then "static"
+            else "instance"
+
 generateLabelFromFUNC :: Symbol -> Int -> String
 generateLabelFromFUNC (FUNC mds ls ln _ _) i = if elem "native" mds
                                                  then case ln of
                                                         "malloc" -> "__malloc"
                                                         "exception" -> "__exception"
                                                         "nativeWrite" -> "NATIVEjava.io.OutputStream.nativeWrite"
-                                                 else intercalate "_" ([last ls, md, ln, show i])
+                                                 else intercalate "_" (["function", last ls, md, ln, show i])
   where
     md = if elem "static" mds
             then "static"
@@ -25,6 +32,28 @@ createTypeID :: TypeNode -> Map Symbol Int
 createTypeID db = fromList (zip syms [0..])
   where
     syms = (sort . (map symbol) . dumpDBNodes) db
+
+generateInstanceFieldOffset :: [TypeNode] -> [(Symbol, Int)]
+generateInstanceFieldOffset nodes = zip syms [0..]
+  where
+    syms = reverse $ filter (\(SYM mds _ _ _) -> not $ elem "static" mds) $ map symbol $ filter isSYMNode nodes
+
+createInstanceFieldOffset :: TypeNode -> Map Symbol Int
+createInstanceFieldOffset db = if length offsets == length offsets'
+                                  then  offsetMap
+                                  else  error $ "inconsistency detected" ++ (show offsets) ++ (show offsets')
+  where
+    tps = filter isCLNode $ dumpDBNodes db
+    offsets = nub $ concat $ map (\tp -> generateInstanceFieldOffset (subNodes tp)) tps
+    offsetMap = fromList offsets
+    offsets' = toAscList offsetMap
+
+createStaticFieldLabel :: TypeNode -> Map Symbol String
+createStaticFieldLabel db = fromList [(sym, generateLabelFromSYM sym i) | (sym, i) <- zip syms [0..]]
+  where
+    tps = filter isCLNode $ dumpDBNodes db
+    syms = nub $ filter (\(SYM mds _ _ _) -> elem "static" mds) $ map symbol $ filter isSYMNode $ concat $ map subNodes tps
+
 
 createInstanceFUNCID :: TypeNode -> Map Symbol Int
 createInstanceFUNCID db = fromList (zip syms [0..])
