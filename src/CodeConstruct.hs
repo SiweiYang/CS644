@@ -1,5 +1,6 @@
 module CodeConstruct where
 
+import           Data.Map (Map)
 import           Data.Char
 import           Data.List
 import           Data.Maybe
@@ -170,6 +171,7 @@ buildDFStatement db imps nesting (ENV su@(SU _ ForBlock st _) ch) = (DFFor inits
 ------------------------------------------
 
 data DFExpression = FunctionCall Symbol [DFExpression]
+                  | ArrayAccess Symbol DFExpression DFExpression
                   | Unary { op :: String, expr :: DFExpression }
                   | Binary { op :: String, exprL :: DFExpression, exprR :: DFExpression }
                   | Attribute { struct :: DFExpression, mem :: Symbol }
@@ -199,7 +201,7 @@ buildDFExpression db imps su tps e@(AST.CastC _ _ expr _) = Cast tp (buildDFExpr
 -- with modification to be more specific
 buildDFExpression db imps su tps e@(AST.ID n@(AST.Name cname@[nm]) _) = if take (length baseName) (init ls) == baseName
                                                                        then let offset = (scopeOffset su sym) in
-                                                                         if offset >= 0 then ID (Left offset) else ID (Left $ offset - 2)
+                                                                         if offset >= 0 then ID (Left offset) else ID (Left offset)
                                                                        else ID (Right sym)
   where
     --ls = case symbolLinkingName db imps su n of
@@ -246,7 +248,7 @@ buildDFExpression db imps su tps e@(AST.NewObject tp args _) = FunctionCall sym 
 
 buildDFExpression db imps su tps (AST.NewArray tp expr _) = FunctionCall sym $ (buildMalloc sym):[buildDFExpression db imps su [] expr]
   where
-    [sym] = symbolLinkingName db imps su (AST.Name ["joosc native", "Array", "Array"])
+    [sym] = getSymbol db ["joosc native", "Array", "Array"]
     --sym = symbol arrayConstructor
 
 buildDFExpression db imps su tps (AST.Dimension dummy index _) = if dummy /= AST.Null then error $ "Dimension not NULL: " ++ (show dummy)
@@ -255,9 +257,9 @@ buildDFExpression db imps su tps (AST.Dimension dummy index _) = if dummy /= AST
 buildDFExpression db imps su tps (AST.InstanceOf tp expr _) = InstanceOf tp (buildDFExpression db imps su [] expr)
 
 -- noop
-buildDFExpression db imps su tps (AST.ArrayAccess expr expri _) = FunctionCall sym $ [dfexpr, dfexpri]
+buildDFExpression db imps su tps (AST.ArrayAccess expr expri _) = ArrayAccess sym dfexpr dfexpri
     where
-      sym = case lookUpDBSymbol db imps su (["joosc native", "Array", "get"]) of
+      sym = case getSymbol db ["joosc native", "Array", "get"] of
                 [sym'] -> sym'
                 [] -> error $ "buildDFExpression Empty lookup Name" ++ (show db)
       dfexpr = buildDFExpression db imps su tps expr
@@ -283,7 +285,6 @@ listStaticSYMFromStaticInit :: ClassConstruct -> [Symbol]
 listStaticSYMFromStaticInit (CC cname ft sym mtdc) = concat $ map listStaticSYMFromDFExpr exprs
   where
     exprs = [expr | Just expr <- map fieldInit ft]
-
 
 listStaticSYMFromDFExpr :: DFExpression -> [Symbol]
 listStaticSYMFromDFExpr (FunctionCall _ exprs) = concat $ map listStaticSYMFromDFExpr exprs
@@ -314,6 +315,10 @@ symbolToType' sym = case tp of
   where
     tp = symbolToType sym
 
+data SymbolDatabase = SD {
+  db :: TypeNode,
+  funcLabel :: Map Symbol String
+}
 
 --     _                           _     _
 --    / \   ___ ___  ___ _ __ ___ | |__ | |_   _
@@ -336,38 +341,38 @@ recoverStackForBlock stmts = replicate counter "pop eax ; exit from block"
 genLabel :: [Int] -> String
 genLabel nesting = concat $ intersperse "_" $ map show nesting
 
-genAsm :: ClassConstruct -> [String]
-genAsm (CC name fields _ methods) =
+genAsm :: SymbolDatabase -> ClassConstruct -> [String]
+genAsm sd (CC name fields _ methods) =
   let prefaceCode = ["; Code for: " ++ concat name, "section .text"]
-      fieldCode = concat $ map genFieldAsm fields
-      methodCode = concat $ map genMthdAsm methods
+      fieldCode = concat $ map (genFieldAsm sd) fields
+      methodCode = concat $ map (genMthdAsm sd) methods
   in prefaceCode ++ fieldCode ++ methodCode
 
-genFieldAsm :: FieldType -> [String]
-genFieldAsm (FT _ _ _ _ False) = []
-genFieldAsm fld@(FT name _ _ _ True) = ["; Class field: " ++ (show fld)]
+genFieldAsm :: SymbolDatabase -> FieldType -> [String]
+genFieldAsm sd (FT _ _ _ _ False) = []
+genFieldAsm sd fld@(FT name _ _ _ True) = ["; Class field: " ++ (show fld)]
 
-genMthdAsm :: MethodConstruct -> [String]
-genMthdAsm (MC name symbol definition) =
+genMthdAsm :: SymbolDatabase -> MethodConstruct -> [String]
+genMthdAsm sd (MC name symbol definition) =
   let label = generateLabelFromFUNC symbol 0
       header =  ["global " ++ label, label ++ ":", "; Start a new stack frame", "push ebp", "mov ebp, esp"]
-      body = concat $ map genStmtAsm definition
+      body = concat $ map (genStmtAsm sd) definition
   in header ++ body ++ ["; End of " ++ last name]
 
-genStmtAsm :: DFStatement -> [String]
-genStmtAsm (DFExpr expr) = genExprAsm expr
-genStmtAsm (DFLocal expr) = genExprAsm expr ++ ["push eax ; Allocating stack space for local var"]
-genStmtAsm (DFReturn Nothing) = ["; Void return", "ret"]
-genStmtAsm (DFReturn (Just retVal)) = ["; Value return"] ++ genExprAsm retVal ++ ["; Cleaning stack frame", "mov esp, ebp", "pop ebp", "ret"];
-genStmtAsm (DFBlock body nesting) =
-  let bodyCode = concat $ map genStmtAsm body
+genStmtAsm :: SymbolDatabase -> DFStatement -> [String]
+genStmtAsm sd (DFExpr expr) = genExprAsm sd expr
+genStmtAsm sd (DFLocal expr) = genExprAsm sd expr ++ ["push eax ; Allocating stack space for local var"]
+genStmtAsm sd (DFReturn Nothing) = ["; Void return", "ret"]
+genStmtAsm sd (DFReturn (Just retVal)) = ["; Value return"] ++ genExprAsm sd retVal ++ ["; Cleaning stack frame", "mov esp, ebp", "pop ebp", "ret"];
+genStmtAsm sd (DFBlock body nesting) =
+  let bodyCode = concat $ map (genStmtAsm sd) body
       recoveryCode = recoverStackForBlock body
   in ["; new block"] ++ bodyCode ++ recoveryCode
 
-genStmtAsm (DFIf cond trueBlock falseBlock nesting) =
-  let condCode = genExprAsm cond
-      trueCode = concat $ map genStmtAsm trueBlock
-      falseCode = concat $ map genStmtAsm falseBlock
+genStmtAsm sd (DFIf cond trueBlock falseBlock nesting) =
+  let condCode = genExprAsm sd cond
+      trueCode = concat $ map (genStmtAsm sd) trueBlock
+      falseCode = concat $ map (genStmtAsm sd) falseBlock
       falseLabel = ".falsePart_" ++ genLabel nesting
       endLabel = ".end_" ++ genLabel nesting
   in ["; If statement"] ++
@@ -379,9 +384,9 @@ genStmtAsm (DFIf cond trueBlock falseBlock nesting) =
      [endLabel ++ ":"]
 
 
-genStmtAsm (DFWhile cond body nesting) =
-  let condCode = genExprAsm cond
-      bodyCode = concat $ map genStmtAsm body
+genStmtAsm sd (DFWhile cond body nesting) =
+  let condCode = genExprAsm sd cond
+      bodyCode = concat $ map (genStmtAsm sd) body
       topLabel = ".whileCond_" ++ genLabel nesting
       bottomLabel = ".whileBottom_" ++ genLabel nesting
   in [topLabel ++ ":", "; While statement"] ++
@@ -391,11 +396,11 @@ genStmtAsm (DFWhile cond body nesting) =
      ["jmp " ++ topLabel] ++
      [bottomLabel ++ ":"]
 
-genStmtAsm (DFFor initializer condition finalizer body nesting) =
-  let initializerCode = genStmtAsm initializer
-      conditionCode = genExprAsm condition
-      finalizerCode = genStmtAsm finalizer
-      bodyCode = concat $ map genStmtAsm body
+genStmtAsm sd (DFFor initializer condition finalizer body nesting) =
+  let initializerCode = genStmtAsm sd initializer
+      conditionCode = genExprAsm sd condition
+      finalizerCode = genStmtAsm sd finalizer
+      bodyCode = concat $ map (genStmtAsm sd) body
       topLabel = ".forCond_" ++ genLabel nesting
       bottomLabel = ".forBottom_" ++ genLabel nesting
       recoverCode = recoverStackForBlock [initializer]
@@ -427,27 +432,32 @@ genOpAsm "&&" = ["and eax, ebx"]
 genOpAsm "||" = ["or eax, ebx"]
 genOpAsm "=" = ["mov [eax], ebx"]
 
-genExprAsm :: DFExpression -> [String]
+genExprAsm :: SymbolDatabase ->  DFExpression -> [String]
 
-genExprAsm (FunctionCall callee arguments) =
-  let argumentCode = ((intersperse "push eax") . concat $ map genExprAsm arguments) ++ ["push eax"]
+genExprAsm sd (FunctionCall callee arguments) =
+  let argumentCode = ((intersperse "push eax") . concat $ map (genExprAsm sd) arguments) ++ ["push eax"]
       cleanupCode = ["add esp, " ++ (show $ 4 * (length arguments)) ++ " ; Pop arguments"]
   in ["; Function call to" ++ localName callee, "; arguments"] ++
      argumentCode ++
      ["call _" ++ (localName callee)] ++
      cleanupCode
 
-genExprAsm (Unary op expr) =
-  let exprCode = genExprAsm expr
+genExprAsm sd (ArrayAccess sym expr expri) = 
+  let refCode = genExprAsm sd (FunctionCall sym [expr, expri])
+  in refCode ++
+     ["mov eax, [eax]"]
+
+genExprAsm sd (Unary op expr) =
+  let exprCode = genExprAsm sd expr
   in [";Unary op: " ++ op] ++ exprCode
 
-genExprAsm (Binary op exprL exprR) =
+genExprAsm sd (Binary op exprL exprR) =
   let
-      rightCode = genExprAsm exprR
+      rightCode = genExprAsm sd exprR      
       opCode = genOpAsm op
       leftCode = case op of
-        "=" -> genExprLhsAsm exprL
-        _ -> genExprAsm exprL
+        "=" -> genExprLhsAsm sd exprL
+        _ -> genExprAsm sd exprL
   in [";Binary op: " ++ op] ++
      rightCode ++
      ["push eax ; Push right value to stack"] ++
@@ -455,8 +465,8 @@ genExprAsm (Binary op exprL exprR) =
      ["pop ebx ; Pop right value from stack"] ++
      opCode
 
-genExprAsm (Attribute struct member) =
-  let structCode = genExprAsm struct
+genExprAsm sd (Attribute struct member) =
+  let structCode = genExprAsm sd struct
   in [";Attribute"] ++ structCode
 {-
 genExprAsm (ArrayAccess array index) =
@@ -470,27 +480,36 @@ genExprAsm (NewObject classType args) =
   let argCode = concat $ map genExprAsm args
   in ["; newObject"] ++ argCode
 -}
-genExprAsm (InstanceOf refType expr) = ["; instanceOf"] ++ genExprAsm expr
-genExprAsm (Cast refType expr) = ["; Casting"] ++ genExprAsm expr
-genExprAsm (ID (Right symbol)) = ["; variable named " ++ (localName symbol) ++ " symbol: " ++ (show symbol)]
-genExprAsm (ID (Left offset)) =
-  let distance = (offset + 1) * 4
-  in ["mov eax, [ebp - " ++ show distance ++ "];" ++ show offset]
-genExprAsm (Value AST.TypeByte value) = ["mov eax, " ++ value]
-genExprAsm (Value AST.TypeShort value) = ["mov eax, " ++ value]
-genExprAsm (Value AST.TypeInt value) = ["mov eax, " ++ value]
-genExprAsm (Value AST.TypeChar value) =
+genExprAsm sd (InstanceOf refType expr) = ["; instanceOf"] ++ genExprAsm sd expr
+genExprAsm sd (Cast refType expr) = ["; Casting"] ++ genExprAsm sd expr
+genExprAsm sd (ID (Right symbol)) = ["; variable named " ++ (localName symbol) ++ " symbol: " ++ (show symbol)]
+genExprAsm sd (ID (Left offset)) = if offset < 0
+                                      then ["mov eax, [ebp + " ++ show distanceN ++ "];" ++ show offset]
+                                      else ["mov eax, [ebp - " ++ show distanceP ++ "];" ++ show offset]
+  where
+    distanceN = (offset - 1) * (-4)
+    distanceP = (offset + 1) * 4
+
+genExprAsm sd (Value AST.TypeByte value) = ["mov eax, " ++ value]
+genExprAsm sd (Value AST.TypeShort value) = ["mov eax, " ++ value]
+genExprAsm sd (Value AST.TypeInt value) = ["mov eax, " ++ value]
+genExprAsm sd (Value AST.TypeChar value) =
   let charValue = show . ord $ (read value :: Char)
   in ["mov eax, " ++ charValue]
-genExprAsm (Value AST.TypeBoolean "true") = ["mov eax, 1"]
-genExprAsm (Value AST.TypeBoolean "false") = ["mov eax, 0"]
-genExprAsm (Value AST.TypeNull _) = ["mov eax, 0"]
-genExprAsm (Value valuetype value) = ["; XXX: Unsupported value: " ++ value]
+genExprAsm sd (Value AST.TypeBoolean "true") = ["mov eax, 1"]
+genExprAsm sd (Value AST.TypeBoolean "false") = ["mov eax, 0"]
+genExprAsm sd (Value AST.TypeNull _) = ["mov eax, 0"]
+genExprAsm sd (Value valuetype value) = ["; XXX: Unsupported value: " ++ value]
 --genExprAsm This = ["mov eax, 0; This"]
-genExprAsm Null = ["; Null"]
-genExprAsm NOOP = ["; NOOP"]
+genExprAsm sd Null = ["; Null"]
+genExprAsm sd NOOP = ["; NOOP"]
 
-genExprLhsAsm (ID (Left offset)) =
+genExprLhsAsm sd (ID (Left offset)) =
   let distance = (offset + 1) * 4
   in ["lea eax, [ebp - " ++ show distance ++ "] ; LHS for assignment"]
-genExprLhsAsm (ID (Right symbol)) = ["; LHS Right symbol for assignment"]
+genExprLhsAsm sd (ID (Right symbol)) = ["; LHS Right symbol for assignment"]
+genExprLhsAsm sd (ArrayAccess sym expr expri) = genExprAsm sd (FunctionCall sym [expr, expri])
+genExprLhsAsm sd (Attribute struct sym) = []
+  where
+    structCode = genExprAsm sd struct
+

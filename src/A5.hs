@@ -116,6 +116,7 @@ main' givenFileNames = do
   let Just typeDB = mtypeDB
 
   let listImpEnvFns = map (\(imp, env, fn) -> (imp, refineEnvironmentWithType typeDB imp (Root []) env, fn)) fileEnvironmentWithImports
+  hPutStrLn stderr $ show $ filter (\(imp, env, fn) -> (take 10 $ reverse fn) == reverse "Array.java") listImpEnvFns
   if length [Nothing | (_, Nothing, _) <- listImpEnvFns] > 0 then do
     hPutStrLn stderr "Environment Refine error!"
     exitWith (ExitFailure 42)
@@ -211,8 +212,12 @@ main' givenFileNames = do
 
   -- CLASS RECONSTRUCT
   let reconstructedCLASS = map (\(imp, Just env, fn) -> (imp, (buildClassConstruct db' imp env), fn)) listImpEnvFns
+  let reconstructedCLASS' = filter (\(_, mcls, _) -> isJust mcls) reconstructedCLASS
   let constructs = [cls | (_,Just cls,_) <- reconstructedCLASS]
+  hPutStrLn stderr $ show [cls | (_,Just cls, fn) <- reconstructedCLASS, (take 10 $ reverse fn) == reverse "Array.java"]
+
   let ordering = createClassInitOrdering constructs
+  let sd = SD db' staticFUNCLabelMap
   hPutStrLn stderr $ show ordering
   --hPutStrLn stderr $ show $ symbolLinkingName db' [] (Root []) (AST.Name ["joosc native", "Array", "get"])
   -- do
@@ -221,7 +226,7 @@ main' givenFileNames = do
   let firstClass = head $ filter isJust $ map (\(_,cls,_) -> cls) reconstructedCLASS
 
   let filenamef = \x -> head $ splitOneOf "." $ last $ splitOneOf "/" x
-  mapM (\(_, cls, fn) -> writeFile ("output/" ++ (filenamef fn) ++ ".s") $ unlines . genAsm $ fromJust cls) reconstructedCLASS
+  mapM (\(_, cls, fn) -> writeFile ("output/" ++ (filenamef fn) ++ ".s") $ unlines . (genAsm sd) $ fromJust cls) reconstructedCLASS'
 
   let startFunction = methodSymbol . head $ filter (\mthd -> "test" == (last . methodName $ mthd)) (classMethods . fromJust $ firstClass)
   let startFunctionLabel = generateLabelFromFUNC startFunction 0

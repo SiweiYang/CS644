@@ -100,6 +100,12 @@ getTypeEntry tn name = case traverseTypeEntry tn name of
   Just node -> Just . head . subNodes $ node
   Nothing -> Nothing
 
+getSymbol :: TypeNode -> [String] -> [Symbol]
+getSymbol tn [] = [symbol tn]
+getSymbol tn (nm:remain) = concat $ map (\node -> getSymbol node remain) cands
+  where
+    cands = [node | node <- subNodes tn, (localName . symbol) node == nm]
+
 visibleNodesUnderInheritance :: [TypeNode] -> [TypeNode]
 visibleNodesUnderInheritance nodes = symsS ++ syms ++ funcs ++ filter (not . isSYMFUNCNode) nodes 
   where
