@@ -156,10 +156,10 @@ buildDFStatement db imps nesting (ENV su@(SU _ ForBlock st _) ch) = (DFFor inits
   where
     initstmt = head ch
     [DFExpr initR] = buildDFStatement db imps (nesting ++ [1]) initstmt
-    [(SYM _ _ varL _)] = st
-    exprL = AST.ID (AST.Name [varL]) 0
-    initL = buildDFExpression db imps su [] exprL
-    initstmt' = if null st then (DFExpr initR) else (DFExpr (Binary "=" initL initR))
+    --[(SYM _ _ varL _)] = st
+    --exprL = AST.ID (AST.Name [varL]) 0
+    --initL = buildDFExpression db imps su [] exprL
+    initstmt' = if null st then (DFExpr initR) else (DFLocal initR)
 
     stmtch = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [2..] (tail ch)
     DFExpr expr = head $ head stmtch
@@ -173,7 +173,6 @@ data DFExpression = FunctionCall Symbol [DFExpression]
                   | Unary { op :: String, expr :: DFExpression }
                   | Binary { op :: String, exprL :: DFExpression, exprR :: DFExpression }
                   | Attribute { struct :: DFExpression, mem :: Symbol }
---                  | ArrayAccess { array :: DFExpression, index :: DFExpression }
                   | InstanceOf { reftype :: Type, expr :: DFExpression }
                   | Cast {reftype :: Type, expr :: DFExpression }
                   | ID { identifier :: Either Int Symbol }
@@ -326,6 +325,12 @@ symbolToType' sym = case tp of
 -- | |_| |  __/ | | |  __/ | | (_| | |_| | (_) | | | |
 --  \____|\___|_| |_|\___|_|  \__,_|\__|_|\___/|_| |_|
 
+recoverStackForBlock :: [DFStatement] -> [String]
+recoverStackForBlock stmts = replicate counter "pop eax ; exit from block"
+  where
+    counter = length $ [ 1 | (DFLocal _) <- stmts]
+
+
 genLabel :: [Int] -> String
 genLabel nesting = concat $ intersperse "_" $ map show nesting
 
@@ -354,7 +359,8 @@ genStmtAsm (DFReturn Nothing) = ["; Void return", "ret"]
 genStmtAsm (DFReturn (Just retVal)) = ["; Value return"] ++ genExprAsm retVal ++ ["; Cleaning stack frame", "mov esp, ebp", "pop ebp", "ret"];
 genStmtAsm (DFBlock body nesting) =
   let bodyCode = concat $ map genStmtAsm body
-  in ["; new block"] ++ bodyCode
+      recoveryCode = recoverStackForBlock body
+  in ["; new block"] ++ bodyCode ++ recoveryCode
 
 genStmtAsm (DFIf cond trueBlock falseBlock nesting) =
   let condCode = genExprAsm cond
@@ -390,6 +396,7 @@ genStmtAsm (DFFor initializer condition finalizer body nesting) =
       bodyCode = concat $ map genStmtAsm body
       topLabel = ".forCond_" ++ genLabel nesting
       bottomLabel = ".forBottom_" ++ genLabel nesting
+      recoverCode = recoverStackForBlock [initializer]
   in ["; For statement init"] ++
      initializerCode ++
      [topLabel ++ ": ; For condition evaluation"] ++
@@ -398,7 +405,9 @@ genStmtAsm (DFFor initializer condition finalizer body nesting) =
      bodyCode ++
      finalizerCode ++
      ["jmp " ++ topLabel] ++
-     [bottomLabel ++ ":"]
+     [bottomLabel ++ ":"] ++
+     recoverCode
+
 
 genOpAsm :: String -> [String]
 genOpAsm "*" = ["imul ebx"]
@@ -482,3 +491,4 @@ genExprAsm NOOP = ["; NOOP"]
 genExprLhsAsm (ID (Left offset)) =
   let distance = (offset + 1) * 4
   in ["lea eax, [ebp - " ++ show distance ++ "] ; LHS for assignment"]
+genExprLhsAsm (ID (Right symbol)) = ["; LHS Right symbol for assignment"]
