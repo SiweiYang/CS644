@@ -15,7 +15,7 @@ generateLabelFromFUNC (FUNC mds ls ln _ _) i = if elem "native" mds
                                                         "malloc" -> "__malloc"
                                                         "exception" -> "__exception"
                                                         "nativeWrite" -> "NATIVEjava.io.OutputStream.nativeWrite"
-                                                 else intercalate "_" (ls ++ [md, ln, show i])
+                                                 else intercalate "_" ([last ls, md, ln, show i])
   where
     md = if elem "static" mds
             then "static"
@@ -37,10 +37,16 @@ createStaticFUNCID db = fromList (zip syms' [0..])
     syms = sort $ filter (\(FUNC mds _ _ _ _) -> elem "static" mds) $ map symbol $ filter isFUNCNode $ concat $ map subNodes (dumpDBNodes db)
     syms' = (symbol runtimeMalloc):syms
 
-createFUNCLabel :: TypeNode -> Map Symbol String
-createFUNCLabel db = fromList pairs
+createStaticFUNCLabel :: TypeNode -> Map Symbol String
+createStaticFUNCLabel db = fromList pairs
   where
     funcMap = createStaticFUNCID db
+    pairs = map (\(sym, i) -> (sym, generateLabelFromFUNC sym i)) (toAscList funcMap)
+
+createInstanceFUNCLabel :: TypeNode -> Map Symbol String
+createInstanceFUNCLabel db = fromList pairs
+  where
+    funcMap = createInstanceFUNCID db
     pairs = map (\(sym, i) -> (sym, generateLabelFromFUNC sym i)) (toAscList funcMap)
 
 createTypeCharacteristicBM :: TypeNode -> [Bool]

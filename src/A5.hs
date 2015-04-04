@@ -27,7 +27,7 @@ main :: IO ()
 main = do
   -- Get the files to compile from the args
   givenFileNames <- getArgs
-  hPutStrLn stderr $ show givenFileNames
+  --hPutStrLn stderr $ show givenFileNames
   main' givenFileNames
 
 main' :: [String] -> IO ()
@@ -95,7 +95,7 @@ main' givenFileNames = do
 
   -- ENVIRONMENT CONSTRUCTION
   let fileEnvironments = map (\x -> (buildEnvironment $ fst x, snd x)) fileAsts
-  hPutStrLn stderr $ "Files: " ++ (show $ map snd fileAsts)
+  --hPutStrLn stderr $ "Files: " ++ (show $ map snd fileAsts)
   let fileEnvironmentWithImports = map (\x -> (visibleImports $ fst x, buildEnvironment $ fst x, snd x)) fileAsts
 
   let (validEnvironments, invalidEnvironments) = partition (\x -> case (fst x) of {ENVE -> False; _ -> True}) fileEnvironments
@@ -154,8 +154,8 @@ main' givenFileNames = do
   let cn = dumpDBNodes db
   let relationsCL = [((typeToName . localType . symbol) node, (map (typeToName . localType . symbol) (filter isCLNode $ getClassHierarchyForSymbol node db))) | node <- cn, isCLNode node]
   let relationsIT = [((typeToName . localType . symbol) node, (map (typeToName . localType . symbol) (getClassHierarchyForSymbol node db))) | node <- cn, isITNode node]
-  hPutStrLn stderr (show relationsCL)
-  hPutStrLn stderr (show relationsIT)
+  --hPutStrLn stderr (show relationsCL)
+  --hPutStrLn stderr (show relationsIT)
 
 
   let mdb' = updateDBWithInheritances db (relationsCL ++ relationsIT)
@@ -165,7 +165,7 @@ main' givenFileNames = do
   else do
     hPutStrLn stderr "Inheritance DB: OK"
   let Just db' = mdb'
-  hPutStrLn stderr $ show $ map (\(imp, Just env, fn) -> (imp, fn)) listImpEnvFns
+  --hPutStrLn stderr $ show $ map (\(imp, Just env, fn) -> (fn, env)) listImpEnvFns
 
   let failures = filter (\(imp, Just env, fn) ->  typeLinkingCheck db' imp env == []) listImpEnvFns
   if length failures > 0 then do
@@ -200,8 +200,9 @@ main' givenFileNames = do
   let typeIDMap = createTypeID db'
   let instanceFUNCIDMap = createInstanceFUNCID db'
   let instanceFUNCTable = createInstanceFUNCTable db'
+  let instanceFUNCLabelMap = createInstanceFUNCLabel db'
   let staticFUNCIDMap = createStaticFUNCID db'
-  let staticFUNCLabelMap = createFUNCLabel db'
+  let staticFUNCLabelMap = createStaticFUNCLabel db'
   let typeCharacteristicBM = createTypeCharacteristicBM db'
 
   --hPutStrLn stderr $ "Total Number of Instance Functions: " ++ show (size instanceFUNCIDMap)
