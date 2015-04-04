@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+make
+
+for f in basictest/*
+do
+    ./joosc $f assignment_testcases/stdlib2/*.java
+done
+
