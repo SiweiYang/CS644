@@ -64,6 +64,7 @@ objectInitializer (CC cname flds sym mtds) = map newexpr nonstatic
     initialvalue = \expr tp -> if isNothing expr then initialTPvalue tp else fromJust expr
     newexpr = \(FT _ tp sym expr _) -> Binary "=" (capsule sym) (initialvalue expr tp)
 
+
 ---------------------------------------------------------------
 
 buildClassConstruct :: TypeNode -> [[String]] -> Environment -> Maybe ClassConstruct
@@ -361,8 +362,8 @@ genMthdAsm sd (MC name symbol definition) =
 genStmtAsm :: SymbolDatabase -> DFStatement -> [String]
 genStmtAsm sd (DFExpr expr) = genExprAsm sd expr
 genStmtAsm sd (DFLocal expr) = genExprAsm sd expr ++ ["push eax ; Allocating stack space for local var"]
-genStmtAsm sd (DFReturn Nothing) = ["; Void return", "ret"]
-genStmtAsm sd (DFReturn (Just retVal)) = ["; Value return"] ++ genExprAsm sd retVal ++ ["; Cleaning stack frame", "mov esp, ebp", "pop ebp", "ret"];
+genStmtAsm sd (DFReturn Nothing) = ["; Void return, cleaning stack frame", "mov esp, ebp", "pop ebp", "ret"]
+genStmtAsm sd (DFReturn (Just retVal)) = ["; Value return"] ++ genExprAsm sd retVal ++ ["; Cleaning stack frame", "mov esp, ebp", "pop ebp", "ret"]
 genStmtAsm sd (DFBlock body nesting) =
   let bodyCode = concat $ map (genStmtAsm sd) body
       recoveryCode = recoverStackForBlock body
@@ -448,7 +449,10 @@ genExprAsm sd (ArrayAccess sym expr expri) =
 
 genExprAsm sd (Unary op expr) =
   let exprCode = genExprAsm sd expr
-  in [";Unary op: " ++ op] ++ exprCode
+      unaryCode = case op of
+                    "-" -> ["neg eax"]
+                    "!" -> ["xor eax, 1"]
+  in [";Unary op: " ++ op] ++ exprCode ++ unaryCode
 
 genExprAsm sd (Binary op exprL exprR) =
   let
