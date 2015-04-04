@@ -19,7 +19,7 @@ typeLinkingFailure' msg = error msg
 
 typeLinkingCheck :: TypeNode -> [[String]] -> Environment -> [Type]
 typeLinkingCheck _ _ ENVE = [TypeVoid]
-typeLinkingCheck db imps (ENV su c) = if elem Nothing imps' then [] else tps
+typeLinkingCheck db imps (ENV su c) = if (elem Nothing imps') || (null cts') then [] else tps
     where
         (SU cname kd st inhf) = su
         (SU cnamei kdi sti inhfi) = inhf
@@ -30,6 +30,7 @@ typeLinkingCheck db imps (ENV su c) = if elem Nothing imps' then [] else tps
         
         cts = map (\env -> typeLinkingCheck db imps env) c
         cts' = if and $ map (\tps -> tps /= []) cts then [TypeVoid] else []
+        --cts' = if or $ map null cts then [] else [TypeVoid]
         
         [varsym] = st
         tps = case kd of
