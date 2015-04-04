@@ -198,9 +198,13 @@ main' givenFileNames = do
 
   -- Create Hierarchy Information
   let typeIDMap = createTypeID db'
+  let instanceSYMOffsetMap = createInstanceFieldOffset db'
+  
   let instanceFUNCIDMap = createInstanceFUNCID db'
   let instanceFUNCTable = createInstanceFUNCTable db'
   let instanceFUNCLabelMap = createInstanceFUNCLabel db'
+  
+  let staticSYMLabelMap = createStaticFieldLabel db'
   let staticFUNCIDMap = createStaticFUNCID db'
   let staticFUNCLabelMap = createStaticFUNCLabel db'
   let typeCharacteristicBM = createTypeCharacteristicBM db'
@@ -209,7 +213,10 @@ main' givenFileNames = do
   --hPutStrLn stderr $ "Total Number of Static Functions: " ++ show (size staticFUNCIDMap)
   --hPutStrLn stderr $ "Type Characteristic BitMap: " ++ show typeCharacteristicBM
   --hPutStrLn stderr $ "Func Table: " ++ show funcTable
-  hPutStrLn stderr $ (show (symbol runtimeMalloc)) ++ " -> " ++ (show $ lookup (symbol runtimeMalloc) staticFUNCLabelMap)
+  --hPutStrLn stderr $ (show (symbol runtimeMalloc)) ++ " -> " ++ (show $ lookup (symbol runtimeMalloc) staticFUNCLabelMap)
+  hPutStrLn stderr $ show instanceSYMOffsetMap
+  hPutStrLn stderr $ show staticSYMLabelMap
+
 
   -- CLASS RECONSTRUCT
   let reconstructedCLASS = map (\(imp, Just env, fn) -> (imp, (buildClassConstruct db' imp env), fn)) listImpEnvFns
