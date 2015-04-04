@@ -40,7 +40,7 @@ typeLinkingCheck db imps (ENV su c) = if elem Nothing imps' then [] else tps
                                             in if forward
                                                 then typeLinkingFailure $ "forward use of syms " ++ (show varsym) ++ (show expr)
                                                 else if typeLinkingExpr db imps su (Binary "=" (ID (Name ([localName varsym])) 0) expr 0) == [] then typeLinkingFailure $ "field type mis match expression " ++ (show varsym) ++ (show expr) else cts'
-                                                
+                Field _ Nothing -> cts'                                                
                 Exp expr -> typeLinkingExpr db imps su expr
                 
                 Ret expr -> let rtp = scopeReturnType su in
@@ -67,20 +67,19 @@ typeLinkingCheck db imps (ENV su c) = if elem Nothing imps' then [] else tps
                                     condition = (not . null $ typeExpr) && (length typeExpr == 1) && (not . null $ castConversion db (head typeExpr) TypeBoolean) in
                                     if condition then cts' else typeLinkingFailure $ "If condition: " ++ (show typeExpr) ++ (show expr)
 
-                Class -> case typeLinkingPrefix db imps (scope su) of
-                            _ -> cts' -- ToDo: double check here!
-
+                Class -> cts'
                 Method _ -> cts'
+                Interface -> cts'
+                Statement -> cts'
+                Package -> cts'
 
-                _ -> cts'
-        
-
+{-
 typeLinkingPrefix :: TypeNode -> [[String]] -> [String] -> [[String]]
 typeLinkingPrefix db imps cname = concat tps
     where
         ps = map (\i -> (take i cname)) [1..(length $ init cname)]
         tps = map (traverseTypeEntryWithImports db imps) ps
-
+-}
 
 filterNonFunction (Function _ _ _) = False
 filterNonFunction _ = True
