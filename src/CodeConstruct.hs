@@ -512,7 +512,7 @@ genExprAsm sd (FunctionCall callee arguments) =
       cleanupCode = ["add esp, " ++ (show $ 4 * (length arguments)) ++ " ; Pop arguments"]
   in ["; Function call to" ++ localName callee, "; arguments " ++ (show arguments)] ++
      argumentsCode ++
-     (if elem "static" mds
+     (if elem "static" mds || elem "cons" mds
         then ["call " ++ staticFUNCLabel]
         else ["mov eax, [esp + " ++ (show $ ((length arguments) - 1) * 4) ++ "]"] ++
              ["mov eax, [eax]", "mov eax, [eax + 4]", "call [eax + " ++ show (instanceFUNCOffset * 4) ++ "] ; goto VF Table + offset = " ++ show instanceFUNCOffset])
