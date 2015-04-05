@@ -55,6 +55,43 @@ Winter 2015
 \section{General Strategy}
 This section describes the meta strategy we applied in developing the code generation phase of our compiler.
 In principle, we first distill the necessary information from the attribute grammar into DFStatements, which are then fairly trivial to convert to assembly.
+The algebraic datatype for DFStatement and DFExpression is the following.
+\begin{lstlisting}
+data DFStatement = DFIf {
+  condition :: DFExpression,
+  ifBlock   :: [DFStatement],
+  elseBlock :: [DFStatement],
+  nesting   :: [Int]
+} | DFWhile {
+  condition  :: DFExpression,
+  whileBlock :: [DFStatement],
+  nesting    :: [Int]
+} | DFFor {
+  initializer :: DFStatement,
+  condition   :: DFExpression,
+  finalizer   :: DFStatement,
+  forBlock    :: [DFStatement],
+  nesting     :: [Int]
+} | DFBlock {
+  block :: [DFStatement],
+  nesting :: [Int]
+} | DFExpr DFExpression
+  | DFLocal DFExpression
+  | DFReturn (Maybe DFExpression)
+
+data DFExpression = FunctionCall Symbol [DFExpression]
+                   | ArrayAccess Symbol DFExpression DFExpression
+                   | Unary { op :: String, expr :: DFExpression }
+                   | Binary { op :: String, exprL :: DFExpression, exprR :: DFExpression }
+                   | Attribute { struct :: DFExpression, mem :: Symbol }
+                   | InstanceOf { reftype :: Type, expr :: DFExpression }
+                   | Cast {reftype :: Type, expr :: DFExpression }
+                   | ID { identifier :: Either Int (Int, Symbol) }
+                   | Value { valuetype :: Type, value :: String }
+                   | Super { offset :: Int, super :: Maybe Symbol }
+                   | Null
+                   | NOOP
+\end{lstlisting}
 All of the assembly generation related code is located in \emph{CodeConstruct.hs}.
 
 \subsection{Unary and Binary Operations}
