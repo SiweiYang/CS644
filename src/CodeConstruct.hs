@@ -540,7 +540,12 @@ genExprAsm (NewObject classType args) =
 -}
 genExprAsm sd (InstanceOf refType expr) = ["; instanceOf"] ++ genExprAsm sd expr
 genExprAsm sd (Cast refType expr) = ["; Casting"] ++ genExprAsm sd expr
-genExprAsm sd (ID (Right (offthis, symbol))) = ["; variable named " ++ (localName symbol) ++ " symbol: " ++ (show symbol)]
+genExprAsm sd expr@(ID (Right (offthis, symbol))) = ["; variable named " ++ (localName symbol) ++ " symbol: " ++ (show symbol)] ++ reduction ++ getvalue
+  where
+    reduction = genExprLhsAsm sd expr
+    getvalue = ["mov eax, [eax]"]
+
+
 genExprAsm sd (ID (Left offset)) = if offset < 0
                                       then ["mov eax, [ebp + " ++ show distanceN ++ "];" ++ show offset]
                                       else ["mov eax, [ebp - " ++ show distanceP ++ "];" ++ show offset]
@@ -565,7 +570,13 @@ genExprAsm sd NOOP = ["; NOOP"]
 genExprLhsAsm sd (ID (Left offset)) =
   let distance = (offset + 1) * 4
   in ["lea eax, [ebp - " ++ show distance ++ "] ; LHS for assignment"]
-genExprLhsAsm sd (ID (Right (offthis, symbol))) = ["; LHS Right symbol for assignment"]
+
+genExprLhsAsm sd (ID (Right (offthis, symbol))) = ["; LHS Right symbol for assignment"] ++
+                                                  ["mov eax, [ebp + " ++ (show distance) ++ "]", "add eax, " ++ (show symoffset)]
+  where
+    distance = (offthis - 1) * (-4)
+    symoffset = ((instanceSYMOffsetMap sd) ! symbol) * 4
+
 genExprLhsAsm sd (ArrayAccess sym expr expri) = genExprAsm sd (FunctionCall sym [expr, expri])
 genExprLhsAsm sd (Attribute struct sym) = refCode ++ ["mov eax, [eax]", "add eax, " ++ show (instanceSYMOffset * 4)]
   where
