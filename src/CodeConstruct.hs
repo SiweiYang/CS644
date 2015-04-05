@@ -1,6 +1,6 @@
 module CodeConstruct where
 
-import           Data.Map (Map)
+import           Data.Map (Map, (!))
 import           Data.Char
 import           Data.List
 import           Data.Maybe
@@ -317,7 +317,10 @@ symbolToType' sym = case tp of
 
 data SymbolDatabase = SD {
   db :: TypeNode,
-  funcLabel :: Map Symbol String
+  funcLabel :: Map Symbol String,
+  instanceSYMOffsetMap :: Map Symbol Int,
+  instanceFUNCOffsetMap :: Map Symbol Int,
+  staticSYMLabelMap :: Map Symbol String
 }
 
 --     _                           _     _
@@ -436,11 +439,20 @@ genExprAsm :: SymbolDatabase ->  DFExpression -> [String]
 
 genExprAsm sd (FunctionCall callee arguments) =
   let argumentCode = ((intersperse "push eax") . concat $ map (genExprAsm sd) arguments) ++ ["push eax"]
+      FUNC mds _ _ _ _ = callee
+      staticFUNCMap = funcLabel sd
+      staticFUNCLabel = staticFUNCMap ! callee
+      instanceFUNCMap = instanceFUNCOffsetMap sd
+      instanceFUNCOffset = instanceFUNCMap ! callee
+      argThis = head arguments
       cleanupCode = ["add esp, " ++ (show $ 4 * (length arguments)) ++ " ; Pop arguments"]
   in ["; Function call to" ++ localName callee, "; arguments"] ++
      argumentCode ++
-     ["call _" ++ (localName callee)] ++
-     cleanupCode
+     if elem "static" mds
+        then ["call " ++ staticFUNCLabel]
+        else (genExprAsm sd argThis) ++ 
+             ["mov eax, [eax]", "mov eax, [eax + 8]", "jmp eax + " ++ show (instanceFUNCOffset * 4) , ";goto VF Table + offset = " ++ show instanceFUNCOffset] 
+     ++ cleanupCode
 
 genExprAsm sd (ArrayAccess sym expr expri) = 
   let refCode = genExprAsm sd (FunctionCall sym [expr, expri])
@@ -468,9 +480,8 @@ genExprAsm sd (Binary op exprL exprR) =
      ["pop ebx ; Pop right value from stack"] ++
      opCode
 
-genExprAsm sd (Attribute struct member) =
-  let structCode = genExprAsm sd struct
-  in [";Attribute"] ++ structCode
+genExprAsm sd (Attribute struct member) = (genExprLhsAsm sd (Attribute struct member)) ++ ["mov eax, [eax]"]
+
 {-
 genExprAsm (ArrayAccess array index) =
   let arrayCode = genExprAsm array
@@ -512,7 +523,9 @@ genExprLhsAsm sd (ID (Left offset)) =
   in ["lea eax, [ebp - " ++ show distance ++ "] ; LHS for assignment"]
 genExprLhsAsm sd (ID (Right symbol)) = ["; LHS Right symbol for assignment"]
 genExprLhsAsm sd (ArrayAccess sym expr expri) = genExprAsm sd (FunctionCall sym [expr, expri])
-genExprLhsAsm sd (Attribute struct sym) = []
+genExprLhsAsm sd (Attribute struct sym) = refCode ++ ["mov eax, [eax]", "mov eax, eax + " ++ show (instanceSYMOffset * 4)]
   where
-    structCode = genExprAsm sd struct
+    instanceSYMMap = instanceSYMOffsetMap sd
+    instanceSYMOffset = instanceSYMMap ! sym
+    refCode = genExprAsm sd struct
 

@@ -3,7 +3,7 @@ module Main where
 import Prelude hiding (lookup)
 import Data.List(find, partition, intercalate)
 import Data.Maybe
-import Data.Map(size, lookup, fromList)
+import Data.Map(size, lookup, fromList, toAscList)
 import System.Environment
 import System.Exit
 import System.IO
@@ -225,7 +225,7 @@ main' givenFileNames = do
   hPutStrLn stderr $ show [cls | (_,Just cls, fn) <- reconstructedCLASS, (take 10 $ reverse fn) == reverse "Array.java"]
 
   let ordering = createClassInitOrdering constructs
-  let sd = SD db' staticFUNCLabelMap
+  let sd = SD db' (fromList $ (toAscList instanceFUNCLabelMap) ++ (toAscList staticFUNCLabelMap)) instanceSYMOffsetMap instanceFUNCIDMap staticSYMLabelMap
   hPutStrLn stderr $ show ordering
   --hPutStrLn stderr $ show $ symbolLinkingName db' [] (Root []) (AST.Name ["joosc native", "Array", "get"])
   -- do
