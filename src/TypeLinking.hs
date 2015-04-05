@@ -135,7 +135,7 @@ typeLinkingExpr db imps su expr@(Binary op exprL exprR _)
 
 
 typeLinkingExpr db imps su expr@(ID nm _) = map symbolToType (symbolLinkingExpr db imps su expr)
-typeLinkingExpr db imps su This = if scopeStatic su then typeLinkingFailure "This not accessible from static scope" else [lookUpThis su]
+typeLinkingExpr db imps su This = if scopeStatic su then typeLinkingFailure $ "This not accessible from static scope: " ++ (show su) else [lookUpThis su]
 typeLinkingExpr db imps su (Value tp _ _) = [tp]
 --ToDO: check if instance of is legit
 typeLinkingExpr db imps su (InstanceOf tp expr _) = let typeExpr = typeLinkingExpr db imps su expr
@@ -169,7 +169,7 @@ typeLinkingExpr db imps su (Dimension _ expr _) = case typeIdx of
 
 typeLinkingExpr db imps su (ArrayAccess arr idx _) = case typeArr of
                                                         [Array tp] -> case typeIdx of
-                                                                    [tp'] -> if elem tp' [TypeByte, TypeShort, TypeInt] then [tp] else typeLinkingFailure "Array: index is not an integer"
+                                                                    [tp'] -> if elem tp' [TypeByte, TypeShort, TypeInt, TypeChar] then [tp] else typeLinkingFailure "Array: index is not an integer"
                                                                     _ -> typeLinkingFailure "Array Index Type typeLinkingFailure"
                                                         _ -> typeLinkingFailure "Array Type cannot be found"
     where
@@ -334,7 +334,8 @@ scopeConstructor su = rst
 
 scopeStatic :: SemanticUnit -> Bool
 scopeStatic su
-    | elem kd [Package, Class, Interface] = True
+    | elem kd [Package, Interface] = error $ "wrong call to scopeStatic"
+    | (kd == Class) = False
     | otherwise = rst
     where
         kd = kind su

@@ -217,7 +217,7 @@ buildDFExpression db imps su tps e@(AST.ID n@(AST.Name cname@[nm]) _) = if take 
     syms = symbolLinkingName db imps su n
     sym = case if tps == [] then syms else [sym | sym <- syms, elem (symbolToType' sym) tps] of
             [sym] -> sym
-            err -> error $ (show err) ++ (show syms) ++ (show tps)
+            err -> error $ (show e) ++ "cands after filter: " ++ (show err) ++ "cands: " ++ (show (map symbolToType' syms)) ++ "constriants: " ++ (show tps)
     {-
     [sym@(SYM _ ls _ _)] = case symbolLinkingName db imps su n of
                              [sym@ (SYM _ _ _ _)] -> [sym]
@@ -247,7 +247,9 @@ buildDFExpression db imps su tps e@(AST.FunctionCall expr args _) = if elem "sta
                                                                       else FunctionCall sym $ exprL:(map (buildDFExpression db imps su []) args)
   where
     syms = symbolLinkingExpr db imps su e
-    [sym] = if tps == [] then syms else [sym | sym <- syms, elem (symbolToType' sym) tps]
+    sym = case if tps == [] then syms else [sym | sym@(FUNC _ _ _ _ rt) <- syms, elem (typeRelax rt) tps] of
+                 [sym] -> sym
+                 err -> error $ (show e) ++ "cands after filter: " ++ (show err) ++ "cands: " ++ (show (map symbolToType' syms)) ++ "constriants: " ++ (show tps)
     tps' = symbolToType' sym
     exprL = case buildDFExpression db imps su [tps'] expr of
               Attribute exprL sym -> exprL
@@ -258,7 +260,10 @@ buildDFExpression db imps su tps e@(AST.FunctionCall expr args _) = if elem "sta
 buildDFExpression db imps su tps e@(AST.NewObject tp args _) = FunctionCall sym $ (buildMalloc sym):(map (buildDFExpression db imps su []) args)
   where
     syms = symbolLinkingExpr db imps su e
-    [sym] = if tps == [] then syms else [sym | sym <- syms, elem (symbolToType' sym) tps]
+    --if tps == [] then syms else [sym | sym <- syms, elem (symbolToType' sym) tps]
+    sym = case syms of
+            [sym] -> sym
+            err -> error $ (show err) ++ (show syms) ++ (show tps)
 
 buildDFExpression db imps su tps (AST.NewArray tp expr _) = FunctionCall sym $ (buildMalloc sym):[buildDFExpression db imps su [] expr]
   where
@@ -276,11 +281,14 @@ buildDFExpression db imps su tps (AST.ArrayAccess expr expri _) = ArrayAccess sy
       sym = case getSymbol db ["joosc native", "Array", "get"] of
                 [sym'] -> sym'
                 [] -> error $ "buildDFExpression Empty lookup Name" ++ (show db)
-      dfexpr = buildDFExpression db imps su tps expr
-      dfexpri = buildDFExpression db imps su tps expri
+      tps' = case tps of
+               --[tp] -> AST.Array tp
+               _ -> AST.Object (AST.Name ["joosc native","Array"])
+      dfexpr = buildDFExpression db imps su [tps'] expr
+      dfexpri = buildDFExpression db imps su [] expri
 
 buildDFExpression db imps su tps (AST.Unary op expr _) = Unary op (buildDFExpression db imps su tps expr)
-buildDFExpression db imps su tps (AST.Binary op exprL exprR _) = Binary op (buildDFExpression db imps su tps exprL) (buildDFExpression db imps su tps exprR)
+buildDFExpression db imps su tps (AST.Binary op exprL exprR _) = Binary op (buildDFExpression db imps su [] exprL) (buildDFExpression db imps su [] exprR)
 
 buildDFExpression db imps su tps ow = error $ show ow
 
@@ -319,11 +327,12 @@ buildMalloc sym = FunctionCall sym' [arg]
     sym' = symbol runtimeMalloc
     arg = ID $ Right (0, (SYM ["static", "native"] (localScope sym) "object size" AST.TypeInt)) -- ??? this offset
 
+typeRelax tp = case tp of
+                   AST.Array _ -> AST.Object (AST.Name ["joosc native","Array"])
+                   ow -> ow
 
 symbolToType' :: Symbol -> Type
-symbolToType' sym = case tp of
-                      AST.Array _ -> AST.Object (AST.Name ["joosc native","Array"])
-                      ow -> ow
+symbolToType' sym = typeRelax tp
   where
     tp = symbolToType sym
 
