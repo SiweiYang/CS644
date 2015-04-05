@@ -243,6 +243,8 @@ main' givenFileNames = do
                                        "extern " ++ startFunctionLabel,
                                        "section .data",
                                        concat $ createStaticSYMASM db',
+                                       "global characteristics", "characteristics:",
+                                       concat $ map (\cond -> if cond then "dd 1\n" else "dd 0\n") typeCharacteristicBM,
                                        "section .text",
                                        "_start:",
                                        "call " ++ startFunctionLabel,
