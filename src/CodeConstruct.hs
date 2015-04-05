@@ -1,7 +1,7 @@
 module CodeConstruct where
 
 import           Prelude hiding (lookup)
-import           Data.Map (Map, (!), lookup)
+import           Data.Map (Map, (!), lookup, assocs)
 import           Data.Char
 import           Data.List hiding (lookup)
 import           Data.Maybe
@@ -145,7 +145,7 @@ buildDFStatement db imps nesting (ENV su@(SU scope (IfBlock expr) _ _) ch) = (DF
   where
     [ifpart, elsepart, remain] = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
     dfexpr = buildDFExpression db imps su [] expr
-    
+
 buildDFStatement db imps nesting (ENV su@(SU _ (Ret expr) _ _) ch) = (DFReturn dfexpr):remain
   where
     [remain] = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
@@ -357,9 +357,12 @@ genLabel :: [Int] -> String
 genLabel nesting = concat $ intersperse "_" $ map show nesting
 
 genAsm :: SymbolDatabase -> ClassConstruct -> [String]
-genAsm sd cc@(CC name fields sym methods) = ["; Code for: " ++ concat name] ++ vtf ++ prefaceCode ++ fieldCode ++ initializerCode ++ methodCode
+genAsm sd cc@(CC name fields sym methods) = ["; Code for: " ++ concat name] ++ externCode ++ vtf ++ prefaceCode ++ fieldCode ++ initializerCode ++ methodCode
   where
     prefaceCode = ["section .text"] ++ ["_exit_portal:", "mov esp, ebp", "pop ebp", "ret"]
+    externs = assocs (funcLabel sd)
+    externLabels = map snd externs
+    externCode = ["extern " ++ (concat $ intersperse "," externLabels)]
     fieldCode = concat $ map (genFieldAsm sd) fields
     methodCode = concat $ map (genMthdAsm sd cc) methods
     vtf = genAsmVirtualTable sd cc
@@ -494,11 +497,11 @@ genExprAsm sd (FunctionCall callee arguments) =
      argumentCode ++
      if elem "static" mds
         then ["call " ++ staticFUNCLabel]
-        else (genExprAsm sd argThis) ++ 
-             ["mov eax, [eax]", "mov eax, [eax + 4]", "call [eax + " ++ show (instanceFUNCOffset * 4) ++ "] ; goto VF Table + offset = " ++ show instanceFUNCOffset] 
+        else (genExprAsm sd argThis) ++
+             ["mov eax, [eax]", "mov eax, [eax + 4]", "call [eax + " ++ show (instanceFUNCOffset * 4) ++ "] ; goto VF Table + offset = " ++ show instanceFUNCOffset]
      ++ cleanupCode
 
-genExprAsm sd (ArrayAccess sym expr expri) = 
+genExprAsm sd (ArrayAccess sym expr expri) =
   let refCode = genExprAsm sd (FunctionCall sym [expr, expri])
   in refCode ++
      ["mov eax, [eax]"]
@@ -512,7 +515,7 @@ genExprAsm sd (Unary op expr) =
 
 genExprAsm sd (Binary op exprL exprR) =
   let
-      rightCode = genExprAsm sd exprR      
+      rightCode = genExprAsm sd exprR
       opCode = genOpAsm op
       leftCode = case op of
         "=" -> genExprLhsAsm sd exprL
@@ -558,7 +561,6 @@ genExprAsm sd (Value AST.TypeBoolean "true") = ["mov eax, 1"]
 genExprAsm sd (Value AST.TypeBoolean "false") = ["mov eax, 0"]
 genExprAsm sd (Value AST.TypeNull _) = ["mov eax, 0"]
 genExprAsm sd (Value valuetype value) = ["; XXX: Unsupported value: " ++ value]
---genExprAsm This = ["mov eax, 0; This"]
 genExprAsm sd Null = ["; Null", "mov eax, 0"]
 genExprAsm sd NOOP = ["; NOOP"]
 
