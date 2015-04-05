@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+make
+rm -rf output/*
+echo "* run joosc"
+./joosc $1 assignment_testcases/stdlib2/*.java
+echo "* nasm"
+for f in output/*
+do
+    nasm -O1 -f elf -g -F dwarf $f
+done
+nasm -O1 -f elf -g -F dwarf -o output/runtime.o assignment_testcases/stdlib2/runtime.s
+echo "* ld"
+ld -melf_i386 -o main output/*.o
+
