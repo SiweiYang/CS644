@@ -225,7 +225,7 @@ main' givenFileNames = do
   hPutStrLn stderr $ show [cls | (_,Just cls, fn) <- reconstructedCLASS, (take 10 $ reverse fn) == reverse "Array.java"]
 
   let ordering = createClassInitOrdering constructs
-  let sd = SD db' (fromList $ (toAscList instanceFUNCLabelMap) ++ (toAscList staticFUNCLabelMap)) instanceSYMOffsetMap instanceFUNCIDMap staticSYMLabelMap
+  let sd = SD db' (fromList $ (toAscList instanceFUNCLabelMap) ++ (toAscList staticFUNCLabelMap)) instanceSYMOffsetMap instanceFUNCIDMap staticSYMLabelMap instanceFUNCTable typeIDMap
   hPutStrLn stderr $ show ordering
   --hPutStrLn stderr $ show $ symbolLinkingName db' [] (Root []) (AST.Name ["joosc native", "Array", "get"])
   -- do

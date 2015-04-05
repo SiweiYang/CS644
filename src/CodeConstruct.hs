@@ -331,7 +331,9 @@ data SymbolDatabase = SD {
   funcLabel :: Map Symbol String,
   instanceSYMOffsetMap :: Map Symbol Int,
   instanceFUNCOffsetMap :: Map Symbol Int,
-  staticSYMLabelMap :: Map Symbol String
+  staticSYMLabelMap :: Map Symbol String,
+  instanceFUNCTable :: [(Symbol, [Maybe Symbol])],
+  typeIDMap :: Map Symbol Int
 }
 
 --     _                           _     _
@@ -356,28 +358,50 @@ genLabel :: [Int] -> String
 genLabel nesting = concat $ intersperse "_" $ map show nesting
 
 genAsm :: SymbolDatabase -> ClassConstruct -> [String]
-genAsm sd (CC name fields _ methods) =
-  let prefaceCode = ["; Code for: " ++ concat name, "section .text"]
-      fieldCode = concat $ map (genFieldAsm sd) fields
-      methodCode = concat $ map (genMthdAsm sd) methods
-  in prefaceCode ++ fieldCode ++ methodCode
+genAsm sd cc@(CC name fields sym methods) = ["; Code for: " ++ concat name] ++ vtf ++ prefaceCode ++ fieldCode ++ initializerCode ++ methodCode
+  where
+    prefaceCode = ["section .text"] ++ ["_exit_portal:", "mov esp, ebp", "pop ebp", "ret"]
+    fieldCode = concat $ map (genFieldAsm sd) fields
+    methodCode = concat $ map (genMthdAsm sd cc) methods
+    vtf = genAsmVirtualTable sd cc
+    initializerCode = ["; Start a stack frame for initializer", "_initializer:", "push ebp", "mov ebp, esp"]
+                      ++ []
+                      ++ initializerCodeEnding
+    --exprs = map (genExprAsm sd) $ objectInitializer cc 
+    initializerCodeEnding = ["jmp _exit_portal", "; End initializer"]
+
+genAsmVirtualTable :: SymbolDatabase -> ClassConstruct -> [String]
+genAsmVirtualTable sd (CC _ _ sym _) = header ++ code
+  where
+    header = ["; Code for virtual table", "section .data", "_vft:"]
+    [(_, vtable)] = filter (\(symbol, _) -> symbol == sym) (instanceFUNCTable sd)
+    labelT = map (\symbol -> if isNothing symbol then "__exception" else (funcLabel sd) ! (fromJust symbol)) vtable
+    code = map (\str -> "dd " ++ str) labelT
+
 
 genFieldAsm :: SymbolDatabase -> FieldType -> [String]
 genFieldAsm sd (FT _ _ _ _ False) = []
 genFieldAsm sd fld@(FT name _ _ _ True) = ["; Class field: " ++ (show fld)]
 
-genMthdAsm :: SymbolDatabase -> MethodConstruct -> [String]
-genMthdAsm sd (MC name symbol definition) =
-  let label = generateLabelFromFUNC symbol 0
-      header =  ["global " ++ label, label ++ ":", "; Start a new stack frame", "push ebp", "mov ebp, esp"]
-      body = concat $ map (genStmtAsm sd) definition
-  in header ++ body ++ ["; End of " ++ last name]
+
+genMthdAsm :: SymbolDatabase -> ClassConstruct -> MethodConstruct -> [String]
+genMthdAsm sd cc (MC name symbol definition)
+  | isConstructor = ["; constructor for class"] ++ header ++ ["; * Constructor"] ++ body ++ ending
+  | otherwise = header ++ body ++ ending
+  where
+    isConstructor = elem "cons" $ symbolModifiers symbol
+    label = generateLabelFromFUNC symbol 0
+    header = ["global " ++ label, label ++ ":", "; Start a new stack frame", "push ebp", "mov ebp, esp"]
+    body = concat $ map (genStmtAsm sd) definition
+    ending = ["jmp _exit_portal", "; End of " ++ last name]
+
+
 
 genStmtAsm :: SymbolDatabase -> DFStatement -> [String]
 genStmtAsm sd (DFExpr expr) = genExprAsm sd expr
 genStmtAsm sd (DFLocal expr) = genExprAsm sd expr ++ ["push eax ; Allocating stack space for local var"]
-genStmtAsm sd (DFReturn Nothing) = ["; Void return, cleaning stack frame", "mov esp, ebp", "pop ebp", "ret"]
-genStmtAsm sd (DFReturn (Just retVal)) = ["; Value return"] ++ genExprAsm sd retVal ++ ["; Cleaning stack frame", "mov esp, ebp", "pop ebp", "ret"]
+genStmtAsm sd (DFReturn Nothing) = ["; Void return, cleaning stack frame", "jmp _exit_portal"]
+genStmtAsm sd (DFReturn (Just retVal)) = ["; Value return"] ++ genExprAsm sd retVal ++ ["; Cleaning stack frame", "jmp _exit_portal"]
 genStmtAsm sd (DFBlock body nesting) =
   let bodyCode = concat $ map (genStmtAsm sd) body
       recoveryCode = recoverStackForBlock body
@@ -449,6 +473,10 @@ genOpAsm "=" = ["mov [eax], ebx"]
 genExprAsm :: SymbolDatabase ->  DFExpression -> [String]
 
 genExprAsm sd (Super offset msuper) = [";call " ++ (show msuper) ++ " and then call init with this at " ++ (show offset)]
+                                      ++ ["; * Call Class Initializer"] ++ callInitializer
+  where
+    distance = (offset - 1) * (-4)
+    callInitializer = ["mov eax, [ebp + " ++ (show distance) ++ "]", "push eax", "call _initializer", "pop ebx"]
 
 genExprAsm sd (FunctionCall callee arguments) =
   let argumentCode = ((intersperse "push eax") . concat $ map (genExprAsm sd) arguments) ++ ["push eax"]
@@ -468,7 +496,7 @@ genExprAsm sd (FunctionCall callee arguments) =
      if elem "static" mds
         then ["call " ++ staticFUNCLabel]
         else (genExprAsm sd argThis) ++ 
-             ["mov eax, [eax]", "mov eax,[eax + 8]", "jmp eax + " ++ show (instanceFUNCOffset * 4) , ";goto VF Table + offset = " ++ show instanceFUNCOffset] 
+             ["mov eax, [eax]", "mov eax, [eax + 4]", "call [eax + " ++ show (instanceFUNCOffset * 4) ++ "] ; goto VF Table + offset = " ++ show instanceFUNCOffset] 
      ++ cleanupCode
 
 genExprAsm sd (ArrayAccess sym expr expri) = 
@@ -540,7 +568,7 @@ genExprLhsAsm sd (ID (Left offset)) =
   in ["lea eax, [ebp - " ++ show distance ++ "] ; LHS for assignment"]
 genExprLhsAsm sd (ID (Right symbol)) = ["; LHS Right symbol for assignment"]
 genExprLhsAsm sd (ArrayAccess sym expr expri) = genExprAsm sd (FunctionCall sym [expr, expri])
-genExprLhsAsm sd (Attribute struct sym) = refCode ++ ["mov eax, [eax]", "mov eax, eax + " ++ show (instanceSYMOffset * 4)]
+genExprLhsAsm sd (Attribute struct sym) = refCode ++ ["mov eax, [eax]", "add eax, " ++ show (instanceSYMOffset * 4)]
   where
     instanceSYMMap = instanceSYMOffsetMap sd
     instanceSYMOffset = case lookup sym instanceSYMMap of
