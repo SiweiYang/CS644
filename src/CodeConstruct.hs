@@ -364,7 +364,7 @@ genAsm sd cc@(CC name fields sym methods) = ["; Code for: " ++ concat name] ++ e
     prefaceCode = ["section .text"] ++ ["__exit_portal:", "mov esp, ebp", "pop ebp", "ret"]
     classid = (typeIDMap sd) ! sym
     classIDCode = ["__classid:"] ++ ["dd " ++ (show classid)]
-    externFUNC = assocs (funcLabel sd)
+    externFUNC = filter (\(sym', _) -> (symbolToCN sym) /= (symbolToCN sym') || elem "native" (symbolModifiers sym')) $ assocs (funcLabel sd)
     externSYM = assocs (staticSYMLabelMap sd)
     externLabels = map snd (externFUNC ++ externSYM)
     externCode = ["extern " ++ (concat $ intersperse "," externLabels)]
@@ -397,11 +397,14 @@ genFieldAsm sd fld@(FT name _ _ _ True) = ["; Class field: " ++ (show fld)]
 
 genMthdAsm :: SymbolDatabase -> ClassConstruct -> MethodConstruct -> [String]
 genMthdAsm sd cc (MC name symbol definition)
+  | isNative = ["; native method"]
   | isConstructor = ["; constructor for class"] ++ header ++ ["; * Constructor"] ++ body ++ ending
   | otherwise = header ++ body ++ ending
   where
+    isNative = elem "native" $ symbolModifiers symbol
     isConstructor = elem "cons" $ symbolModifiers symbol
-    label = (funcLabel sd) ! symbol
+    label = case lookup symbol (funcLabel sd) of
+              Just lb -> lb
     header = ["global " ++ label, label ++ ":", "; Start a new stack frame", "push ebp", "mov ebp, esp"]
     body = concat $ map (genStmtAsm sd) definition
     ending = ["jmp __exit_portal", "; End of " ++ last name]
