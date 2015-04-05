@@ -193,8 +193,10 @@ buildDFExpression db imps su tps AST.This = ID (Left $ thisOffset su)
 buildDFExpression db imps su tps (AST.Super msuper) = case msuper of
                                                         Nothing -> Super (thisOffset su) Nothing
                                                         Just nm -> let [tp] = take 1 (traverseTypeEntryWithImports db imps nm)
+                                                                       Just tn = getTypeEntry db tp
+                                                                       [con] = [sym | sym@(FUNC mds _ _ pt _) <- map symbol $ subNodes tn, elem "cons" mds, pt == []]
                                                                        [sym] = getSymbol db tp
-                                                                   in Super (thisOffset su) (Just sym)
+                                                                   in Super (thisOffset su) (Just con)
 buildDFExpression db imps su tps (AST.Value t v _) = Value t v
 buildDFExpression db imps su tps e@(AST.CastA _ _ expr _) = Cast tp (buildDFExpression db imps su [] expr)
   where
