@@ -241,6 +241,8 @@ main' givenFileNames = do
 
   writeFile "output/main.s" $ unlines ["global _start",
                                        "extern " ++ startFunctionLabel,
+                                       "section .data",
+                                       concat $ createStaticSYMASM db',
                                        "section .text",
                                        "_start:",
                                        "call " ++ startFunctionLabel,
