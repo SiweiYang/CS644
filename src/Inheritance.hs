@@ -1,7 +1,9 @@
 module Inheritance where
 
+import           Prelude hiding (lookup)
+
 import           Data.List     (intercalate, nub, sort)
-import           Data.Map      (Map, fromList, toAscList)
+import           Data.Map      (Map, fromList, toAscList, lookup)
 import           Data.Maybe
 
 import           AST (typeToName, Type(..))
@@ -40,10 +42,19 @@ createTypeID db = fromList (zip syms [0..])
     syms = (sort . (map symbol) . dumpDBNodes) db
 
 createTypeSize :: TypeNode -> Map Symbol Int
-createTypeSize db = fromList (map (\tp -> (symbol tp, instanceMiscOffset + (length $ generateInstanceFieldOffset (subNodes tp)))) tps)
+createTypeSize db = fromList (map (\tp -> (generateTypeSizeSymbol $ symbol tp, instanceMiscOffset + (length $ generateInstanceFieldOffset (subNodes tp)))) tps)
   where
     tps = filter isCLNode $ dumpDBNodes db
-    
+
+createStaticSYMASM :: TypeNode -> [String]
+createStaticSYMASM db = ["global " ++ label ++ "\n" ++ label ++ ":\n" ++ "dd " ++ (show $ getSize sym ) ++ "\n" | (sym, label) <- pairs]
+  where
+    pairs = toAscList $ createStaticFieldLabel db
+    sizeMap = createTypeSize db
+    getSize sym = case lookup sym sizeMap of
+                    Nothing -> 0
+                    Just size -> size
+
 generateTypeSizeSymbol :: Symbol -> Symbol
 generateTypeSizeSymbol (CL _ _ lt _) = (SYM ["static", "native"] (typeToName lt) "object size" AST.TypeInt)
 

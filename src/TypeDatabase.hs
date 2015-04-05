@@ -14,7 +14,7 @@ data TypeNode = TN {
 } deriving (Eq)
 
 {-
-arrayClass = CLS ["public"] "Array" (Just ["Object"]) [[]] [] [] [] (CLSI [] (AI "" 0 0 0 0) Nothing [])
+arrayClass = CLS ["public"] "Array" (Just ["Object"]) [] [] [] [] (CLSI [] (AI "" 0 0 0 0) Nothing [])
 
 arrayUnit = Comp (Just ["joosc native"]) [] arrayClass (CompI Nothing [])
 
@@ -24,7 +24,7 @@ arrayLength = TN (SYM ["public", "final"] ["joosc native", "Array"] "length" Typ
 arrayTN = TN (CL ["public"] "Array" arraySYM arrayUnit) [arrayConstructor, arrayLength]
 -}
 
-runtimeClass = CLS ["public"] "Runtime" (Just ["Object"]) [[]] [] [] [] (CLSI [] (AI "" 0 0 0 0) Nothing [])
+runtimeClass = CLS ["public"] "Runtime" (Just ["Object"]) [] [] [] [] (CLSI [] (AI "" 0 0 0 0) Nothing [])
 runtimeUnit = Comp (Just ["joosc native"]) [] runtimeClass (CompI Nothing [])
 
 runtimeSYM = (TypeClass (Name ["joosc native", "Runtime"]))

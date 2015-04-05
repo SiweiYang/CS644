@@ -237,10 +237,15 @@ main' givenFileNames = do
   mapM (\(_, cls, fn) -> writeFile ("output/" ++ (filenamef fn) ++ ".s") $ unlines . (genAsm sd) $ fromJust cls) reconstructedCLASS'
 
   let startFunction = methodSymbol . head $ filter (\mthd -> "test" == (last . methodName $ mthd)) (classMethods . fromJust $ firstClass)
-  let startFunctionLabel = generateLabelFromFUNC startFunction 0
+  let startFunctionLabel = case lookup startFunction staticFUNCLabelMap of
+                             Just lb -> lb
 
   writeFile "output/main.s" $ unlines ["global _start",
                                        "extern " ++ startFunctionLabel,
+                                       "section .data",
+                                       concat $ createStaticSYMASM db',
+                                       "global characteristics", "characteristics:",
+                                       concat $ map (\cond -> if cond then "dd 1\n" else "dd 0\n") typeCharacteristicBM,
                                        "section .text",
                                        "_start:",
                                        "call " ++ startFunctionLabel,
