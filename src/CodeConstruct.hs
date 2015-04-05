@@ -495,7 +495,8 @@ genExprAsm sd (Super offset msuper) = [";call " ++ (show msuper) ++ " and then c
 
 
 genExprAsm sd (FunctionCall callee arguments) =
-  let argumentCode = ((intersperse "push eax") . concat $ map (genExprAsm sd) arguments) ++ ["push eax"]
+  --let argumentCode = ((intersperse "push eax") . concat $ map (genExprAsm sd) arguments) ++ ["push eax"] ++ ["; ARGUMENT!!! " ++ (show arguments)]
+  let argumentsCode = concat $ map (\x -> (genExprAsm sd x) ++ ["push eax"]) arguments
       FUNC mds _ _ _ _ = callee
       staticFUNCMap = funcLabel sd
       staticFUNCLabel = case lookup callee staticFUNCMap of
@@ -505,14 +506,13 @@ genExprAsm sd (FunctionCall callee arguments) =
       instanceFUNCOffset = case lookup callee instanceFUNCMap of
                              Just offset -> offset
                              Nothing -> error (show callee)
-      argThis = head arguments
       cleanupCode = ["add esp, " ++ (show $ 4 * (length arguments)) ++ " ; Pop arguments"]
-  in ["; Function call to" ++ localName callee, "; arguments"] ++
-     argumentCode ++
-     if elem "static" mds
+  in ["; Function call to" ++ localName callee, "; arguments " ++ (show arguments)] ++
+     argumentsCode ++
+     (if elem "static" mds
         then ["call " ++ staticFUNCLabel]
-        else (genExprAsm sd argThis) ++
-             ["mov eax, [eax]", "mov eax, [eax + 4]", "call [eax + " ++ show (instanceFUNCOffset * 4) ++ "] ; goto VF Table + offset = " ++ show instanceFUNCOffset]
+        else ["mov eax, [esp + " ++ (show $ ((length arguments) - 1) * 4) ++ "]"] ++
+             ["mov eax, [eax]", "mov eax, [eax + 4]", "call [eax + " ++ show (instanceFUNCOffset * 4) ++ "] ; goto VF Table + offset = " ++ show instanceFUNCOffset])
              --- using __vft
      ++ cleanupCode
 
