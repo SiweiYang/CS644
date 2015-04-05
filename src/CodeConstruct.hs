@@ -60,7 +60,7 @@ objectInitializer :: ClassConstruct -> [DFExpression]
 objectInitializer (CC cname flds sym mtds) = map newexpr nonstatic
   where
     nonstatic = filter (not . isStatic) flds
-    capsule = \sym -> ID $ Right sym
+    capsule = \sym -> ID $ Right (-1, sym)
     initialTPvalue = \tp -> if isPrimitive tp then (Value AST.TypeInt "0") else Null
     initialvalue = \expr tp -> if isNothing expr then initialTPvalue tp else fromJust expr
     newexpr = \(FT _ tp sym expr _) -> Binary "=" (capsule sym) (initialvalue expr tp)
@@ -178,7 +178,7 @@ data DFExpression = FunctionCall Symbol [DFExpression]
                    | Attribute { struct :: DFExpression, mem :: Symbol }
                    | InstanceOf { reftype :: Type, expr :: DFExpression }
                    | Cast {reftype :: Type, expr :: DFExpression }
-                   | ID { identifier :: Either Int Symbol }
+                   | ID { identifier :: Either Int (Int, Symbol) }
                    | Value { valuetype :: Type, value :: String }
                    | Super { offset :: Int, super :: Maybe Symbol }
                    | Null
@@ -207,10 +207,11 @@ buildDFExpression db imps su tps e@(AST.CastC _ _ expr _) = Cast tp (buildDFExpr
     [tp] = typeLinkingExpr db imps su e
 -- with modification to be more specific
 buildDFExpression db imps su tps e@(AST.ID n@(AST.Name cname@[nm]) _) = if take (length baseName) (init (localScope sym)) == baseName
-                                                                       then let offset = (scopeOffset su sym) in
-                                                                         if offset >= 0 then ID (Left offset) else ID (Left offset)
-                                                                       else ID (Right sym)
+                                                                        then let offset = (scopeOffset su sym) in ID $ Left offset
+                                                                         --if offset >= 0 then ID (Left offset) else ID (Left offset)
+                                                                        else ID $ Right (offthis, sym)
   where
+    offthis = thisOffset su
     syms = symbolLinkingName db imps su n
     sym = case if tps == [] then syms else [sym | sym <- syms, elem (symbolToType' sym) tps] of
             [sym] -> sym
@@ -222,7 +223,7 @@ buildDFExpression db imps su tps e@(AST.ID n@(AST.Name cname@[nm]) _) = if take 
     -}
     baseName = (AST.typeToName . lookUpThis) su
 buildDFExpression db imps su tps e@ (AST.ID n@(AST.Name cname@(nm:remain)) _) = if elem "static" (symbolModifiers sym)
-                                                                                  then ID (Right sym)
+                                                                                  then ID $ Right (thisOffset su, sym)
                                                                                   else Attribute (buildDFExpression db imps su [tps'] (AST.ID (AST.Name (init cname)) 0)) sym
   where
     syms = symbolLinkingName db imps su n
@@ -248,7 +249,7 @@ buildDFExpression db imps su tps e@(AST.FunctionCall expr args _) = if elem "sta
     tps' = symbolToType' sym
     exprL = case buildDFExpression db imps su [tps'] expr of
               Attribute exprL sym -> exprL
-              ID _ -> ID (Left $ thisOffset su)
+              ID _ -> ID $ Left (thisOffset su)
 
 
 -- inject malloc calls
@@ -304,11 +305,9 @@ listStaticSYMFromDFExpr (Binary _ exprL exprR) = (listStaticSYMFromDFExpr exprL)
 listStaticSYMFromDFExpr (Attribute expr sym) = listStaticSYMFromDFExpr expr
 listStaticSYMFromDFExpr (InstanceOf _ expr) = listStaticSYMFromDFExpr expr
 listStaticSYMFromDFExpr (Cast _ expr) = listStaticSYMFromDFExpr expr
-listStaticSYMFromDFExpr (ID (Right sym)) = case sym of
-                                                      SYM mds _ _ _ -> if (elem "static" mds) && (not $ elem "native" mds)
-                                                                          then [sym]
-                                                                          else []
-                                                      _ -> []
+listStaticSYMFromDFExpr (ID (Right (_, sym))) = case sym of
+                                                    SYM mds _ _ _ -> if (elem "static" mds) && (not $ elem "native" mds) then [sym] else []
+                                                    _ -> []
 listStaticSYMFromDFExpr _ = []
 
 ---------------------------------------------------------------
@@ -316,7 +315,7 @@ listStaticSYMFromDFExpr _ = []
 buildMalloc sym = FunctionCall sym' [arg]
   where
     sym' = symbol runtimeMalloc
-    arg = ID $ Right (SYM ["static", "native"] (localScope sym) "object size" AST.TypeInt)
+    arg = ID $ Right (0, (SYM ["static", "native"] (localScope sym) "object size" AST.TypeInt)) -- ??? this offset
 
 
 symbolToType' :: Symbol -> Type
@@ -365,9 +364,9 @@ genAsm sd cc@(CC name fields sym methods) = ["; Code for: " ++ concat name] ++ v
     methodCode = concat $ map (genMthdAsm sd cc) methods
     vtf = genAsmVirtualTable sd cc
     initializerCode = ["; Start a stack frame for initializer", "_initializer:", "push ebp", "mov ebp, esp"]
-                      ++ []
+                      ++ exprs
                       ++ initializerCodeEnding
-    --exprs = map (genExprAsm sd) $ objectInitializer cc 
+    exprs = concat $ map (genExprAsm sd) $ objectInitializer cc
     initializerCodeEnding = ["jmp _exit_portal", "; End initializer"]
 
 genAsmVirtualTable :: SymbolDatabase -> ClassConstruct -> [String]
@@ -541,7 +540,7 @@ genExprAsm (NewObject classType args) =
 -}
 genExprAsm sd (InstanceOf refType expr) = ["; instanceOf"] ++ genExprAsm sd expr
 genExprAsm sd (Cast refType expr) = ["; Casting"] ++ genExprAsm sd expr
-genExprAsm sd (ID (Right symbol)) = ["; variable named " ++ (localName symbol) ++ " symbol: " ++ (show symbol)]
+genExprAsm sd (ID (Right (offthis, symbol))) = ["; variable named " ++ (localName symbol) ++ " symbol: " ++ (show symbol)]
 genExprAsm sd (ID (Left offset)) = if offset < 0
                                       then ["mov eax, [ebp + " ++ show distanceN ++ "];" ++ show offset]
                                       else ["mov eax, [ebp - " ++ show distanceP ++ "];" ++ show offset]
@@ -566,7 +565,7 @@ genExprAsm sd NOOP = ["; NOOP"]
 genExprLhsAsm sd (ID (Left offset)) =
   let distance = (offset + 1) * 4
   in ["lea eax, [ebp - " ++ show distance ++ "] ; LHS for assignment"]
-genExprLhsAsm sd (ID (Right symbol)) = ["; LHS Right symbol for assignment"]
+genExprLhsAsm sd (ID (Right (offthis, symbol))) = ["; LHS Right symbol for assignment"]
 genExprLhsAsm sd (ArrayAccess sym expr expri) = genExprAsm sd (FunctionCall sym [expr, expri])
 genExprLhsAsm sd (Attribute struct sym) = refCode ++ ["mov eax, [eax]", "add eax, " ++ show (instanceSYMOffset * 4)]
   where
