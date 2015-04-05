@@ -401,7 +401,7 @@ genMthdAsm sd cc (MC name symbol definition)
   | otherwise = header ++ body ++ ending
   where
     isConstructor = elem "cons" $ symbolModifiers symbol
-    label = generateLabelFromFUNC symbol 0
+    label = (funcLabel sd) ! symbol
     header = ["global " ++ label, label ++ ":", "; Start a new stack frame", "push ebp", "mov ebp, esp"]
     body = concat $ map (genStmtAsm sd) definition
     ending = ["jmp __exit_portal", "; End of " ++ last name]
