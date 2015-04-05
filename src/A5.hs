@@ -237,7 +237,8 @@ main' givenFileNames = do
   mapM (\(_, cls, fn) -> writeFile ("output/" ++ (filenamef fn) ++ ".s") $ unlines . (genAsm sd) $ fromJust cls) reconstructedCLASS'
 
   let startFunction = methodSymbol . head $ filter (\mthd -> "test" == (last . methodName $ mthd)) (classMethods . fromJust $ firstClass)
-  let startFunctionLabel = generateLabelFromFUNC startFunction 0
+  let startFunctionLabel = case lookup startFunction staticFUNCLabelMap of
+                             Just lb -> lb
 
   writeFile "output/main.s" $ unlines ["global _start",
                                        "extern " ++ startFunctionLabel,
