@@ -162,10 +162,14 @@ buildEnvironmentFromConstructor :: SemanticUnit -> Constructor -> Environment
 buildEnvironmentFromConstructor parent con@(Cons constructorModifiers constructorName constructorParameters constructorInvocation constructorDefinition consi) = ENV su ch
     where
         cname' = ((scope parent) ++ [constructorName])
+        [CL _ _ _ unit] = symbolTable (inheritFrom parent)
+        msuper = extends $ definition $ unit
+        
         sym = buildSymbolFromConstructor (scope parent) con
         syms = (map (buildSymbolFromParameter cname') constructorParameters)
         su = (SU cname' (Method sym) syms parent)
-        stmts = if isNothing constructorInvocation then [] else [Expr (fromJust constructorInvocation)]
+        --stmts = if isNothing constructorInvocation then [] else [Expr (fromJust constructorInvocation)]
+        stmts = [Expr (Super msuper)]
         stmts' = if isNothing constructorDefinition then stmts else stmts ++(statements (fromJust constructorDefinition))
         ch = [buildEnvironmentFromStatements su stmts']
 

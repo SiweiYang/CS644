@@ -420,6 +420,7 @@ data Expression = Unary { op :: String, expr :: Expression, depth :: Int}
                 | ID { identifier :: Name, depth :: Int }
                 | Value { valuetype :: Type, value :: String, depth :: Int }
                 | This
+                | Super { super :: Maybe [String]}
                 | Null
                 deriving (Eq, Show)
 

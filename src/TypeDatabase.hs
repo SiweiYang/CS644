@@ -161,7 +161,7 @@ dumpDB tn@(TN sym nodes) = map (typeToName . localType . symbol) (dumpDBNodes tn
 dumpDBNodes :: TypeNode -> [TypeNode]
 
 dumpDBNodes tn@(TN sym nodes) = case tn of
-                                  TN (PKG "joosc native") _ -> []
+                                  --TN (PKG "joosc native") _ -> []
 				  _ -> if isConcreteNode tn then [tn] else concat $ map dumpDBNodes nodes
 
 traverseNodeEntry :: TypeNode -> [String] -> Maybe TypeNode

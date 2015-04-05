@@ -87,6 +87,7 @@ filterNonFunction _ = True
 ---------------------------------------------------------------------------------------------------------
 
 typeLinkingExpr :: TypeNode -> [[String]] -> SemanticUnit -> Expression -> [Type]
+typeLinkingExpr db imps su (Super _) = [TypeVoid]
 typeLinkingExpr db imps su Null = [TypeNull]
 typeLinkingExpr db imps su (Unary op expr _) = case op of
                                                 "!" -> if null $ castConversion db tp TypeBoolean then typeLinkingFailure "Unary !" else [tp]

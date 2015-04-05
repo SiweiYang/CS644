@@ -78,10 +78,10 @@ createInstanceFUNCID db = fromList (zip syms [0..])
     syms = sort $ filter (\(FUNC mds _ _ _ _) -> not $ elem "static" mds) $ map symbol $ filter isFUNCNode $ concat $ map subNodes (dumpDBNodes db)
 
 createStaticFUNCID :: TypeNode -> Map Symbol Int
-createStaticFUNCID db = fromList (zip syms' [0..])
+createStaticFUNCID db = fromList (zip syms [0..])
   where
     syms = sort $ filter (\(FUNC mds _ _ _ _) -> elem "static" mds) $ map symbol $ filter isFUNCNode $ concat $ map subNodes (dumpDBNodes db)
-    syms' = (symbol runtimeMalloc):syms
+    --syms' = (symbol runtimeMalloc):syms
 
 createStaticFUNCLabel :: TypeNode -> Map Symbol String
 createStaticFUNCLabel db = fromList pairs

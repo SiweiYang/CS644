@@ -1,8 +1,9 @@
 module CodeConstruct where
 
-import           Data.Map (Map, (!))
+import           Prelude hiding (lookup)
+import           Data.Map (Map, (!), lookup)
 import           Data.Char
-import           Data.List
+import           Data.List hiding (lookup)
 import           Data.Maybe
 import           Data.Either
 
@@ -171,44 +172,54 @@ buildDFStatement db imps nesting (ENV su@(SU _ ForBlock st _) ch) = (DFFor inits
 ------------------------------------------
 
 data DFExpression = FunctionCall Symbol [DFExpression]
-                  | ArrayAccess Symbol DFExpression DFExpression
-                  | Unary { op :: String, expr :: DFExpression }
-                  | Binary { op :: String, exprL :: DFExpression, exprR :: DFExpression }
-                  | Attribute { struct :: DFExpression, mem :: Symbol }
-                  | InstanceOf { reftype :: Type, expr :: DFExpression }
-                  | Cast {reftype :: Type, expr :: DFExpression }
-                  | ID { identifier :: Either Int Symbol }
-                  | Value { valuetype :: Type, value :: String }
-                  | Null
-                  | NOOP
-                  deriving (Show)
+                   | ArrayAccess Symbol DFExpression DFExpression
+                   | Unary { op :: String, expr :: DFExpression }
+                   | Binary { op :: String, exprL :: DFExpression, exprR :: DFExpression }
+                   | Attribute { struct :: DFExpression, mem :: Symbol }
+                   | InstanceOf { reftype :: Type, expr :: DFExpression }
+                   | Cast {reftype :: Type, expr :: DFExpression }
+                   | ID { identifier :: Either Int Symbol }
+                   | Value { valuetype :: Type, value :: String }
+                   | Super { offset :: Int, super :: Maybe Symbol }
+                   | Null
+                   | NOOP
+                   deriving (Show)
 
 
 buildDFExpression :: TypeNode -> [[String]] -> SemanticUnit -> [Type] -> Expression -> DFExpression
 -- trivial ones
 buildDFExpression db imps su tps AST.Null = Null
 buildDFExpression db imps su tps AST.This = ID (Left $ thisOffset su)
+buildDFExpression db imps su tps (AST.Super msuper) = case msuper of
+                                                        Nothing -> Super (thisOffset su) Nothing
+                                                        Just nm -> let [tp] = take 1 (traverseTypeEntryWithImports db imps nm)
+                                                                       [sym] = getSymbol db tp
+                                                                   in Super (thisOffset su) (Just sym)
 buildDFExpression db imps su tps (AST.Value t v _) = Value t v
-buildDFExpression db imps su tps e@(AST.CastA _ _ expr _) = Cast tp (buildDFExpression db imps su tps expr)
+buildDFExpression db imps su tps e@(AST.CastA _ _ expr _) = Cast tp (buildDFExpression db imps su [] expr)
   where
     [tp] = typeLinkingExpr db imps su e
-buildDFExpression db imps su tps e@(AST.CastB _ expr _) = Cast tp (buildDFExpression db imps su tps expr)
+buildDFExpression db imps su tps e@(AST.CastB _ expr _) = Cast tp (buildDFExpression db imps su [] expr)
   where
     [tp] = typeLinkingExpr db imps su e
-buildDFExpression db imps su tps e@(AST.CastC _ _ expr _) = Cast tp (buildDFExpression db imps su tps expr)
+buildDFExpression db imps su tps e@(AST.CastC _ _ expr _) = Cast tp (buildDFExpression db imps su [] expr)
   where
     [tp] = typeLinkingExpr db imps su e
 -- with modification to be more specific
-buildDFExpression db imps su tps e@(AST.ID n@(AST.Name cname@[nm]) _) = if take (length baseName) (init ls) == baseName
+buildDFExpression db imps su tps e@(AST.ID n@(AST.Name cname@[nm]) _) = if take (length baseName) (init (localScope sym)) == baseName
                                                                        then let offset = (scopeOffset su sym) in
                                                                          if offset >= 0 then ID (Left offset) else ID (Left offset)
                                                                        else ID (Right sym)
   where
-    --ls = case symbolLinkingName db imps su n of
-            --[sym@(SYM _ ls' _ _)] -> ls'
-            --err -> error $ "resolving ID " ++ (show e) ++ (show $  inheritFrom su)
-    --sym = head $ symbolLinkingName db imps su n
-    [sym@(SYM _ ls _ _)] = symbolLinkingName db imps su n
+    syms = symbolLinkingName db imps su n
+    sym = case if tps == [] then syms else [sym | sym <- syms, elem (symbolToType' sym) tps] of
+            [sym] -> sym
+            err -> error $ (show err) ++ (show syms) ++ (show tps)
+    {-
+    [sym@(SYM _ ls _ _)] = case symbolLinkingName db imps su n of
+                             [sym@ (SYM _ _ _ _)] -> [sym]
+                             err -> error $ show su
+    -}
     baseName = (AST.typeToName . lookUpThis) su
 buildDFExpression db imps su tps e@ (AST.ID n@(AST.Name cname@(nm:remain)) _) = if elem "static" (symbolModifiers sym)
                                                                                   then ID (Right sym)
@@ -229,8 +240,8 @@ buildDFExpression db imps su tps e@(AST.Attribute expr mem _) = Attribute (build
 
 -- replace with function calls
 buildDFExpression db imps su tps e@(AST.FunctionCall expr args _) = if elem "static" (symbolModifiers sym)
-                                                                      then FunctionCall sym $ exprL:(map (buildDFExpression db imps su []) args)
-                                                                      else FunctionCall sym (map (buildDFExpression db imps su []) args)
+                                                                      then FunctionCall sym (map (buildDFExpression db imps su []) args)
+                                                                      else FunctionCall sym $ exprL:(map (buildDFExpression db imps su []) args)
   where
     syms = symbolLinkingExpr db imps su e
     [sym] = if tps == [] then syms else [sym | sym <- syms, elem (symbolToType' sym) tps]
@@ -437,13 +448,19 @@ genOpAsm "=" = ["mov [eax], ebx"]
 
 genExprAsm :: SymbolDatabase ->  DFExpression -> [String]
 
+genExprAsm sd (Super offset msuper) = [";call " ++ (show msuper) ++ " and then call init with this at " ++ (show offset)]
+
 genExprAsm sd (FunctionCall callee arguments) =
   let argumentCode = ((intersperse "push eax") . concat $ map (genExprAsm sd) arguments) ++ ["push eax"]
       FUNC mds _ _ _ _ = callee
       staticFUNCMap = funcLabel sd
-      staticFUNCLabel = staticFUNCMap ! callee
+      staticFUNCLabel = case lookup callee staticFUNCMap of
+                          Just lb -> lb
+                          Nothing -> error (show callee)
       instanceFUNCMap = instanceFUNCOffsetMap sd
-      instanceFUNCOffset = instanceFUNCMap ! callee
+      instanceFUNCOffset = case lookup callee instanceFUNCMap of
+                             Just offset -> offset
+                             Nothing -> error (show callee)
       argThis = head arguments
       cleanupCode = ["add esp, " ++ (show $ 4 * (length arguments)) ++ " ; Pop arguments"]
   in ["; Function call to" ++ localName callee, "; arguments"] ++
@@ -451,7 +468,7 @@ genExprAsm sd (FunctionCall callee arguments) =
      if elem "static" mds
         then ["call " ++ staticFUNCLabel]
         else (genExprAsm sd argThis) ++ 
-             ["mov eax, [eax]", "mov eax, [eax + 8]", "jmp eax + " ++ show (instanceFUNCOffset * 4) , ";goto VF Table + offset = " ++ show instanceFUNCOffset] 
+             ["mov eax, [eax]", "mov eax,[eax + 8]", "jmp eax + " ++ show (instanceFUNCOffset * 4) , ";goto VF Table + offset = " ++ show instanceFUNCOffset] 
      ++ cleanupCode
 
 genExprAsm sd (ArrayAccess sym expr expri) = 
@@ -526,6 +543,7 @@ genExprLhsAsm sd (ArrayAccess sym expr expri) = genExprAsm sd (FunctionCall sym 
 genExprLhsAsm sd (Attribute struct sym) = refCode ++ ["mov eax, [eax]", "mov eax, eax + " ++ show (instanceSYMOffset * 4)]
   where
     instanceSYMMap = instanceSYMOffsetMap sd
-    instanceSYMOffset = instanceSYMMap ! sym
+    instanceSYMOffset = case lookup sym instanceSYMMap of
+                          Just offset -> offset
     refCode = genExprAsm sd struct
 
