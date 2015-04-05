@@ -1,7 +1,7 @@
 module CodeConstruct where
 
 import           Prelude hiding (lookup)
-import           Data.Map (Map, (!), lookup)
+import           Data.Map (Map, (!), lookup, assocs)
 import           Data.Char
 import           Data.List hiding (lookup)
 import           Data.Maybe
@@ -145,7 +145,7 @@ buildDFStatement db imps nesting (ENV su@(SU scope (IfBlock expr) _ _) ch) = (DF
   where
     [ifpart, elsepart, remain] = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
     dfexpr = buildDFExpression db imps su [] expr
-    
+
 buildDFStatement db imps nesting (ENV su@(SU _ (Ret expr) _ _) ch) = (DFReturn dfexpr):remain
   where
     [remain] = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
@@ -193,8 +193,10 @@ buildDFExpression db imps su tps AST.This = ID (Left $ thisOffset su)
 buildDFExpression db imps su tps (AST.Super msuper) = case msuper of
                                                         Nothing -> Super (thisOffset su) Nothing
                                                         Just nm -> let [tp] = take 1 (traverseTypeEntryWithImports db imps nm)
+                                                                       Just tn = getTypeEntry db tp
+                                                                       [con] = [sym | sym@(FUNC mds _ _ pt _) <- map symbol $ subNodes tn, elem "cons" mds, pt == []]
                                                                        [sym] = getSymbol db tp
-                                                                   in Super (thisOffset su) (Just sym)
+                                                                   in Super (thisOffset su) (Just con)
 buildDFExpression db imps su tps (AST.Value t v _) = Value t v
 buildDFExpression db imps su tps e@(AST.CastA _ _ expr _) = Cast tp (buildDFExpression db imps su [] expr)
   where
@@ -357,11 +359,14 @@ genLabel :: [Int] -> String
 genLabel nesting = concat $ intersperse "_" $ map show nesting
 
 genAsm :: SymbolDatabase -> ClassConstruct -> [String]
-genAsm sd cc@(CC name fields sym methods) = ["; Code for: " ++ concat name] ++ vtfCode ++ classIDCode ++ prefaceCode ++ fieldCode ++ initializerCode ++ methodCode
+genAsm sd cc@(CC name fields sym methods) = ["; Code for: " ++ concat name] ++ externCode ++ vtfCode ++ classIDCode ++ prefaceCode ++ fieldCode ++ initializerCode ++ methodCode
   where
     prefaceCode = ["section .text"] ++ ["_exit_portal:", "mov esp, ebp", "pop ebp", "ret"]
     classid = (typeIDMap sd) ! sym
     classIDCode = ["_classid:"] ++ ["dd " ++ (show classid)]
+    externs = assocs (funcLabel sd)
+    externLabels = map snd externs
+    externCode = ["extern " ++ (concat $ intersperse "," externLabels)]
     fieldCode = concat $ map (genFieldAsm sd) fields
     methodCode = concat $ map (genMthdAsm sd cc) methods
     vtfCode = genAsmVirtualTable sd cc
@@ -496,11 +501,11 @@ genExprAsm sd (FunctionCall callee arguments) =
      argumentCode ++
      if elem "static" mds
         then ["call " ++ staticFUNCLabel]
-        else (genExprAsm sd argThis) ++ 
-             ["mov eax, [eax]", "mov eax, [eax + 4]", "call [eax + " ++ show (instanceFUNCOffset * 4) ++ "] ; goto VF Table + offset = " ++ show instanceFUNCOffset] 
+        else (genExprAsm sd argThis) ++
+             ["mov eax, [eax]", "mov eax, [eax + 4]", "call [eax + " ++ show (instanceFUNCOffset * 4) ++ "] ; goto VF Table + offset = " ++ show instanceFUNCOffset]
      ++ cleanupCode
 
-genExprAsm sd (ArrayAccess sym expr expri) = 
+genExprAsm sd (ArrayAccess sym expr expri) =
   let refCode = genExprAsm sd (FunctionCall sym [expr, expri])
   in refCode ++
      ["mov eax, [eax]"]
@@ -514,7 +519,7 @@ genExprAsm sd (Unary op expr) =
 
 genExprAsm sd (Binary op exprL exprR) =
   let
-      rightCode = genExprAsm sd exprR      
+      rightCode = genExprAsm sd exprR
       opCode = genOpAsm op
       leftCode = case op of
         "=" -> genExprLhsAsm sd exprL
@@ -565,7 +570,6 @@ genExprAsm sd (Value AST.TypeBoolean "true") = ["mov eax, 1"]
 genExprAsm sd (Value AST.TypeBoolean "false") = ["mov eax, 0"]
 genExprAsm sd (Value AST.TypeNull _) = ["mov eax, 0"]
 genExprAsm sd (Value valuetype value) = ["; XXX: Unsupported value: " ++ value]
---genExprAsm This = ["mov eax, 0; This"]
 genExprAsm sd Null = ["; Null", "mov eax, 0"]
 genExprAsm sd NOOP = ["; NOOP"]
 
