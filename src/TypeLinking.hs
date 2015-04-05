@@ -374,6 +374,7 @@ scopeOffset su sym = case kd of
 
 thisOffset :: SemanticUnit -> Int
 thisOffset su = case kd of
+                    Class -> -1
                     Method _ -> -1 - (length syms)
                     _ -> thisOffset (inheritFrom su)
     where

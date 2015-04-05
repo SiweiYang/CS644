@@ -357,12 +357,14 @@ genLabel :: [Int] -> String
 genLabel nesting = concat $ intersperse "_" $ map show nesting
 
 genAsm :: SymbolDatabase -> ClassConstruct -> [String]
-genAsm sd cc@(CC name fields sym methods) = ["; Code for: " ++ concat name] ++ vtf ++ prefaceCode ++ fieldCode ++ initializerCode ++ methodCode
+genAsm sd cc@(CC name fields sym methods) = ["; Code for: " ++ concat name] ++ vtfCode ++ classIDCode ++ prefaceCode ++ fieldCode ++ initializerCode ++ methodCode
   where
     prefaceCode = ["section .text"] ++ ["_exit_portal:", "mov esp, ebp", "pop ebp", "ret"]
+    classid = (typeIDMap sd) ! sym
+    classIDCode = ["_classid:"] ++ ["dd " ++ (show classid)]
     fieldCode = concat $ map (genFieldAsm sd) fields
     methodCode = concat $ map (genMthdAsm sd cc) methods
-    vtf = genAsmVirtualTable sd cc
+    vtfCode = genAsmVirtualTable sd cc
     initializerCode = ["; Start a stack frame for initializer", "_initializer:", "push ebp", "mov ebp, esp"]
                       ++ exprs
                       ++ initializerCodeEnding
@@ -571,11 +573,17 @@ genExprLhsAsm sd (ID (Left offset)) =
   let distance = (offset + 1) * 4
   in ["lea eax, [ebp - " ++ show distance ++ "] ; LHS for assignment"]
 
-genExprLhsAsm sd (ID (Right (offthis, symbol))) = ["; LHS Right symbol for assignment"] ++
-                                                  ["mov eax, [ebp + " ++ (show distance) ++ "]", "add eax, " ++ (show symoffset)]
+genExprLhsAsm sd (ID (Right (offthis, symbol))) = ["; LHS Right symbol for assignment"] ++ code
   where
     distance = (offthis - 1) * (-4)
-    symoffset = ((instanceSYMOffsetMap sd) ! symbol) * 4
+    instanceSYMMap = instanceSYMOffsetMap sd
+    staticSYMMap = staticSYMLabelMap sd
+    nonstaticRes = lookup symbol instanceSYMMap
+    staticRes = lookup symbol staticSYMMap
+    code = case (nonstaticRes, staticRes) of
+              (Nothing, Nothing) -> error $ show "ID: cannot find symbol"
+              (Just offset, _) -> ["mov eax, [ebp + " ++ (show distance) ++ "]", "add eax, " ++ (show offset)]
+              (_, Just label) -> ["mov eax, " ++ (show label)]
 
 genExprLhsAsm sd (ArrayAccess sym expr expri) = genExprAsm sd (FunctionCall sym [expr, expri])
 genExprLhsAsm sd (Attribute struct sym) = refCode ++ ["mov eax, [eax]", "add eax, " ++ show (instanceSYMOffset * 4)]
