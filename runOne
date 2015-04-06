@@ -12,4 +12,6 @@ done
 nasm -O1 -f elf -g -F dwarf -o output/runtime.o assignment_testcases/stdlib2/runtime.s
 echo "* ld"
 ld -melf_i386 -o main output/*.o
+./main
+echo $?
 

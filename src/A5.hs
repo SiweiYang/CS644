@@ -244,7 +244,14 @@ main' givenFileNames = do
                              Just lb -> lb
   let factor = (length (toAscList typeIDMap))
 
-  writeFile "output/main.s" $ unlines ["global _start",
+
+  let unorderStaticInitialCode = map (\x -> (symbolToCN . classSymbol $ x, classInitializer x)) constructs
+  let nameStaticCodeMap = fromList unorderStaticInitialCode
+  let staticInitialCode = concat $ map (genExprAsm sd) $ concat $ map (\x -> fromJust $ lookup x nameStaticCodeMap) ordering
+  --hPutStrLn stderr $ "--------------------------------\n" ++ (show staticInitialCode)
+
+
+  writeFile "output/main.s" $ unlines $ ["global _start",
                                        "extern " ++ startFunctionLabel,
                                        "section .data",
                                        concat $ createStaticSYMASM db',
@@ -255,10 +262,8 @@ main' givenFileNames = do
                                        concat $ map snd stringData,
                                        "section .text",
                                        "global get_characteristics", "get_characteristics:", "imul eax, [characteristics_factor]", "add eax, ebx", "imul eax, 4", "mov ebx, __characteristics", "add eax, ebx", "mov eax, [eax]", "ret",
-                                       "_start:",
-                                       "call " ++ startFunctionLabel,
-                                       "mov ebx, eax",
-                                       "mov eax, 1",
-                                       "int 0x80"]
+                                       "_start:"]
+                                       ++ staticInitialCode
+                                       ++ ["call " ++ startFunctionLabel, "mov ebx, eax", "mov eax, 1", "int 0x80"]
 
     -- eax -> Object ID, ebx -> Class ID

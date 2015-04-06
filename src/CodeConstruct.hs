@@ -57,7 +57,7 @@ data InstanceConstruct = IC {
 -}
 
 objectInitializer :: ClassConstruct -> [DFExpression]
-objectInitializer (CC cname flds sym mtds) = map newexpr nonstatic
+objectInitializer (CC _ flds sym _) = map newexpr nonstatic
   where
     nonstatic = filter (not . isStatic) flds
     capsule = \sym -> ID $ Right (-1, sym)
@@ -65,6 +65,14 @@ objectInitializer (CC cname flds sym mtds) = map newexpr nonstatic
     initialvalue = \expr tp -> if isNothing expr then initialTPvalue tp else fromJust expr
     newexpr = \(FT _ tp sym expr _) -> Binary "=" (capsule sym) (initialvalue expr tp)
 
+classInitializer :: ClassConstruct -> [DFExpression]
+classInitializer (CC _ flds sym _) = map newexpr static
+  where
+    static = filter isStatic flds
+    capsule = \sym -> ID $ Right (0, sym)
+    initialTPvalue = \tp -> if isPrimitive tp then (Value AST.TypeInt "0") else Null
+    initialvalue = \expr tp -> if isNothing expr then initialTPvalue tp else fromJust expr
+    newexpr = \(FT _ tp sym expr _) -> Binary "=" (capsule sym) (initialvalue expr tp)
 
 ---------------------------------------------------------------
 
