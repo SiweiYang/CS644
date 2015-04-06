@@ -561,6 +561,8 @@ genOpAsm "&" = ["and eax, ebx"]
 genOpAsm "|" = ["or eax, ebx"]
 genOpAsm "=" = ["mov [eax], ebx", "mov eax, [eax]"]
 
+checkNull = ["cmp eax, 0", "je __exception"]
+
 genExprAsm :: SymbolDatabase ->  DFExpression -> [String]
 
 genExprAsm sd (Super offset msuper) = [";call " ++ (show msuper) ++ " and then call init with this at " ++ (show offset)] ++ getThis ++ callSuperCode
@@ -591,7 +593,7 @@ genExprAsm sd (FunctionCall callee arguments) =
      argumentsCode ++
      (if elem "static" mds || elem "cons" mds
         then ["call " ++ staticFUNCLabel]
-        else ["mov eax, [esp + " ++ (show $ ((length arguments) - 1) * 4) ++ "]"] ++
+        else ["mov eax, [esp + " ++ (show $ ((length arguments) - 1) * 4) ++ "]"] ++ checkNull ++
              ["mov eax, [eax + 4]", "call [eax + " ++ show (instanceFUNCOffset * 4) ++ "] ; goto VF Table + offset = " ++ show (length (assocs instanceFUNCMap))])
              --- using __vft
      ++ cleanupCode
@@ -622,7 +624,7 @@ genExprAsm sd (Binary op exprL exprR) =
      ["mov ebx, eax", "pop eax ; Pop right value from stack"] ++
      opCode
 
-genExprAsm sd (Attribute struct member) = (genExprLhsAsm sd (Attribute struct member)) ++ ["mov eax, [eax]"]
+genExprAsm sd (Attribute struct member) = (genExprLhsAsm sd (Attribute struct member)) ++ checkNull ++ ["mov eax, [eax]"]
 
 {-
 genExprAsm (ArrayAccess array index) =
@@ -655,13 +657,13 @@ genExprAsm sd (Cast refType expr) = ["; Casting"] ++ exprCode ++ backupCode ++ c
                                  in getcharacteristics ++ checkException
 
 
-genExprAsm sd expr@(ID (Right (offthis, symbol))) = ["; variable named " ++ (localName symbol) ++ " symbol: " ++ (show symbol)] ++ reduction ++ getvalue
+genExprAsm sd expr@(ID (Right (offthis, symbol))) = ["; variable named " ++ (localName symbol) ++ " symbol: " ++ (show symbol)] ++ reduction ++ checkNull ++ getvalue
   where
     reduction = genExprLhsAsm sd expr
     getvalue = ["mov eax, [eax]"]
 
 
-genExprAsm sd expr@(ID (Left offset)) = reduction ++ getvalue
+genExprAsm sd expr@(ID (Left offset)) = ["; ID offset " ++ (show offset)] ++ reduction ++ checkNull ++ getvalue
   where
     reduction = genExprLhsAsm sd expr
     getvalue = ["mov eax, [eax]"]
@@ -711,7 +713,7 @@ genExprLhsAsm sd (ID (Right (offthis, symbol))) = ["; LHS Right symbol for assig
               (_, Just label) -> ["mov eax, " ++ label]
 
 genExprLhsAsm sd (ArrayAccess sym expr expri) = genExprAsm sd (FunctionCall sym [expr, expri])
-genExprLhsAsm sd (Attribute struct sym) = refCode ++ ["add eax, " ++ show (instanceSYMOffset * 4)]
+genExprLhsAsm sd (Attribute struct sym) = refCode ++ checkNull ++ ["add eax, " ++ show (instanceSYMOffset * 4)]
   where
     instanceSYMMap = instanceSYMOffsetMap sd
     instanceSYMOffset = case lookup sym instanceSYMMap of
