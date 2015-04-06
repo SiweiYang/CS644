@@ -336,8 +336,13 @@ refineEnvironmentWithType db imps parent (ENV su ch) = case (isJust k', dropWhil
                                                         (True, [], []) -> Just (ENV su' (map fromJust ch'))
                                                         _ -> Nothing
     where
-        (SU cname k syms _) = su
+        (SU cname k syms oldparent) = su
         k' = refineKindWithType db imps k
         syms' = map (refineSymbolWithType db imps) syms
         su' = (SU cname (fromJust k') (map fromJust syms') parent)
-        ch' = map (refineEnvironmentWithType db imps su') ch
+        --ch' = map (refineEnvironmentWithType db imps su') ch
+        ch' = map whoisdaddy ch
+        whoisdaddy = \x -> if x == ENVE then Just ENVE else
+                            (if (inheritFrom . semantic $ x) == oldparent
+                            then (refineEnvironmentWithType db imps parent x)
+                            else (refineEnvironmentWithType db imps su' x))

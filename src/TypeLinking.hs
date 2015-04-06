@@ -57,8 +57,12 @@ typeLinkingCheck db imps (ENV su c) = if (elem Nothing imps') || (null cts') the
 
                 ForBlock -> let typeCond = cts !! 1
                                 casting = castConversion db (head typeCond) TypeBoolean in
-                            if (null typeCond) || (null casting) then typeLinkingFailure $ "For condition: " ++ (show typeCond) else cts'
-
+                            case (typeCond, casting) of
+                                ([], _) -> typeLinkingFailure $ "For condition: " ++ (show typeCond)
+                                ([TypeVoid], _) -> cts'
+                                ([TypeBoolean], _) -> cts'
+                                (_, []) -> typeLinkingFailure $ "For condition: " ++ (show typeCond)
+                                (_, _) -> cts'
 
                 WhileBlock expr -> let typeExpr = typeLinkingExpr db imps su expr
                                        condition = (not . null $ typeExpr) && (length typeExpr == 1) && (not . null $ castConversion db (head typeExpr) TypeBoolean) in
@@ -426,16 +430,15 @@ checkSameNameInEnvironment (ENV su chs) = or $ map checkSameNameInEnvironment ch
 checkSameNameUp :: SemanticUnit -> [Symbol] -> Bool
 checkSameNameUp (Root _) accst = checkSameNameInSymbolTable accst
 checkSameNameUp su@(SU _ kd st parent) accst = case kd of
-                                                Method _ -> res || checkSameNameUp parent []
-                                                Interface -> res || checkSameNameUp parent []
-                                                Class -> res || checkSameNameUp parent []
-                                                _ -> checkSameNameUp parent nextst
+                                                    Method _ -> res || checkSameNameUp parent []
+                                                    Interface -> res || checkSameNameUp parent []
+                                                    Class -> res || checkSameNameUp parent []
+                                                    _ -> checkSameNameUp parent nextst
     where
         nextst = accst ++ st
         res = functionCheck || checkSameNameInSymbolTable nextst
         
         functionCheck = length cons /= (length . nub) cons || length funcs /= (length . nub) funcs
-        cname = lookUpThis su
         cons = [(ln, pt) | f@(FUNC mds _ ln pt lt) <- st, elem "cons" mds]
         funcs = [(ln, pt) | f@(FUNC mds _ ln pt lt) <- st, not $ elem "cons" mds]
 
