@@ -245,15 +245,17 @@ main' givenFileNames = do
   let factor = (length (toAscList typeIDMap))
 
 
-  let unorderStaticInitialCode = map (\x -> (symbolToCN . classSymbol $ x, classInitializer x)) constructs
-  let nameStaticCodeMap = fromList unorderStaticInitialCode
-  let staticInitialCode = concat $ map (genExprAsm sd) $ concat $ map (\x -> fromJust $ lookup x nameStaticCodeMap) ordering
+  let unorderClassID = map (\x -> (symbolToCN . classSymbol $ x, fromJust $ lookup (classSymbol x) typeIDMap)) constructs
+  let nameClassIDMap = fromList unorderClassID
+  let staticInitialList = map (\x -> "__class_" ++ (show $ fromJust $ lookup x nameClassIDMap) ++ "_static_initializer") ordering
+  let externStaticInit = map (\x -> "extern " ++ x) staticInitialList
+  let callStaticInit = map (\x -> "call " ++ x) staticInitialList
   --hPutStrLn stderr $ "--------------------------------\n" ++ (show staticInitialCode)
 
-
   writeFile "output/main.s" $ unlines $ ["global _start",
-                                       "extern " ++ startFunctionLabel,
-                                       "section .data",
+                                       "extern " ++ startFunctionLabel]
+                                       ++ externStaticInit ++
+                                       ["section .data",
                                        concat $ createStaticSYMASM db',
                                        "global __characteristics", "__characteristics:",
                                        concat $ map (\cond -> if cond then "dd 1\n" else "dd 0\n") typeCharacteristicBM,
@@ -263,7 +265,7 @@ main' givenFileNames = do
                                        "section .text",
                                        "global get_characteristics", "get_characteristics:", "imul eax, [characteristics_factor]", "add eax, ebx", "imul eax, 4", "mov ebx, __characteristics", "add eax, ebx", "mov eax, [eax]", "ret",
                                        "_start:"]
-                                       ++ staticInitialCode
+                                       ++ callStaticInit
                                        ++ ["call " ++ startFunctionLabel, "mov ebx, eax", "mov eax, 1", "int 0x80"]
 
     -- eax -> Object ID, ebx -> Class ID
