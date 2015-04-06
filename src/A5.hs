@@ -1,7 +1,7 @@
 module Main where
 
 import Prelude hiding (lookup)
-import Data.List(find, partition, intercalate)
+import Data.List(nub, find, partition, intercalate)
 import Data.Maybe
 import Data.Map(size, lookup, fromList, toAscList)
 import System.Environment
@@ -22,6 +22,7 @@ import TypeLinking
 import Weeder
 import CodeConstruct
 import Inheritance
+import Generation
 
 main :: IO ()
 main = do
@@ -225,8 +226,10 @@ main' givenFileNames = do
   hPutStrLn stderr $ show [cls | (_,Just cls, fn) <- reconstructedCLASS, (take 10 $ reverse fn) == reverse "Array.java"]
 
   let ordering = createClassInitOrdering constructs
+  let strings = nub $ concat $ map listStringFromClass constructs
+  let (stringLabels, stringData) = generateForStrings strings
   let sd = SD db' (fromList $ (toAscList instanceFUNCLabelMap) ++ (toAscList staticFUNCLabelMap)) instanceSYMOffsetMap instanceFUNCIDMap staticSYMLabelMap instanceFUNCTable typeIDMap
-  hPutStrLn stderr $ show ordering
+  hPutStrLn stderr $ show strings
   --hPutStrLn stderr $ show $ symbolLinkingName db' [] (Root []) (AST.Name ["joosc native", "Array", "get"])
   -- do
     --hPutStrLn stderr (intercalate "\n------------------------\n" $ map (\(_, x, _) -> show x) reconstructedCLASS)
@@ -239,18 +242,19 @@ main' givenFileNames = do
   let startFunction = methodSymbol . head $ filter (\mthd -> "test" == (last . methodName $ mthd)) (classMethods . fromJust $ firstClass)
   let startFunctionLabel = case lookup startFunction staticFUNCLabelMap of
                              Just lb -> lb
-  let factor = 10
+  let factor = (length (toAscList typeIDMap))
 
   writeFile "output/main.s" $ unlines ["global _start",
                                        "extern " ++ startFunctionLabel,
                                        "section .data",
                                        concat $ createStaticSYMASM db',
-                                       "global characteristics", "characteristics:",
+                                       "global __characteristics", "__characteristics:",
                                        concat $ map (\cond -> if cond then "dd 1\n" else "dd 0\n") typeCharacteristicBM,
                                        "characteristics_factor:",
                                        "dd " ++ (show factor),
+                                       concat $ map snd stringData,
                                        "section .text",
-                                       "global get_characteristics", "get_characteristics:", "imul eax, [characteristics_factor]", "add eax, ebx", "mov eax, [eax + characteristics]", "ret",
+                                       "global get_characteristics", "get_characteristics:", "imul eax, [characteristics_factor]", "add eax, ebx", "imul eax, 4", "mov ebx, __characteristics", "add eax, ebx", "mov eax, [eax]", "ret",
                                        "_start:",
                                        "call " ++ startFunctionLabel,
                                        "mov ebx, eax",

@@ -95,13 +95,13 @@ for dir in $( ls -d assignment_testcases/a5/J[!e]*/ ); do
 done
 
 echo "Negatives Folder"
-for dir in $( ls -d assignment_testcases/${testSuite}/Je*/ ); do
+for dir in $( ls -d assignment_testcases/a5/Je*/ ); do
     run_bad_test_dir $dir
     check_bad $dir
 done
 
 echo "Negatives Single File"
-for file in $( echo assignment_testcases/${testSuite}/Je*.java ); do
+for file in $( echo assignment_testcases/a5/Je*.java ); do
     run_bad_test $file
     check_bad $file
 done

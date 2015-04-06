@@ -338,6 +338,34 @@ listStaticSYMFromDFExpr (ID (Right (_, sym))) = case sym of
                                                     _ -> []
 listStaticSYMFromDFExpr _ = []
 
+listStringFromClass :: ClassConstruct -> [String]
+listStringFromClass (CC cname ft sym mtdc) = flds ++ mtds
+  where
+    flds = concat [listStringFromDFExpr expr | Just expr <- map fieldInit ft]
+    mtds = concat $ map listStringFromStatement $ concat $ map methodDefinition mtdc
+
+listStringFromStatement :: DFStatement -> [String]
+listStringFromStatement (DFIf expr stmts1 stmts2 _) = (listStringFromDFExpr expr) ++ (concat $ map listStringFromStatement (stmts1 ++ stmts2))
+listStringFromStatement (DFWhile expr stmts _) = (listStringFromDFExpr expr) ++ (concat $ map listStringFromStatement (stmts))
+listStringFromStatement (DFFor stmt1 expr stmt2 stmts _) = (listStringFromDFExpr expr) ++ (concat $ map listStringFromStatement (stmt1:stmt2:stmts))
+listStringFromStatement (DFBlock stmts _) = concat $ map listStringFromStatement stmts
+listStringFromStatement (DFExpr expr) = listStringFromDFExpr expr
+listStringFromStatement (DFLocal expr) = listStringFromDFExpr expr
+listStringFromStatement (DFReturn mexpr) = case mexpr of
+                                             Just expr -> listStringFromDFExpr expr
+                                             Nothing -> []
+
+listStringFromDFExpr :: DFExpression -> [String]
+listStringFromDFExpr (FunctionCall _ exprs) = concat $ map listStringFromDFExpr (exprs)
+listStringFromDFExpr (Unary _ expr) = listStringFromDFExpr expr
+listStringFromDFExpr (Binary _ exprL exprR) = (listStringFromDFExpr exprL) ++ (listStringFromDFExpr exprR)
+listStringFromDFExpr (Attribute expr sym) = listStringFromDFExpr expr
+listStringFromDFExpr (InstanceOf _ expr) = listStringFromDFExpr expr
+listStringFromDFExpr (Cast _ expr) = listStringFromDFExpr expr
+listStringFromDFExpr (Value tp val) = if tp == AST.Object (AST.Name ["java", "lang", "String"])
+                                         then [val]
+                                         else []
+listStringFromDFExpr _ = []
 ---------------------------------------------------------------
 
 buildMalloc sym = FunctionCall sym' [arg]
@@ -593,19 +621,19 @@ genExprAsm (NewObject classType args) =
 -}
 genExprAsm sd (InstanceOf refsym expr) = ["; instanceOf"] ++ exprCode ++ instanceOfCode
   where
-    exprCode = genExprLhsAsm sd expr
+    exprCode = genExprAsm sd expr
     classid = (typeIDMap sd) ! refsym
     instanceOfCode= ["mov eax, [eax]", "mov ebx, " ++ (show classid), "call get_characteristics"]
 
 genExprAsm sd (Cast refType expr) = ["; Casting"] ++ exprCode ++ backupCode ++ castingCode ++ restoreCode
   where
-    exprCode = genExprLhsAsm sd expr
+    exprCode = genExprAsm sd expr
     backupCode = ["mov ecx, eax"]
     restoreCode = ["mov eax, ecx"]
     castingCode = case refType of
                     Left tp -> ["; Cast to a primitive type: " ++ (show tp)]
                     Right sym -> let classid = (typeIDMap sd) ! sym
-                                     getcharacteristics = ["mov eax, [eax]", "mov ebx, " ++ (show classid), "call getcharacteristics"] 
+                                     getcharacteristics = ["mov eax, [eax]", "mov ebx, " ++ (show classid), "call get_characteristics"] 
                                      checkException = ["cmp eax, 1", "jne __exception"]
                                  in getcharacteristics ++ checkException
 
@@ -634,6 +662,7 @@ genExprAsm sd (Value valuetype value) = ["; XXX: Unsupported value: " ++ value]
 genExprAsm sd Null = ["; Null", "mov eax, 0"]
 genExprAsm sd NOOP = ["; NOOP"]
 
+
 genExprLhsAsm sd (ID (Left offset)) = if offset < 0
                                         then ["mov eax, ebp", "add eax, " ++ show distanceN ++ ";" ++ show offset]
                                         else ["mov eax, ebp", "sub eax, " ++ show distanceP ++ ";" ++ show offset]
@@ -661,3 +690,4 @@ genExprLhsAsm sd (Attribute struct sym) = refCode ++ ["add eax, " ++ show (insta
                           Just offset -> offset
     refCode = genExprAsm sd struct
 
+genExprLhsAsm sd expr = error (show expr)
