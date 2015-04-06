@@ -644,9 +644,10 @@ genExprAsm sd (InstanceOf refsym expr) = ["; instanceOf"] ++ exprCode ++ instanc
     classid = (typeIDMap sd) ! refsym
     instanceOfCode= ["cmp eax, 0", "je short $+14", "mov eax, [eax]", "mov ebx, " ++ (show classid), "call get_characteristics"]
 
-genExprAsm sd (Cast refType expr) = ["; Casting"] ++ exprCode ++ backupCode ++ castingCode ++ restoreCode
+genExprAsm sd (Cast refType expr) = ["; Casting"] ++ exprCode ++ checkNullforCast ++  backupCode ++ castingCode ++ restoreCode
   where
     exprCode = genExprAsm sd expr
+    checkNullforCast = ["cmp eax, 0", "je short $+25"]
     backupCode = ["mov ecx, eax"]
     restoreCode = ["mov eax, ecx"]
     castingCode = case refType of
