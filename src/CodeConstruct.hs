@@ -428,10 +428,12 @@ genLabel nesting = concat $ intersperse "_" $ map show nesting
 genAsm :: SymbolDatabase -> ClassConstruct -> [String]
 genAsm sd cc@(CC name fields sym methods) = ["; Code for: " ++ concat name]
                                             ++ externCode ++ ["; Code for virtual table", "section .data"] ++ classIDCode ++ vftCode
-                                            ++ prefaceCode
-                                            ++ fieldCode ++ initializerCode ++ methodCode
+                                            ++ prefaceCode 
+                                            ++ staticInitializerCode ++ initializerCode ++ methodCode
   where
     prefaceCode = ["section .text"] ++ ["__exit_portal:", "mov esp, ebp", "pop ebp", "ret"]
+    staticInitLabel = "__class_" ++ (show classid) ++ "_static_initializer"
+    staticInitializerCode = ["; Static initializer", "global " ++ staticInitLabel, staticInitLabel ++ ":"] ++ (concat $ map (genExprAsm sd) $ classInitializer cc) ++ ["ret"]
     classid = (typeIDMap sd) ! sym
     classIDCode = ["__classid:"] ++ ["dd " ++ (show classid)]
     externFUNC = filter (\(sym', _) -> (symbolToCN sym) /= (symbolToCN sym') || elem "native" (symbolModifiers sym')) $ toAscList (funcLabel sd)
@@ -439,7 +441,7 @@ genAsm sd cc@(CC name fields sym methods) = ["; Code for: " ++ concat name]
     stringLabels =toAscList $ stringLabel sd
     externLabels = map snd stringLabels ++ map snd (externFUNC ++ externSYM)
     externCode = ["extern " ++ (concat $ intersperse "," externLabels) ++ ", get_characteristics"]
-    fieldCode = concat $ map (genFieldAsm sd) fields
+    --fieldCode = concat $ map (genFieldAsm sd) fields
     methodCode = concat $ map (genMthdAsm sd cc) methods
     vftCode = genAsmVirtualTable sd cc
     getThis = ["mov eax, [ebp + 8]"]
@@ -462,9 +464,9 @@ genAsmVirtualTable sd (CC _ _ sym _) = header ++ code
     labelT = map (\symbol -> if isNothing symbol then "__exception" else (funcLabel sd) ! (fromJust symbol)) vtable
     code = map (\str -> "dd " ++ str) labelT
 
-genFieldAsm :: SymbolDatabase -> FieldType -> [String]
-genFieldAsm sd (FT _ _ _ _ False) = []
-genFieldAsm sd fld@(FT name _ _ _ True) = ["; Class field: " ++ (show fld)]
+--genFieldAsm :: SymbolDatabase -> FieldType -> [String]
+--genFieldAsm sd (FT _ _ _ _ False) = []
+--genFieldAsm sd fld@(FT name _ _ _ True) = ["; Class field: " ++ (show fld)]
 
 
 genMthdAsm :: SymbolDatabase -> ClassConstruct -> MethodConstruct -> [String]
@@ -614,10 +616,10 @@ genExprAsm sd (Binary op exprL exprR) =
         "=" -> genExprLhsAsm sd exprL
         _ -> genExprAsm sd exprL
   in [";Binary op: " ++ op] ++
-     rightCode ++
-     ["push eax ; Push right value to stack"] ++
      leftCode ++
-     ["pop ebx ; Pop right value from stack"] ++
+     ["push eax ; Push left value to stack"] ++
+     rightCode ++
+     ["mov ebx, eax", "pop eax ; Pop right value from stack"] ++
      opCode
 
 genExprAsm sd (Attribute struct member) = (genExprLhsAsm sd (Attribute struct member)) ++ ["mov eax, [eax]"]
