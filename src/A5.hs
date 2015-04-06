@@ -239,6 +239,7 @@ main' givenFileNames = do
   let startFunction = methodSymbol . head $ filter (\mthd -> "test" == (last . methodName $ mthd)) (classMethods . fromJust $ firstClass)
   let startFunctionLabel = case lookup startFunction staticFUNCLabelMap of
                              Just lb -> lb
+  let factor = 10
 
   writeFile "output/main.s" $ unlines ["global _start",
                                        "extern " ++ startFunctionLabel,
@@ -246,10 +247,14 @@ main' givenFileNames = do
                                        concat $ createStaticSYMASM db',
                                        "global characteristics", "characteristics:",
                                        concat $ map (\cond -> if cond then "dd 1\n" else "dd 0\n") typeCharacteristicBM,
+                                       "characteristics_factor:",
+                                       "dd " ++ (show factor),
                                        "section .text",
+                                       "global get_characteristics", "get_characteristics:", "imul eax, [characteristics_factor]", "add eax, ebx", "mov eax, [eax + characteristics]", "ret",
                                        "_start:",
                                        "call " ++ startFunctionLabel,
                                        "mov ebx, eax",
                                        "mov eax, 1",
                                        "int 0x80"]
 
+    -- eax -> Object ID, ebx -> Class ID

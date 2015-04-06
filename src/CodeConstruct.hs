@@ -178,8 +178,8 @@ data DFExpression = FunctionCall Symbol [DFExpression]
                    | Unary { op :: String, expr :: DFExpression }
                    | Binary { op :: String, exprL :: DFExpression, exprR :: DFExpression }
                    | Attribute { struct :: DFExpression, mem :: Symbol }
-                   | InstanceOf { reftype :: Type, expr :: DFExpression }
-                   | Cast {reftype :: Type, expr :: DFExpression }
+                   | InstanceOf { refsym :: Symbol, expr :: DFExpression }
+                   | Cast {reftype :: Either Type Symbol, expr :: DFExpression }
                    | ID { identifier :: Either Int (Int, Symbol) }
                    | Value { valuetype :: Type, value :: String }
                    | Super { offset :: Int, super :: Maybe Symbol }
@@ -200,15 +200,24 @@ buildDFExpression db imps su tps (AST.Super msuper) = case msuper of
                                                                        [sym] = getSymbol db tp
                                                                    in Super (thisOffset su) (Just con)
 buildDFExpression db imps su tps (AST.Value t v _) = Value t v
-buildDFExpression db imps su tps e@(AST.CastA _ _ expr _) = Cast tp (buildDFExpression db imps su [] expr)
+buildDFExpression db imps su tps e@(AST.CastA _ _ expr _) = Cast tpsym (buildDFExpression db imps su [] expr)
   where
     [tp] = typeLinkingExpr db imps su e
-buildDFExpression db imps su tps e@(AST.CastB _ expr _) = Cast tp (buildDFExpression db imps su [] expr)
+    tpname = AST.Name $ AST.typeToName tp
+    [sym] = symbolLinkingName db imps su tpname
+    tpsym = if isPrimitive tp then Left tp else Right sym
+buildDFExpression db imps su tps e@(AST.CastB _ expr _) = Cast tpsym (buildDFExpression db imps su [] expr)
   where
     [tp] = typeLinkingExpr db imps su e
-buildDFExpression db imps su tps e@(AST.CastC _ _ expr _) = Cast tp (buildDFExpression db imps su [] expr)
+    tpname = AST.Name $ AST.typeToName tp
+    [sym] = symbolLinkingName db imps su tpname
+    tpsym = if isPrimitive tp then Left tp else Right sym
+buildDFExpression db imps su tps e@(AST.CastC _ _ expr _) = Cast tpsym (buildDFExpression db imps su [] expr)
   where
     [tp] = typeLinkingExpr db imps su e
+    tpname = AST.Name $ AST.typeToName tp
+    [sym] = symbolLinkingName db imps su tpname
+    tpsym = if isPrimitive tp then Left tp else Right sym
 -- with modification to be more specific
 buildDFExpression db imps su tps e@(AST.ID n@(AST.Name cname@[nm]) _) = if take (length baseName) (init (localScope sym)) == baseName
                                                                         then let offset = (scopeOffset su sym) in ID $ Left offset
@@ -275,7 +284,14 @@ buildDFExpression db imps su tps (AST.NewArray tp expr _) = FunctionCall sym $ (
 buildDFExpression db imps su tps (AST.Dimension dummy index _) = if dummy /= AST.Null then error $ "Dimension not NULL: " ++ (show dummy)
                                                                  else buildDFExpression db imps su [] index
 
-buildDFExpression db imps su tps (AST.InstanceOf tp expr _) = InstanceOf tp (buildDFExpression db imps su [] expr)
+buildDFExpression db imps su tps (AST.InstanceOf tp expr _) = InstanceOf sym (buildDFExpression db imps su [] expr)
+  where
+    AST.Object nm = tp
+    syms = symbolLinkingName db imps su nm
+    sym = case syms of
+            [sym'] -> sym'
+            err -> error $ (show err) ++ (show tp)
+
 
 -- noop
 buildDFExpression db imps su tps (AST.ArrayAccess expr expri _) = ArrayAccess sym dfexpr dfexpri
@@ -370,7 +386,10 @@ genLabel :: [Int] -> String
 genLabel nesting = concat $ intersperse "_" $ map show nesting
 
 genAsm :: SymbolDatabase -> ClassConstruct -> [String]
-genAsm sd cc@(CC name fields sym methods) = ["; Code for: " ++ concat name] ++ externCode ++ ["; Code for virtual table", "section .data"] ++ classIDCode ++ vftCode ++ prefaceCode ++ fieldCode ++ initializerCode ++ methodCode
+genAsm sd cc@(CC name fields sym methods) = ["; Code for: " ++ concat name]
+                                            ++ externCode ++ ["; Code for virtual table", "section .data"] ++ classIDCode ++ vftCode
+                                            ++ prefaceCode
+                                            ++ fieldCode ++ initializerCode ++ methodCode
   where
     prefaceCode = ["section .text"] ++ ["__exit_portal:", "mov esp, ebp", "pop ebp", "ret"]
     classid = (typeIDMap sd) ! sym
@@ -378,7 +397,7 @@ genAsm sd cc@(CC name fields sym methods) = ["; Code for: " ++ concat name] ++ e
     externFUNC = filter (\(sym', _) -> (symbolToCN sym) /= (symbolToCN sym') || elem "native" (symbolModifiers sym')) $ toAscList (funcLabel sd)
     externSYM = toAscList (staticSYMLabelMap sd)
     externLabels = map snd (externFUNC ++ externSYM)
-    externCode = ["extern " ++ (concat $ intersperse "," externLabels)]
+    externCode = ["extern " ++ (concat $ intersperse "," externLabels) ++ ", get_characteristics"]
     fieldCode = concat $ map (genFieldAsm sd) fields
     methodCode = concat $ map (genMthdAsm sd cc) methods
     vftCode = genAsmVirtualTable sd cc
@@ -388,7 +407,7 @@ genAsm sd cc@(CC name fields sym methods) = ["; Code for: " ++ concat name] ++ e
                       ++ ["; put Class ID and Virtual Table"] ++ putClassIDCode ++ putvftCode
                       ++ exprs
                       ++ getThis
-                      ++ initializerCodeEnding    
+                      ++ initializerCodeEnding
     putClassIDCode = ["mov ebx, [__classid]", "mov [eax], ebx"]
     putvftCode = ["mov ebx, __vft", "mov [eax + 4], ebx"]
     exprs = concat $ map (genExprAsm sd) $ objectInitializer cc
@@ -483,8 +502,8 @@ genStmtAsm sd (DFFor initializer condition finalizer body nesting) =
 
 genOpAsm :: String -> [String]
 genOpAsm "*" = ["imul ebx"]
-genOpAsm "/" = ["cdq", "idiv ebx"]
-genOpAsm "%" = ["cdq", "idiv ebx", "mov eax, edx"]
+genOpAsm "/" = ["cmp ebx, 0", "je __exception", "cdq", "idiv ebx"]
+genOpAsm "%" = ["cmp ebx, 0", "je __exception", "cdq", "idiv ebx", "mov eax, edx"]
 genOpAsm "+" = ["add eax, ebx"]
 genOpAsm "-" = ["sub eax, ebx"]
 genOpAsm "==" = ["cmp eax, ebx", "mov eax, 1", "je short $+7", "mov eax, 0"]
@@ -572,8 +591,25 @@ genExprAsm (NewObject classType args) =
   let argCode = concat $ map genExprAsm args
   in ["; newObject"] ++ argCode
 -}
-genExprAsm sd (InstanceOf refType expr) = ["; instanceOf"] ++ genExprAsm sd expr
-genExprAsm sd (Cast refType expr) = ["; Casting"] ++ genExprAsm sd expr
+genExprAsm sd (InstanceOf refsym expr) = ["; instanceOf"] ++ exprCode ++ instanceOfCode
+  where
+    exprCode = genExprLhsAsm sd expr
+    classid = (typeIDMap sd) ! refsym
+    instanceOfCode= ["mov eax, [eax]", "mov ebx, " ++ (show classid), "call get_characteristics"]
+
+genExprAsm sd (Cast refType expr) = ["; Casting"] ++ exprCode ++ backupCode ++ castingCode ++ restoreCode
+  where
+    exprCode = genExprLhsAsm sd expr
+    backupCode = ["mov ecx, eax"]
+    restoreCode = ["mov eax, ecx"]
+    castingCode = case refType of
+                    Left tp -> ["; Cast to a primitive type: " ++ (show tp)]
+                    Right sym -> let classid = (typeIDMap sd) ! sym
+                                     getcharacteristics = ["mov eax, [eax]", "mov ebx, " ++ (show classid), "call getcharacteristics"] 
+                                     checkException = ["cmp eax, 1", "jne __exception"]
+                                 in getcharacteristics ++ checkException
+
+
 genExprAsm sd expr@(ID (Right (offthis, symbol))) = ["; variable named " ++ (localName symbol) ++ " symbol: " ++ (show symbol)] ++ reduction ++ getvalue
   where
     reduction = genExprLhsAsm sd expr

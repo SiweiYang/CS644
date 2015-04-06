@@ -60,14 +60,24 @@ function run_assembler {
   done
   nasm -O1 -f elf -g -F dwarf -o output/runtime.o assignment_testcases/stdlib2/runtime.s
   ld -melf_i386 -o output/main output/*.o
+}
+export -f run_assembler
+
+function check_good {
   ./output/main
   status=$?
   if [ $status -ne 123 ]; then
     echo "$1 (Executable exited with: $status)"
   fi
 }
-export -f run_assembler
 
+function check_bad {
+  ./output/main
+  status=$?
+  if [ $status -ne 13 ]; then
+    echo "$1 (Executable exited with: $status)"
+  fi
+}
 
 echo "Running tests..."
 echo "Failures:"
@@ -75,9 +85,23 @@ echo "Failures:"
 echo "Positive Single File"
 for file in $( echo assignment_testcases/a5/J[!e]*.java ); do
     run_test ${file}
+    check_good ${file}
 done
 
 echo "Positive Folder"
 for dir in $( ls -d assignment_testcases/a5/J[!e]*/ ); do
     run_test_dir $dir
+    check_good $dir
+done
+
+echo "Negatives Folder"
+for dir in $( ls -d assignment_testcases/${testSuite}/Je*/ ); do
+    run_bad_test_dir $dir
+    check_bad $dir
+done
+
+echo "Negatives Single File"
+for file in $( echo assignment_testcases/${testSuite}/Je*.java ); do
+    run_bad_test $file
+    check_bad $file
 done
