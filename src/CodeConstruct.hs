@@ -191,6 +191,7 @@ data DFExpression = FunctionCall Symbol [DFExpression]
                    | ID { identifier :: Either Int (Int, Symbol) }
                    | Value { valuetype :: Type, value :: String }
                    | Super { offset :: Int, super :: Maybe Symbol }
+                   | Label String
                    | Null
                    | NOOP
                    deriving (Show)
@@ -286,7 +287,7 @@ buildDFExpression db imps su tps e@(AST.NewObject tp args _) = FunctionCall sym 
 
 buildDFExpression db imps su tps (AST.NewArray tp expr _) = FunctionCall sym $ (buildMalloc sym):[buildDFExpression db imps su [] expr]
   where
-    [sym] = getSymbol db ["joosc native", "Array", "Array"]
+    [sym, _] = getSymbol db ["joosc native", "Array", "Array"]
     --sym = symbol arrayConstructor
 
 buildDFExpression db imps su tps (AST.Dimension dummy index _) = if dummy /= AST.Null then error $ "Dimension not NULL: " ++ (show dummy)
@@ -294,7 +295,9 @@ buildDFExpression db imps su tps (AST.Dimension dummy index _) = if dummy /= AST
 
 buildDFExpression db imps su tps (AST.InstanceOf tp expr _) = InstanceOf sym (buildDFExpression db imps su [] expr)
   where
-    AST.Object nm = tp
+    nm = case tp of
+           AST.Object nm -> nm
+           AST.Array _ -> AST.Name ["joosc native", "Array"]
     syms = symbolLinkingName db imps su nm
     sym = case syms of
             [sym'] -> sym'
@@ -397,7 +400,8 @@ data SymbolDatabase = SD {
   instanceFUNCOffsetMap :: Map Symbol Int,
   staticSYMLabelMap :: Map Symbol String,
   instanceFUNCTable :: [(Symbol, [Maybe Symbol])],
-  typeIDMap :: Map Symbol Int
+  typeIDMap :: Map Symbol Int,
+  stringLabel :: Map String String
 }
 
 --     _                           _     _
@@ -432,7 +436,8 @@ genAsm sd cc@(CC name fields sym methods) = ["; Code for: " ++ concat name]
     classIDCode = ["__classid:"] ++ ["dd " ++ (show classid)]
     externFUNC = filter (\(sym', _) -> (symbolToCN sym) /= (symbolToCN sym') || elem "native" (symbolModifiers sym')) $ toAscList (funcLabel sd)
     externSYM = toAscList (staticSYMLabelMap sd)
-    externLabels = map snd (externFUNC ++ externSYM)
+    stringLabels =toAscList $ stringLabel sd
+    externLabels = map snd stringLabels ++ map snd (externFUNC ++ externSYM)
     externCode = ["extern " ++ (concat $ intersperse "," externLabels) ++ ", get_characteristics"]
     fieldCode = concat $ map (genFieldAsm sd) fields
     methodCode = concat $ map (genMthdAsm sd cc) methods
@@ -550,6 +555,8 @@ genOpAsm ">" = ["cmp eax, ebx", "mov eax, 1", "jg short $+7", "mov eax, 0"]
 genOpAsm ">=" = ["cmp eax, ebx", "mov eax, 1", "jge short $+7", "mov eax, 0"]
 genOpAsm "&&" = ["and eax, ebx"]
 genOpAsm "||" = ["or eax, ebx"]
+genOpAsm "&" = ["and eax, ebx"]
+genOpAsm "|" = ["or eax, ebx"]
 genOpAsm "=" = ["mov [eax], ebx", "mov eax, [eax]"]
 
 genExprAsm :: SymbolDatabase ->  DFExpression -> [String]
@@ -666,7 +673,18 @@ genExprAsm sd (Value AST.TypeChar value) =
 genExprAsm sd (Value AST.TypeBoolean "true") = ["mov eax, 1"]
 genExprAsm sd (Value AST.TypeBoolean "false") = ["mov eax, 0"]
 genExprAsm sd (Value AST.TypeNull _) = ["mov eax, 0"]
+genExprAsm sd (Value (AST.Object (AST.Name ["java", "lang", "String"])) value) = genExprAsm sd (FunctionCall sym' $ (buildMalloc sym'):[charArray])
+--["; XXX: String value: " ++ value]
+  where
+    db' = db sd
+    stringLabelMap = stringLabel sd
+    label = case lookup value stringLabelMap of
+              Just lb -> lb
+    [_, sym] = getSymbol db' ["joosc native", "Array", "Array"]
+    charArray = (FunctionCall sym $ (buildMalloc sym):[Label label])
+    [_, sym', _] = getSymbol db' ["java", "lang", "String", "String"]
 genExprAsm sd (Value valuetype value) = ["; XXX: Unsupported value: " ++ value]
+genExprAsm sd (Label lb) = ["mov eax, " ++ lb]
 genExprAsm sd Null = ["; Null", "mov eax, 0"]
 genExprAsm sd NOOP = ["; NOOP"]
 

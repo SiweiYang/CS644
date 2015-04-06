@@ -28,7 +28,7 @@ main :: IO ()
 main = do
   -- Get the files to compile from the args
   givenFileNames <- getArgs
-  --hPutStrLn stderr $ show givenFileNames
+  hPutStrLn stderr $ show givenFileNames
   main' givenFileNames
 
 main' :: [String] -> IO ()
@@ -117,7 +117,7 @@ main' givenFileNames = do
   let Just typeDB = mtypeDB
 
   let listImpEnvFns = map (\(imp, env, fn) -> (imp, refineEnvironmentWithType typeDB imp (Root []) env, fn)) fileEnvironmentWithImports
-  hPutStrLn stderr $ show $ filter (\(imp, env, fn) -> (take 10 $ reverse fn) == reverse "Array.java") listImpEnvFns
+  --hPutStrLn stderr $ show $ filter (\(imp, env, fn) -> (take 10 $ reverse fn) == reverse "Array.java") listImpEnvFns
   if length [Nothing | (_, Nothing, _) <- listImpEnvFns] > 0 then do
     hPutStrLn stderr "Environment Refine error!"
     exitWith (ExitFailure 42)
@@ -223,12 +223,12 @@ main' givenFileNames = do
   let reconstructedCLASS = map (\(imp, Just env, fn) -> (imp, (buildClassConstruct db' imp env), fn)) listImpEnvFns
   let reconstructedCLASS' = filter (\(_, mcls, _) -> isJust mcls) reconstructedCLASS
   let constructs = [cls | (_,Just cls,_) <- reconstructedCLASS]
-  hPutStrLn stderr $ show [cls | (_,Just cls, fn) <- reconstructedCLASS, (take 10 $ reverse fn) == reverse "Array.java"]
+  --hPutStrLn stderr $ show [cls | (_,Just cls, fn) <- reconstructedCLASS, (take 10 $ reverse fn) == reverse "Array.java"]
 
   let ordering = createClassInitOrdering constructs
   let strings = nub $ concat $ map listStringFromClass constructs
   let (stringLabels, stringData) = generateForStrings strings
-  let sd = SD db' (fromList $ (toAscList instanceFUNCLabelMap) ++ (toAscList staticFUNCLabelMap)) instanceSYMOffsetMap instanceFUNCIDMap staticSYMLabelMap instanceFUNCTable typeIDMap
+  let sd = SD db' (fromList $ (toAscList instanceFUNCLabelMap) ++ (toAscList staticFUNCLabelMap)) instanceSYMOffsetMap instanceFUNCIDMap staticSYMLabelMap instanceFUNCTable typeIDMap (fromList stringLabels)
   hPutStrLn stderr $ show strings
   --hPutStrLn stderr $ show $ symbolLinkingName db' [] (Root []) (AST.Name ["joosc native", "Array", "get"])
   -- do

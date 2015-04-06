@@ -3,7 +3,6 @@ module Generation where
 import Data.Map (fromList)
 import Data.Char (ord)
 
-import Data.List.Split (splitOn)
 import Data.Char (readLitChar)
 import Text.ParserCombinators.ReadP (eof, many, ReadP, readS_to_P, readP_to_S)
 

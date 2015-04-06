@@ -41,7 +41,7 @@ checkImplements unit@(Comp _ _ (CLS modifiers clsName _ implemented _ _ _ _) _) 
   | (not isAbstract) && (not . null $ unimplementedMethods) = Just $ "Class " ++ clsName ++ " doesn't implement methods " ++ (show $ map localName unimplementedMethods)
   | any (\x -> "final" `elem` symbolModifiers x && (not $ "abstract" `elem` symbolModifiers x)) implementedMethods = Just $ "Class " ++ clsName ++ " overrides a final method"
   | (length clobberedMethods) > 0 = Just $ "Class " ++ clsName ++ " doesn't correctly implement an interface method: " ++ show clobberedMethods
-  | (length interfaceConflicts) > 0 = Just $ "Class " ++ clsName ++ " implements conflicting interfaces which can't be satisfied"
+  | (length interfaceConflicts) > 0 = Just $ "Class " ++ clsName ++ " implements conflicting interfaces which can't be satisfied: " ++ (show interfaceConflicts) ++ (show abstractMethods)
   | otherwise = Nothing
   where unitImports = visibleImports unit
         ownName = traverseTypeEntryWithImports typeDB unitImports [clsName]
@@ -183,14 +183,11 @@ getClassInterfaces _ _ = []
 functionClobbered :: [Symbol] -> Symbol -> Bool
 functionClobbered definitions fun =
   -- A is parent, b is child (replacement)
-  let funEqual a b = (localName a == localName b && localName a /= (last . typeToName . localType $ a))  &&
+  let funEqual a b = (localName a == localName b && parameterTypes a == parameterTypes b && localName a /= (last . typeToName . localType $ a))  &&
                        (("static" `elem` symbolModifiers b &&
-                         not ("static" `elem` (symbolModifiers a)) &&
-                         parameterTypes a == parameterTypes b) ||
-                        ((localType a) /= (localType b)  &&
-                         parameterTypes a == parameterTypes b) ||
-                        ("public" `elem` symbolModifiers a && "protected" `elem` symbolModifiers b &&
-                          parameterTypes a == parameterTypes b))
+                         not ("static" `elem` (symbolModifiers a))) ||
+                        ((localType a) /= (localType b)) ||
+                        ("public" `elem` symbolModifiers a && "protected" `elem` symbolModifiers b && localScope b /= ["java", "lang", "ObjectInterface"] && localScope b /= ["java", "lang", "Object"]))
   in any (funEqual fun) definitions
 
 functionClobberedInterface :: [Symbol] -> Symbol -> Bool

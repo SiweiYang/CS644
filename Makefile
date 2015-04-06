@@ -14,7 +14,6 @@ submission: clean
 	zip -d submission.zip res/UWLogo.jpg
 
 clean:
-	rm -rf res/joos1w.lr1
 	rm -f src/*.hi
 	rm -f src/*.o
 	rm -f tools/jlalr/*.class

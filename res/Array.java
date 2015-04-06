@@ -5,6 +5,10 @@ public class Array {
         length = i;
         pointer = Runtime.malloc(i);
     }
+    public Array(int i, int j){
+        length = i;
+        pointer = j;
+    }
     public int get(int i) {
         if (i >= length || i < 0) {
             Runtime.exception();
