@@ -609,10 +609,10 @@ genExprAsm sd (Binary op exprL exprR) =
         "=" -> genExprLhsAsm sd exprL
         _ -> genExprAsm sd exprL
   in [";Binary op: " ++ op] ++
-     rightCode ++
-     ["push eax ; Push right value to stack"] ++
      leftCode ++
-     ["pop ebx ; Pop right value from stack"] ++
+     ["push eax ; Push left value to stack"] ++
+     rightCode ++
+     ["mov ebx, eax", "pop eax ; Pop right value from stack"] ++
      opCode
 
 genExprAsm sd (Attribute struct member) = (genExprLhsAsm sd (Attribute struct member)) ++ ["mov eax, [eax]"]
