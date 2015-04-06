@@ -209,7 +209,7 @@ main' givenFileNames = do
   let staticFUNCLabelMap = createStaticFUNCLabel db'
   let typeCharacteristicBM = createTypeCharacteristicBM db'
 
-  --hPutStrLn stderr $ "Total Number of Instance Functions: " ++ show (size instanceFUNCIDMap)
+  --hPutStrLn stderr $ "Total Number of Instance Functions: " ++ (show (map snd $ toAscList instanceFUNCIDMap)) ++ (show $ length $ toAscList instanceFUNCIDMap)
   --hPutStrLn stderr $ "Total Number of Static Functions: " ++ show (size staticFUNCIDMap)
   --hPutStrLn stderr $ "Type Characteristic BitMap: " ++ show typeCharacteristicBM
   --hPutStrLn stderr $ "Func Table: " ++ show funcTable

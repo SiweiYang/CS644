@@ -32,7 +32,7 @@ generateLabelFromFUNC (FUNC mds ls ln _ _) i = if elem "native" mds
                                                         "nativeWrite" -> "NATIVEjava.io.OutputStream.nativeWrite"
                                                  else intercalate "_" (["function", last ls, md, ln, show i])
   where
-    md = if elem "static" mds
+    md = if (elem "static" mds) || (elem "cons" mds)
             then "static"
             else "instance"
 
@@ -53,7 +53,7 @@ createStaticSYMASM db = ["global " ++ label ++ "\n" ++ label ++ ":\n" ++ "dd " +
     sizeMap = createTypeSize db
     getSize sym = case lookup sym sizeMap of
                     Nothing -> 0
-                    Just size -> size
+                    Just size -> 4 * size
 
 generateTypeSizeSymbol :: Symbol -> Symbol
 generateTypeSizeSymbol (CL _ _ lt _) = (SYM ["static", "native"] (typeToName lt) "object size" AST.TypeInt)
@@ -84,14 +84,14 @@ createStaticFieldLabel db = fromList [(sym, generateLabelFromSYM sym i) | (sym, 
 
 
 createInstanceFUNCID :: TypeNode -> Map Symbol Int
-createInstanceFUNCID db = fromList (zip syms [0..])
+createInstanceFUNCID db = fromList (zip syms [0.. (length syms)])
   where
-    syms = sort $ filter (\(FUNC mds _ _ _ _) -> not $ elem "static" mds) $ map symbol $ filter isFUNCNode $ concat $ map subNodes (dumpDBNodes db)
+    syms = sort $ nub $ filter (\(FUNC mds _ _ _ _) -> (not $ elem "static" mds) && (not $ elem "cons" mds)) $ map symbol $ filter isFUNCNode $ concat $ map subNodes (dumpDBNodes db)
 
 createStaticFUNCID :: TypeNode -> Map Symbol Int
 createStaticFUNCID db = fromList (zip syms [0..])
   where
-    syms = sort $ filter (\(FUNC mds _ _ _ _) -> elem "static" mds) $ map symbol $ filter isFUNCNode $ concat $ map subNodes (dumpDBNodes db)
+    syms = sort $ filter (\(FUNC mds _ _ _ _) -> (elem "static" mds) || (elem "cons" mds)) $ map symbol $ filter isFUNCNode $ concat $ map subNodes (dumpDBNodes db)
     --syms' = (symbol runtimeMalloc):syms
 
 createStaticFUNCLabel :: TypeNode -> Map Symbol String

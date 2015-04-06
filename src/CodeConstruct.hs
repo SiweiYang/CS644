@@ -1,7 +1,7 @@
 module CodeConstruct where
 
 import           Prelude hiding (lookup)
-import           Data.Map (Map, (!), lookup, assocs)
+import           Data.Map (Map, (!), lookup, assocs, toAscList)
 import           Data.Char
 import           Data.List hiding (lookup)
 import           Data.Maybe
@@ -375,8 +375,8 @@ genAsm sd cc@(CC name fields sym methods) = ["; Code for: " ++ concat name] ++ e
     prefaceCode = ["section .text"] ++ ["__exit_portal:", "mov esp, ebp", "pop ebp", "ret"]
     classid = (typeIDMap sd) ! sym
     classIDCode = ["__classid:"] ++ ["dd " ++ (show classid)]
-    externFUNC = filter (\(sym', _) -> (symbolToCN sym) /= (symbolToCN sym') || elem "native" (symbolModifiers sym')) $ assocs (funcLabel sd)
-    externSYM = assocs (staticSYMLabelMap sd)
+    externFUNC = filter (\(sym', _) -> (symbolToCN sym) /= (symbolToCN sym') || elem "native" (symbolModifiers sym')) $ toAscList (funcLabel sd)
+    externSYM = toAscList (staticSYMLabelMap sd)
     externLabels = map snd (externFUNC ++ externSYM)
     externCode = ["extern " ++ (concat $ intersperse "," externLabels)]
     fieldCode = concat $ map (genFieldAsm sd) fields
@@ -390,7 +390,7 @@ genAsm sd cc@(CC name fields sym methods) = ["; Code for: " ++ concat name] ++ e
                       ++ getThis
                       ++ initializerCodeEnding    
     putClassIDCode = ["mov ebx, [__classid]", "mov [eax], ebx"]
-    putvftCode = ["mov ebx, [__vft]", "mov [eax + 4], ebx"]
+    putvftCode = ["mov ebx, __vft", "mov [eax + 4], ebx"]
     exprs = concat $ map (genExprAsm sd) $ objectInitializer cc
     initializerCodeEnding = ["jmp __exit_portal", "; End initializer"]
 
@@ -528,7 +528,7 @@ genExprAsm sd (FunctionCall callee arguments) =
      (if elem "static" mds || elem "cons" mds
         then ["call " ++ staticFUNCLabel]
         else ["mov eax, [esp + " ++ (show $ ((length arguments) - 1) * 4) ++ "]"] ++
-             ["mov eax, [eax]", "mov eax, [eax + 4]", "call [eax + " ++ show (instanceFUNCOffset * 4) ++ "] ; goto VF Table + offset = " ++ show instanceFUNCOffset])
+             ["mov eax, [eax + 4]", "call [eax + " ++ show (instanceFUNCOffset * 4) ++ "] ; goto VF Table + offset = " ++ show (length (assocs instanceFUNCMap))])
              --- using __vft
      ++ cleanupCode
 
@@ -580,12 +580,10 @@ genExprAsm sd expr@(ID (Right (offthis, symbol))) = ["; variable named " ++ (loc
     getvalue = ["mov eax, [eax]"]
 
 
-genExprAsm sd (ID (Left offset)) = if offset < 0
-                                      then ["mov eax, [ebp + " ++ show distanceN ++ "];" ++ show offset]
-                                      else ["mov eax, [ebp - " ++ show distanceP ++ "];" ++ show offset]
+genExprAsm sd expr@(ID (Left offset)) = reduction ++ getvalue
   where
-    distanceN = (offset - 1) * (-4)
-    distanceP = (offset + 1) * 4
+    reduction = genExprLhsAsm sd expr
+    getvalue = ["mov eax, [eax]"]
 
 genExprAsm sd (Value AST.TypeByte value) = ["mov eax, " ++ value]
 genExprAsm sd (Value AST.TypeShort value) = ["mov eax, " ++ value]
@@ -600,10 +598,12 @@ genExprAsm sd (Value valuetype value) = ["; XXX: Unsupported value: " ++ value]
 genExprAsm sd Null = ["; Null", "mov eax, 0"]
 genExprAsm sd NOOP = ["; NOOP"]
 
-genExprLhsAsm sd (ID (Left offset)) =
-  let distance = (offset + 1) * 4
-  --in ["lea eax, [ebp - " ++ show distance ++ "] ; LHS for assignment"]
-  in ["mov eax, ebp", "sub eax, " ++ show distance ++ " ; LHS for assignment"]
+genExprLhsAsm sd (ID (Left offset)) = if offset < 0
+                                        then ["mov eax, ebp", "add eax, " ++ show distanceN ++ ";" ++ show offset]
+                                        else ["mov eax, ebp", "sub eax, " ++ show distanceP ++ ";" ++ show offset]
+  where
+    distanceN = (offset - 1) * (-4)
+    distanceP = (offset + 1) * 4
 
 genExprLhsAsm sd (ID (Right (offthis, symbol))) = ["; LHS Right symbol for assignment"] ++ code
   where
