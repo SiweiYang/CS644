@@ -495,7 +495,7 @@ genOpAsm ">" = ["cmp eax, ebx", "mov eax, 1", "jg short $+7", "mov eax, 0"]
 genOpAsm ">=" = ["cmp eax, ebx", "mov eax, 1", "jge short $+7", "mov eax, 0"]
 genOpAsm "&&" = ["and eax, ebx"]
 genOpAsm "||" = ["or eax, ebx"]
-genOpAsm "=" = ["mov [eax], ebx"]
+genOpAsm "=" = ["mov [eax], ebx", "mov eax, [eax]"]
 
 genExprAsm :: SymbolDatabase ->  DFExpression -> [String]
 
@@ -602,7 +602,8 @@ genExprAsm sd NOOP = ["; NOOP"]
 
 genExprLhsAsm sd (ID (Left offset)) =
   let distance = (offset + 1) * 4
-  in ["lea eax, [ebp - " ++ show distance ++ "] ; LHS for assignment"]
+  --in ["lea eax, [ebp - " ++ show distance ++ "] ; LHS for assignment"]
+  in ["mov eax, ebp", "sub eax, " ++ show distance ++ " ; LHS for assignment"]
 
 genExprLhsAsm sd (ID (Right (offthis, symbol))) = ["; LHS Right symbol for assignment"] ++ code
   where
