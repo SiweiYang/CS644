@@ -187,7 +187,8 @@ functionClobbered definitions fun =
                        (("static" `elem` symbolModifiers b &&
                          not ("static" `elem` (symbolModifiers a)) &&
                          parameterTypes a == parameterTypes b) ||
-                        (localType a) /= (localType b) ||
+                        ((localType a) /= (localType b)  &&
+                         parameterTypes a == parameterTypes b) ||
                         ("public" `elem` symbolModifiers a && "protected" `elem` symbolModifiers b &&
                           parameterTypes a == parameterTypes b))
   in any (funEqual fun) definitions
