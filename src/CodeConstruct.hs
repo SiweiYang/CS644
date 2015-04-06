@@ -388,7 +388,7 @@ genAsm sd cc@(CC name fields sym methods) = ["; Code for: " ++ concat name] ++ e
                       ++ ["; put Class ID and Virtual Table"] ++ putClassIDCode ++ putvftCode
                       ++ exprs
                       ++ getThis
-                      ++ initializerCodeEnding    
+                      ++ initializerCodeEnding
     putClassIDCode = ["mov ebx, [__classid]", "mov [eax], ebx"]
     putvftCode = ["mov ebx, [__vft]", "mov [eax + 4], ebx"]
     exprs = concat $ map (genExprAsm sd) $ objectInitializer cc
@@ -483,8 +483,8 @@ genStmtAsm sd (DFFor initializer condition finalizer body nesting) =
 
 genOpAsm :: String -> [String]
 genOpAsm "*" = ["imul ebx"]
-genOpAsm "/" = ["cdq", "idiv ebx"]
-genOpAsm "%" = ["cdq", "idiv ebx", "mov eax, edx"]
+genOpAsm "/" = ["cmp ebx, 0", "je __exception", "cdq", "idiv ebx"]
+genOpAsm "%" = ["cmp ebx, 0", "je __exception", "cdq", "idiv ebx", "mov eax, edx"]
 genOpAsm "+" = ["add eax, ebx"]
 genOpAsm "-" = ["sub eax, ebx"]
 genOpAsm "==" = ["cmp eax, ebx", "mov eax, 1", "je short $+7", "mov eax, 0"]
