@@ -3,7 +3,7 @@ public class Array {
     public int pointer;
     public Array(int i){
         length = i;
-        pointer = Runtime.malloc(i);
+        pointer = Runtime.malloc(i * 4);
     }
     public Array(int i, int j){
         length = i;
@@ -13,6 +13,6 @@ public class Array {
         if (i >= length || i < 0) {
             Runtime.exception();
         }
-    	return pointer + i;
+    	return pointer + i * 4;
     }
 }

@@ -237,11 +237,11 @@ symbolLinkingExpr db imps su expr@(Attribute s m _) = case typeLinkingExpr db im
     where
         cname = (typeToName . lookUpThis) su
 
-symbolLinkingExpr db imps su (FunctionCall exprf args _) = if atsFailed then typeLinkingFailure' $ "Function types of Args " ++ (show ats) else
-                                                            case fss' of
-                                                                [] -> typeLinkingFailure' ("Function cannot find " ++ (show $ traverseFieldEntryWithImports db imps ["Arrays", "equals"]) ++ (show exprf) ++ (show fss) ++ (show args))
-                                                                [fs] -> [fs]
-                                                                _ -> typeLinkingFailure' ("Function find multi " ++ (show exprf) ++ (show args))
+symbolLinkingExpr db imps su expr@(FunctionCall exprf args _) = if atsFailed then typeLinkingFailure' $ (show expr) ++ "Function types of Args " ++ (show ats) else
+                                                                 case fss' of
+                                                                     [] -> typeLinkingFailure' ("Function cannot find " ++ (show $ traverseFieldEntryWithImports db imps ["Arrays", "equals"]) ++ (show exprf) ++ (show fss) ++ (show args))
+                                                                     [fs] -> [fs]
+                                                                     _ -> typeLinkingFailure' ("Function find multi " ++ (show exprf) ++ (show args))
         where
                 ats = map (typeLinkingExpr db imps su) args
                 atsFailed = or $ map null ats

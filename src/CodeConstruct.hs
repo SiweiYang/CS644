@@ -644,18 +644,19 @@ genExprAsm sd (InstanceOf refsym expr) = ["; instanceOf"] ++ exprCode ++ instanc
     classid = (typeIDMap sd) ! refsym
     instanceOfCode= ["cmp eax, 0", "je short $+14", "mov eax, [eax]", "mov ebx, " ++ (show classid), "call get_characteristics"]
 
-genExprAsm sd (Cast refType expr) = ["; Casting"] ++ exprCode ++ checkNullforCast ++  backupCode ++ castingCode ++ restoreCode
+genExprAsm sd (Cast refType expr) = case refType of
+                                      Left tp -> ["; Cast to a primitive type: " ++ (show tp)] ++ exprCode
+                                      Right sym -> ["; Cast to a ref type"] ++ exprCode ++ checkNullforCast ++  backupCode ++ castingCode ++ restoreCode
   where
     exprCode = genExprAsm sd expr
     checkNullforCast = ["cmp eax, 0", "je short $+25"]
     backupCode = ["mov ecx, eax"]
     restoreCode = ["mov eax, ecx"]
-    castingCode = case refType of
-                    Left tp -> ["; Cast to a primitive type: " ++ (show tp)]
-                    Right sym -> let classid = (typeIDMap sd) ! sym
-                                     getcharacteristics = ["mov eax, [eax]", "mov ebx, " ++ (show classid), "call get_characteristics"] 
-                                     checkException = ["cmp eax, 1", "jne __exception"]
-                                 in getcharacteristics ++ checkException
+    Right sym = refType
+    castingCode =  let classid = (typeIDMap sd) ! sym
+                       getcharacteristics = ["mov eax, [eax]", "mov ebx, " ++ (show classid), "call get_characteristics"] 
+                       checkException = ["cmp eax, 1", "jne __exception"]
+                   in getcharacteristics ++ checkException
 
 
 genExprAsm sd expr@(ID (Right (offthis, symbol))) = ["; variable named " ++ (localName symbol) ++ " symbol: " ++ (show symbol)] ++ reduction ++ checkNull ++ getvalue
@@ -678,15 +679,16 @@ genExprAsm sd (Value AST.TypeChar value) =
 genExprAsm sd (Value AST.TypeBoolean "true") = ["mov eax, 1"]
 genExprAsm sd (Value AST.TypeBoolean "false") = ["mov eax, 0"]
 genExprAsm sd (Value AST.TypeNull _) = ["mov eax, 0"]
-genExprAsm sd (Value (AST.Object (AST.Name ["java", "lang", "String"])) value) = genExprAsm sd (FunctionCall sym' $ (buildMalloc sym'):[charArray])
---["; XXX: String value: " ++ value]
+genExprAsm sd (Value (AST.Object (AST.Name ["java", "lang", "String"])) value) = [";creating String " ++ (show value) ++ " of length " ++ (show size)] ++
+                                                                                 genExprAsm sd (FunctionCall sym' $ (buildMalloc sym'):[charArray])
   where
     db' = db sd
     stringLabelMap = stringLabel sd
     label = case lookup value stringLabelMap of
               Just lb -> lb
+    size = (length value) - 2
     [_, sym] = getSymbol db' ["joosc native", "Array", "Array"]
-    charArray = (FunctionCall sym $ (buildMalloc sym):[Label label])
+    charArray = (FunctionCall sym $ (buildMalloc sym):[(Value AST.TypeInt (show size)), Label label])
     [_, sym', _] = getSymbol db' ["java", "lang", "String", "String"]
 genExprAsm sd (Value valuetype value) = ["; XXX: Unsupported value: " ++ value]
 genExprAsm sd (Label lb) = ["mov eax, " ++ lb]
