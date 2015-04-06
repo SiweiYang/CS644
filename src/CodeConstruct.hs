@@ -149,7 +149,9 @@ buildDFStatement db imps nesting (ENV su@(SU scope (IfBlock expr) _ _) ch) = (DF
 buildDFStatement db imps nesting (ENV su@(SU _ (Ret expr) _ _) ch) = (DFReturn dfexpr):remain
   where
     [remain] = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
-    dfexpr = if (isNothing expr) then Nothing else Just dfexpr'
+    dfexpr = if scopeConstructor su
+                then Just (buildDFExpression db imps su [] (AST.This))
+                else if (isNothing expr) then Nothing else Just dfexpr'
     dfexpr' = buildDFExpression db imps su [] (fromJust expr)
 
 
@@ -217,7 +219,7 @@ buildDFExpression db imps su tps e@(AST.ID n@(AST.Name cname@[nm]) _) = if take 
     syms = symbolLinkingName db imps su n
     sym = case if tps == [] then syms else [sym | sym <- syms, elem (symbolToType' sym) tps] of
             [sym] -> sym
-            err -> error $ (show err) ++ (show syms) ++ (show tps)
+            err -> error $ (show e) ++ "cands after filter: " ++ (show err) ++ "cands: " ++ (show (map symbolToType' syms)) ++ "constriants: " ++ (show tps)
     {-
     [sym@(SYM _ ls _ _)] = case symbolLinkingName db imps su n of
                              [sym@ (SYM _ _ _ _)] -> [sym]
@@ -247,7 +249,9 @@ buildDFExpression db imps su tps e@(AST.FunctionCall expr args _) = if elem "sta
                                                                       else FunctionCall sym $ exprL:(map (buildDFExpression db imps su []) args)
   where
     syms = symbolLinkingExpr db imps su e
-    [sym] = if tps == [] then syms else [sym | sym <- syms, elem (symbolToType' sym) tps]
+    sym = case if tps == [] then syms else [sym | sym@(FUNC _ _ _ _ rt) <- syms, elem (typeRelax rt) tps] of
+                 [sym] -> sym
+                 err -> error $ (show e) ++ "cands after filter: " ++ (show err) ++ "cands: " ++ (show (map symbolToType' syms)) ++ "constriants: " ++ (show tps)
     tps' = symbolToType' sym
     exprL = case buildDFExpression db imps su [tps'] expr of
               Attribute exprL sym -> exprL
@@ -258,7 +262,10 @@ buildDFExpression db imps su tps e@(AST.FunctionCall expr args _) = if elem "sta
 buildDFExpression db imps su tps e@(AST.NewObject tp args _) = FunctionCall sym $ (buildMalloc sym):(map (buildDFExpression db imps su []) args)
   where
     syms = symbolLinkingExpr db imps su e
-    [sym] = if tps == [] then syms else [sym | sym <- syms, elem (symbolToType' sym) tps]
+    --if tps == [] then syms else [sym | sym <- syms, elem (symbolToType' sym) tps]
+    sym = case syms of
+            [sym] -> sym
+            err -> error $ (show err) ++ (show syms) ++ (show tps)
 
 buildDFExpression db imps su tps (AST.NewArray tp expr _) = FunctionCall sym $ (buildMalloc sym):[buildDFExpression db imps su [] expr]
   where
@@ -276,11 +283,14 @@ buildDFExpression db imps su tps (AST.ArrayAccess expr expri _) = ArrayAccess sy
       sym = case getSymbol db ["joosc native", "Array", "get"] of
                 [sym'] -> sym'
                 [] -> error $ "buildDFExpression Empty lookup Name" ++ (show db)
-      dfexpr = buildDFExpression db imps su tps expr
-      dfexpri = buildDFExpression db imps su tps expri
+      tps' = case tps of
+               --[tp] -> AST.Array tp
+               _ -> AST.Object (AST.Name ["joosc native","Array"])
+      dfexpr = buildDFExpression db imps su [tps'] expr
+      dfexpri = buildDFExpression db imps su [] expri
 
 buildDFExpression db imps su tps (AST.Unary op expr _) = Unary op (buildDFExpression db imps su tps expr)
-buildDFExpression db imps su tps (AST.Binary op exprL exprR _) = Binary op (buildDFExpression db imps su tps exprL) (buildDFExpression db imps su tps exprR)
+buildDFExpression db imps su tps (AST.Binary op exprL exprR _) = Binary op (buildDFExpression db imps su [] exprL) (buildDFExpression db imps su [] exprR)
 
 buildDFExpression db imps su tps ow = error $ show ow
 
@@ -319,11 +329,12 @@ buildMalloc sym = FunctionCall sym' [arg]
     sym' = symbol runtimeMalloc
     arg = ID $ Right (0, (SYM ["static", "native"] (localScope sym) "object size" AST.TypeInt)) -- ??? this offset
 
+typeRelax tp = case tp of
+                   AST.Array _ -> AST.Object (AST.Name ["joosc native","Array"])
+                   ow -> ow
 
 symbolToType' :: Symbol -> Type
-symbolToType' sym = case tp of
-                      AST.Array _ -> AST.Object (AST.Name ["joosc native","Array"])
-                      ow -> ow
+symbolToType' sym = typeRelax tp
   where
     tp = symbolToType sym
 
@@ -371,11 +382,13 @@ genAsm sd cc@(CC name fields sym methods) = ["; Code for: " ++ concat name] ++ e
     fieldCode = concat $ map (genFieldAsm sd) fields
     methodCode = concat $ map (genMthdAsm sd cc) methods
     vftCode = genAsmVirtualTable sd cc
+    getThis = ["mov eax, [ebp + 8]"]
     initializerCode = ["; Start a stack frame for initializer", "__initializer:", "push ebp", "mov ebp, esp"]
+                      ++ getThis
                       ++ ["; put Class ID and Virtual Table"] ++ putClassIDCode ++ putvftCode
                       ++ exprs
-                      ++ initializerCodeEnding
-    getThis = ["mov eax, [ebp + 8]"]
+                      ++ getThis
+                      ++ initializerCodeEnding    
     putClassIDCode = ["mov ebx, [__classid]", "mov [eax], ebx"]
     putvftCode = ["mov ebx, [__vft]", "mov [eax + 4], ebx"]
     exprs = concat $ map (genExprAsm sd) $ objectInitializer cc
@@ -389,7 +402,6 @@ genAsmVirtualTable sd (CC _ _ sym _) = header ++ code
     labelT = map (\symbol -> if isNothing symbol then "__exception" else (funcLabel sd) ! (fromJust symbol)) vtable
     code = map (\str -> "dd " ++ str) labelT
 
-
 genFieldAsm :: SymbolDatabase -> FieldType -> [String]
 genFieldAsm sd (FT _ _ _ _ False) = []
 genFieldAsm sd fld@(FT name _ _ _ True) = ["; Class field: " ++ (show fld)]
@@ -398,11 +410,12 @@ genFieldAsm sd fld@(FT name _ _ _ True) = ["; Class field: " ++ (show fld)]
 genMthdAsm :: SymbolDatabase -> ClassConstruct -> MethodConstruct -> [String]
 genMthdAsm sd cc (MC name symbol definition)
   | isNative = ["; native method"]
-  | isConstructor = ["; constructor for class"] ++ header ++ ["; * Constructor"] ++ body ++ ending
+  | isConstructor = ["; constructor for class"] ++ header ++ ["; * Constructor"] ++ body ++ ["mov eax, [ebp + " ++ (show (thisOffset * 4)) ++ "]", ";default return this"] ++ ending
   | otherwise = header ++ body ++ ending
   where
     isNative = elem "native" $ symbolModifiers symbol
     isConstructor = elem "cons" $ symbolModifiers symbol
+    thisOffset = 1 + 1 + (length (parameterTypes symbol))
     label = case lookup symbol (funcLabel sd) of
               Just lb -> lb
     header = ["global " ++ label, label ++ ":", "; Start a new stack frame", "push ebp", "mov ebp, esp"]
@@ -482,7 +495,7 @@ genOpAsm ">" = ["cmp eax, ebx", "mov eax, 1", "jg short $+7", "mov eax, 0"]
 genOpAsm ">=" = ["cmp eax, ebx", "mov eax, 1", "jge short $+7", "mov eax, 0"]
 genOpAsm "&&" = ["and eax, ebx"]
 genOpAsm "||" = ["or eax, ebx"]
-genOpAsm "=" = ["mov [eax], ebx"]
+genOpAsm "=" = ["mov [eax], ebx", "mov eax, [eax]"]
 
 genExprAsm :: SymbolDatabase ->  DFExpression -> [String]
 
@@ -589,7 +602,8 @@ genExprAsm sd NOOP = ["; NOOP"]
 
 genExprLhsAsm sd (ID (Left offset)) =
   let distance = (offset + 1) * 4
-  in ["lea eax, [ebp - " ++ show distance ++ "] ; LHS for assignment"]
+  --in ["lea eax, [ebp - " ++ show distance ++ "] ; LHS for assignment"]
+  in ["mov eax, ebp", "sub eax, " ++ show distance ++ " ; LHS for assignment"]
 
 genExprLhsAsm sd (ID (Right (offthis, symbol))) = ["; LHS Right symbol for assignment"] ++ code
   where
@@ -600,11 +614,11 @@ genExprLhsAsm sd (ID (Right (offthis, symbol))) = ["; LHS Right symbol for assig
     staticRes = lookup symbol staticSYMMap
     code = case (nonstaticRes, staticRes) of
               (Nothing, Nothing) -> error $ show "ID: cannot find symbol"
-              (Just offset, _) -> ["mov eax, [ebp + " ++ (show distance) ++ "]", "add eax, " ++ (show offset)]
+              (Just offset, _) -> ["mov eax, [ebp + " ++ (show distance) ++ "]", "add eax, " ++ (show (offset * 4)) ++ ";accessing instance with offset " ++ (show offset)]
               (_, Just label) -> ["mov eax, " ++ label]
 
 genExprLhsAsm sd (ArrayAccess sym expr expri) = genExprAsm sd (FunctionCall sym [expr, expri])
-genExprLhsAsm sd (Attribute struct sym) = refCode ++ ["mov eax, [eax]", "add eax, " ++ show (instanceSYMOffset * 4)]
+genExprLhsAsm sd (Attribute struct sym) = refCode ++ ["add eax, " ++ show (instanceSYMOffset * 4)]
   where
     instanceSYMMap = instanceSYMOffsetMap sd
     instanceSYMOffset = case lookup sym instanceSYMMap of
