@@ -149,7 +149,9 @@ buildDFStatement db imps nesting (ENV su@(SU scope (IfBlock expr) _ _) ch) = (DF
 buildDFStatement db imps nesting (ENV su@(SU _ (Ret expr) _ _) ch) = (DFReturn dfexpr):remain
   where
     [remain] = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
-    dfexpr = if (isNothing expr) then Nothing else Just dfexpr'
+    dfexpr = if scopeConstructor su
+                then Just (buildDFExpression db imps su [] (AST.This))
+                else if (isNothing expr) then Nothing else Just dfexpr'
     dfexpr' = buildDFExpression db imps su [] (fromJust expr)
 
 
@@ -380,11 +382,13 @@ genAsm sd cc@(CC name fields sym methods) = ["; Code for: " ++ concat name] ++ e
     fieldCode = concat $ map (genFieldAsm sd) fields
     methodCode = concat $ map (genMthdAsm sd cc) methods
     vftCode = genAsmVirtualTable sd cc
+    getThis = ["mov eax, [ebp + 8]"]
     initializerCode = ["; Start a stack frame for initializer", "__initializer:", "push ebp", "mov ebp, esp"]
+                      ++ getThis
                       ++ ["; put Class ID and Virtual Table"] ++ putClassIDCode ++ putvftCode
                       ++ exprs
-                      ++ initializerCodeEnding
-    getThis = ["mov eax, [ebp + 8]"]
+                      ++ getThis
+                      ++ initializerCodeEnding    
     putClassIDCode = ["mov ebx, [__classid]", "mov [eax], ebx"]
     putvftCode = ["mov ebx, [__vft]", "mov [eax + 4], ebx"]
     exprs = concat $ map (genExprAsm sd) $ objectInitializer cc
@@ -398,7 +402,6 @@ genAsmVirtualTable sd (CC _ _ sym _) = header ++ code
     labelT = map (\symbol -> if isNothing symbol then "__exception" else (funcLabel sd) ! (fromJust symbol)) vtable
     code = map (\str -> "dd " ++ str) labelT
 
-
 genFieldAsm :: SymbolDatabase -> FieldType -> [String]
 genFieldAsm sd (FT _ _ _ _ False) = []
 genFieldAsm sd fld@(FT name _ _ _ True) = ["; Class field: " ++ (show fld)]
@@ -407,11 +410,12 @@ genFieldAsm sd fld@(FT name _ _ _ True) = ["; Class field: " ++ (show fld)]
 genMthdAsm :: SymbolDatabase -> ClassConstruct -> MethodConstruct -> [String]
 genMthdAsm sd cc (MC name symbol definition)
   | isNative = ["; native method"]
-  | isConstructor = ["; constructor for class"] ++ header ++ ["; * Constructor"] ++ body ++ ending
+  | isConstructor = ["; constructor for class"] ++ header ++ ["; * Constructor"] ++ body ++ ["mov eax, [ebp + " ++ (show (thisOffset * 4)) ++ "]", ";default return this"] ++ ending
   | otherwise = header ++ body ++ ending
   where
     isNative = elem "native" $ symbolModifiers symbol
     isConstructor = elem "cons" $ symbolModifiers symbol
+    thisOffset = 1 + 1 + (length (parameterTypes symbol))
     label = case lookup symbol (funcLabel sd) of
               Just lb -> lb
     header = ["global " ++ label, label ++ ":", "; Start a new stack frame", "push ebp", "mov ebp, esp"]
@@ -609,11 +613,11 @@ genExprLhsAsm sd (ID (Right (offthis, symbol))) = ["; LHS Right symbol for assig
     staticRes = lookup symbol staticSYMMap
     code = case (nonstaticRes, staticRes) of
               (Nothing, Nothing) -> error $ show "ID: cannot find symbol"
-              (Just offset, _) -> ["mov eax, [ebp + " ++ (show distance) ++ "]", "add eax, " ++ (show offset)]
+              (Just offset, _) -> ["mov eax, [ebp + " ++ (show distance) ++ "]", "add eax, " ++ (show (offset * 4)) ++ ";accessing instance with offset " ++ (show offset)]
               (_, Just label) -> ["mov eax, " ++ label]
 
 genExprLhsAsm sd (ArrayAccess sym expr expri) = genExprAsm sd (FunctionCall sym [expr, expri])
-genExprLhsAsm sd (Attribute struct sym) = refCode ++ ["mov eax, [eax]", "add eax, " ++ show (instanceSYMOffset * 4)]
+genExprLhsAsm sd (Attribute struct sym) = refCode ++ ["add eax, " ++ show (instanceSYMOffset * 4)]
   where
     instanceSYMMap = instanceSYMOffsetMap sd
     instanceSYMOffset = case lookup sym instanceSYMMap of

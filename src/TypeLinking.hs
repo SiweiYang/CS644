@@ -324,14 +324,6 @@ symbolLinkingName db imps su (Name cname@(nm:remain)) = case syms'' of
 lookUpThis :: SemanticUnit -> Type
 lookUpThis su = if elem (kind su) [Class, Interface] then Object (Name (scope su)) else lookUpThis (inheritFrom su)
 
-scopeConstructor :: SemanticUnit -> Bool
-scopeConstructor su = rst
-    where
-        kd = kind su
-        rst = case kd of
-                Method (FUNC mds _ _ _ lt) -> elem "cons" mds
-                _ -> scopeConstructor (inheritFrom su)
-
 scopeStatic :: SemanticUnit -> Bool
 scopeStatic su
     | elem kd [Package, Interface] = error $ "wrong call to scopeStatic"
@@ -343,6 +335,13 @@ scopeStatic su
                 Method (FUNC mds _ _ _ _) -> elem "static" mds
                 Field (SYM mds _ _ _) _ -> elem "static" mds
                 _ -> scopeStatic (inheritFrom su)
+
+scopeConstructor :: SemanticUnit -> Bool
+scopeConstructor su = case kd of
+                        Method (FUNC mds _ _ _ _) -> elem "cons" mds                
+                        _ -> scopeConstructor (inheritFrom su)
+    where
+        kd = kind su
 
 scopeLocal :: SemanticUnit -> Bool
 scopeLocal su
