@@ -1,0 +1,141 @@
+\documentclass[12pt,letterpaper]{article}
+\usepackage[margin=0.75in]{geometry}
+\usepackage[pdftex]{graphicx}
+\usepackage[parfill]{parskip}
+\usepackage{listings}
+\usepackage{color}
+\lstset{language=Haskell, frame=single, breaklines=true, keywordstyle=\color{blue}, identifierstyle=\color{red}, basicstyle=\small}
+
+% Submit to Marmoset a PDF document of no more than five pages explaining the design of this phase of your compiler.
+% The document should be organized to enable someone unfamiliar with your code to understand the structure of (this phase of) your compiler.
+% In the document, discuss challenges that you encountered and how you tried to overcome them in your design and implementation.
+% Also explain the testing that you did before submitting to Marmoset.
+
+\begin{document}
+
+\begin{titlepage}
+\begin{center}
+
+% Title
+\Large \textbf { {\bf CS644 Project} \\ Report: A5}\\[0.5in]
+
+       \small \emph{Submitted in partial fulfillment of\\
+        the requirements for the course}
+        \vspace{.2in}
+
+% Submitted by
+\normalsize Submitted by \\
+\begin{table}[h]
+\centering
+\begin{tabular}{lr}\hline \\
+Name & ID\\ \\ \hline
+\\
+Siwei Yang & s8yang \\ \\ \hline
+\\
+Justin Vanderheide & jtvander \\ \\ \hline
+\\
+Jian Li & j493li \\ \\ \hline
+\end{tabular}
+\end{table}
+
+\vfill
+
+% Bottom of the page
+\includegraphics[width=0.3\textwidth]{../res/UWLogo}\\[1.1in]
+\Large{Department of Computer Science}\\
+\normalsize
+\textsc{University of Waterloo}\\
+Waterloo, Ontario, Canada -- N2L 3G1 \\
+\vspace{0.2cm}
+Winter 2015
+
+\end{center}
+\end{titlepage}
+
+\section{General Strategy}
+This section describes the meta strategy we applied in developing the code generation phase of our compiler.
+In principle, we first distill the necessary information from the attribute grammar into DFStatements, which are then fairly trivial to convert to assembly.
+The algebraic datatype for DFStatement and DFExpression is the following.
+\begin{lstlisting}
+data DFStatement = DFIf {
+  condition :: DFExpression,
+  ifBlock   :: [DFStatement],
+  elseBlock :: [DFStatement],
+  nesting   :: [Int]
+} | DFWhile {
+  condition  :: DFExpression,
+  whileBlock :: [DFStatement],
+  nesting    :: [Int]
+} | DFFor {
+  initializer :: DFStatement,
+  condition   :: DFExpression,
+  finalizer   :: DFStatement,
+  forBlock    :: [DFStatement],
+  nesting     :: [Int]
+} | DFBlock {
+  block :: [DFStatement],
+  nesting :: [Int]
+} | DFExpr DFExpression
+  | DFLocal DFExpression
+  | DFReturn (Maybe DFExpression)
+
+data DFExpression = FunctionCall Symbol [DFExpression]
+                   | ArrayAccess Symbol DFExpression DFExpression
+                   | Unary { op :: String, expr :: DFExpression }
+                   | Binary { op :: String, exprL :: DFExpression, exprR :: DFExpression }
+                   | Attribute { struct :: DFExpression, mem :: Symbol }
+                   | InstanceOf { reftype :: Type, expr :: DFExpression }
+                   | Cast {reftype :: Type, expr :: DFExpression }
+                   | ID { identifier :: Either Int (Int, Symbol) }
+                   | Value { valuetype :: Type, value :: String }
+                   | Super { offset :: Int, super :: Maybe Symbol }
+                   | Null
+                   | NOOP
+\end{lstlisting}
+All of the assembly generation related code is located in \emph{CodeConstruct.hs}.
+
+\subsection{Unary and Binary Operations}
+Our approach to compiling operators was to use eax to store the left hand side and result, and use ebx to store the right hand side and result.
+Precedence aside, expressions are then evaluated right to left.
+The right hand side is evaluated and pushed to the stack, the left hand side is then evaluated and the result sits in eax, then the right hand side is popped from the stack to ebx, and the operation runs, leaving the final result in eax.
+For unary operations there is simply no ebx, the single operand is stored in eax, and the result replaces it.
+
+\subsection{Variables}
+There are effectively 4 different types of variables that we need to handle.
+The easiest are parameter variables. These are accessed based on their offset from the base pointer.
+Since arguments are pushed onto the stack in reverse order followed by the return address and saved ebp, the first parameter is in [ebp+8] following by [ebp+12] and so on.
+
+Local variables are placed on the stack in the order they are defined. The first local variable is then located in [ebp-4], followed by [ebp-8] and so on.
+For local variables within nested blocks we also push them to the stack, and whenever we exit a block we pop them off the stack.
+
+Static variables live in the data segment. They are accessed by their unique label.
+
+Instance variables are accessed by an offset from the variables memory address, The first variable resides at [varAddr+4], then [varAddr+8] and so on.
+
+\subsection{Function Calls}
+For function calls, the arguments are evaluated left to right and pushed to the stack.
+In the case of a static function the x86 'call' instruction is then used to store the base pointer and jump to the function.
+For instance methods the target function address is first retrieved from the vtable before being called.
+Our convention is to have the callee clean up the stack, so after the function call returns, the callee pops the arguments.
+
+\subsection{Static Initialization}
+
+\subsection{Vtables}
+
+\section{Challenges}
+Last but not least, we would like to cover some technicalities involving the following challenges. Each further demonstrates how we model the solution, and how we engineer solution taking into account the characteritics of pure functional language.
+
+\subsection{Unique Label Creation}
+
+\subsection{Vtables}
+
+\section{Debugging and Testing Strategies}
+For assignment 5 we wrote a test runner in bash.
+The bash script automatically runs all of the marmoset tests locally, as well as tests we added, from beginning to end.
+The script prints out all of the tests we are currently failing, and in order to assist in debugging it indicates if a failure occured during compilation, assembly, linking, or actual execution.
+Just as in assignment 4 the script is broken up into various functions which are exported to provide us with convenient ways of invoking joosc.
+For example the function "joosc\_run" takes in the path to either a single file test or a test directory and runs joosc with the appropriate standard library files and test directory files.
+Unlike the previous assignment we no longer run the tests in parallel because of contention for the output directory.
+While we could have set up one output directory for each thread, we wanted the execution of our tests to mimic marmoset as closely as possible.
+\end{document}
+
