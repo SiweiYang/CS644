@@ -141,6 +141,9 @@ Instead, we keep track of the nesting of statements and expressions.
 A nesting is a list of integers, where the last number is the order of the statement within the parent, and the prefix is the parents nesting.
 This ensures that within each function the nestings are unique, we then use nasms local label feature to ensure that labels in different functions do not clash.
 If we were to do it all again, we would use the state monad to handle this, maintaining the nesting value throughout generation was quite bothersome.
+
+Function labels are simply a concatenation of the package name, class name, the word instance or static, followed by a globally unique integer that identifies the function.
+By generating our function labels this way our assembly is still readable, and we can be sure that there are no conflicts.
 \subsection{Vtables}
 
 \section{Debugging and Testing Strategies}
