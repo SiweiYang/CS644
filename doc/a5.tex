@@ -153,6 +153,13 @@ genAsmVirtualTable sd (CC _ _ sym _) = header ++ code
     code = map (\str -> "dd " ++ str) labelT
 \end{lstlisting}
 
+\subsection{Arrays}
+To simplify the implementation of arrays, we wrote an array implementation in Java which can be found in \emph{res/Array.java}.
+The implementation has two instance variables: a base pointer and a length.
+The length is used to throw runtime exceptions for out of bounds access, while the pointer is used for accessing elements.
+Array creations are transformed into calls to either of the array constructors, and accesses are transformed into calls to the get instance method.
+By creating out array implementation in Java, arrays were no extra trouble to handle versus any other data type.
+
 \section{Challenges}
 Last but not least, we would like to cover some technicalities involving the following challenges. Each further demonstrates how we model the solution, and how we engineer solution taking into account the characteristics of pure functional language.
 
@@ -184,7 +191,6 @@ To look up a relation is true or not, let $a$ be the class id stored in an objec
 The offset is $a \cdot total + b$, where $total$ is the number of classes, including stdlibs.
 And if that bit is 1, the relation is true.
 When doing object casting, we use the same procedure, but if result is 0, which means this conversion is invalid, just call \emph{\_\_exception} and throw an exception.
-
 
 \section{Debugging and Testing Strategies}
 For assignment 5 we wrote a test runner in bash.
