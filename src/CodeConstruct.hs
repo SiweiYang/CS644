@@ -7,13 +7,14 @@ import           Data.List hiding (lookup)
 import           Data.Maybe
 import           Data.Either
 
-import           AST          (Expression, Type)
+import           AST          (Expression, Type(..))
 import qualified AST
 import           Environment
 import           TypeDatabase
 import           TypeLinking
 import           Inheritance
 import           TypeChecking
+import           Generation (trans)
 
 
 data FieldType = FT {
@@ -63,7 +64,7 @@ objectInitializer (CC _ flds sym _) = zipWith newexpr [10000..] nonstatic
     capsule = \sym -> ID $ Right (-1, sym)
     initialTPvalue = \tp -> if isPrimitive tp then (Value AST.TypeInt "0") else Null
     initialvalue = \expr tp -> if isNothing expr then initialTPvalue tp else fromJust expr
-    newexpr = \num (FT _ tp sym expr _) -> Binary "=" (capsule sym) (initialvalue expr tp) [num]
+    newexpr = \num (FT _ tp sym expr _) -> Binary ("=", tp, tp) (capsule sym) (initialvalue expr tp) [num]
 
 classInitializer :: ClassConstruct -> [DFExpression]
 classInitializer (CC _ flds sym _) = zipWith newexpr [20000..] static
@@ -72,7 +73,7 @@ classInitializer (CC _ flds sym _) = zipWith newexpr [20000..] static
     capsule = \sym -> ID $ Right (0, sym)
     initialTPvalue = \tp -> if isPrimitive tp then (Value AST.TypeInt "0") else Null
     initialvalue = \expr tp -> if isNothing expr then initialTPvalue tp else fromJust expr
-    newexpr = \num (FT _ tp sym expr _) -> Binary "=" (capsule sym) (initialvalue expr tp) [num]
+    newexpr = \num (FT _ tp sym expr _) -> Binary ("=", tp, tp) (capsule sym) (initialvalue expr tp) [num]
 
 ---------------------------------------------------------------
 
@@ -183,8 +184,8 @@ buildDFStatement db imps nesting (ENV su@(SU _ ForBlock st _) ch) = (DFFor inits
 
 data DFExpression = FunctionCall Symbol [DFExpression]
                    | ArrayAccess Symbol DFExpression DFExpression
-                   | Unary { op :: String, expr :: DFExpression }
-                   | Binary { op :: String, exprL :: DFExpression, exprR :: DFExpression, shortcut :: [Int] }
+                   | Unary { uop :: String, expr :: DFExpression }
+                   | Binary { bop :: (String, Type, Type) , exprL :: DFExpression, exprR :: DFExpression, shortcut :: [Int] }
                    | Attribute { struct :: DFExpression, mem :: Symbol }
                    | InstanceOf { refsym :: Symbol, expr :: DFExpression }
                    | Cast {reftype :: Either Type Symbol, expr :: DFExpression }
@@ -317,7 +318,10 @@ buildDFExpression db imps su tps nesting (AST.ArrayAccess expr expri _) = ArrayA
       dfexpri = buildDFExpression db imps su [] (nesting ++ [2]) expri
 
 buildDFExpression db imps su tps nesting (AST.Unary op expr _) = Unary op (buildDFExpression db imps su tps (nesting ++ [1]) expr)
-buildDFExpression db imps su tps nesting (AST.Binary op exprL exprR _) = Binary op (buildDFExpression db imps su [] (nesting ++ [1]) exprL) (buildDFExpression db imps su [] (nesting ++ [2]) exprR) nesting
+buildDFExpression db imps su tps nesting (AST.Binary op exprL exprR _) = Binary (op, tpL, tpR) (buildDFExpression db imps su [] (nesting ++ [1]) exprL) (buildDFExpression db imps su [] (nesting ++ [2]) exprR) nesting
+  where
+    [tpL] = typeLinkingExpr db imps su exprL
+    [tpR] = typeLinkingExpr db imps su exprR
 
 buildDFExpression db imps su tps ow _ = error $ show ow
 
@@ -561,6 +565,8 @@ genOpAsm "&" = ["and eax, ebx"]
 genOpAsm "|" = ["or eax, ebx"]
 genOpAsm "=" = ["mov [eax], ebx", "mov eax, [eax]"]
 
+
+
 checkNull = ["cmp eax, 0", "je __exception"]
 
 genExprAsm :: SymbolDatabase ->  DFExpression -> [String]
@@ -610,26 +616,48 @@ genExprAsm sd (Unary op expr) =
                     "!" -> ["xor eax, 1"]
   in [";Unary op: " ++ op] ++ exprCode ++ unaryCode
 
-genExprAsm sd (Binary op exprL exprR nesting)
+genExprAsm sd (Binary (op, tpL, tpR) exprL exprR nesting)
   | op == "&&" = ["; Binary op: " ++ op ++ " with shortcut"] ++
                  leftCode ++ ["cmp eax, 0", "je " ++ endLabel] ++
                  rightCode ++ [endLabel ++ ":"]
   | op == "||" = ["; Binary op: " ++ op ++ " with shortcut"] ++ 
                  leftCode ++ ["cmp eax, 1", "je " ++ endLabel] ++
                  rightCode ++ [endLabel ++ ":"]
+  | op == "+" && ((not $ elem tpL [TypeChar, TypeByte, TypeShort, TypeInt]) || (not $ elem tpR [TypeChar, TypeByte, TypeShort, TypeInt])) = ["; implicit string convertion and concat"] ++
+                                                            genExprAsm sd concatExpr
   | otherwise = [";Binary op: " ++ op] ++
                 leftCode ++ ["push eax ; Push left value to stack"] ++
                 rightCode ++
                 ["mov ebx, eax", "pop eax ; Pop right value from stack"] ++
                 opCode
   where
+      db' = db sd
       opname = if op == "&&" then "And" else "Or"
       endLabel = ".binary_End_" ++ opname ++ "_" ++ genLabel nesting
+      [funcChar, funcInt, funcShort, funcByte, funcBoolean, funcObj, _] = getSymbol db' ["java", "lang", "String", "valueOf"]
+      [funcConcat] = getSymbol db' ["java", "lang", "String", "concat"]
       rightCode = genExprAsm sd exprR
+      rightFunc = case tpR of
+                    TypeChar -> funcChar
+                    TypeByte -> funcByte
+                    TypeShort -> funcShort
+                    TypeInt -> funcInt
+                    TypeBoolean -> funcBoolean
+                    _ -> funcObj
+      rightExpr = (FunctionCall rightFunc [exprR])
       opCode = genOpAsm op
       leftCode = case op of
                     "=" -> genExprLhsAsm sd exprL
                     _ -> genExprAsm sd exprL
+      leftFunc = case tpL of
+                   TypeChar -> funcChar
+                   TypeByte -> funcByte
+                   TypeShort -> funcShort
+                   TypeInt -> funcInt
+                   TypeBoolean -> funcBoolean
+                   _ -> funcObj
+      leftExpr = (FunctionCall leftFunc [exprL])
+      concatExpr = (FunctionCall funcConcat [leftExpr, rightExpr])
 
 genExprAsm sd (Attribute struct member) = (genExprLhsAsm sd (Attribute struct member)) ++ checkNull ++ ["mov eax, [eax]"]
 
@@ -693,7 +721,7 @@ genExprAsm sd (Value (AST.Object (AST.Name ["java", "lang", "String"])) value) =
     stringLabelMap = stringLabel sd
     label = case lookup value stringLabelMap of
               Just lb -> lb
-    size = (length value) - 2
+    size = (length (trans value)) - 2
     [_, sym] = getSymbol db' ["joosc native", "Array", "Array"]
     charArray = (FunctionCall sym $ (buildMalloc sym):[(Value AST.TypeInt (show size)), Label label])
     [_, sym', _] = getSymbol db' ["java", "lang", "String", "String"]

@@ -237,7 +237,7 @@ main' givenFileNames = do
   let firstClass = head $ filter isJust $ map (\(_,cls,_) -> cls) reconstructedCLASS
 
   let filenamef = \x -> head $ splitOneOf "." $ last $ splitOneOf "/" x
-  mapM (\(_, cls, fn) -> writeFile ("output/" ++ (filenamef fn) ++ ".s") $ unlines . (genAsm sd) $ fromJust cls) reconstructedCLASS'
+  mapM (\((_, cls, fn), i) -> writeFile ("output/" ++ (filenamef fn) ++ "_" ++ (show i) ++ ".s") $ unlines . (genAsm sd) $ fromJust cls) (zip reconstructedCLASS' [0..])
 
   let startFunction = methodSymbol . head $ filter (\mthd -> "test" == (last . methodName $ mthd)) (classMethods . fromJust $ firstClass)
   let startFunctionLabel = case lookup startFunction staticFUNCLabelMap of
