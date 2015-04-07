@@ -130,12 +130,36 @@ Our convention is to have the callee clean up the stack, so after the function c
 \subsection{Static Initialization}
 
 \subsection{Vtables}
+Our vtable generation is handled by the function \emph{genAsmVirtualTable}.
+Since we have a unique integer for each function in the source being compiled, generating the vtable is actually quite easy.
+We iterate through all instance functions in the program and then look up the corresponding label for the classes implementation.
+If the class does not support a given label we put the label for \_\_exception to fill the gap, since that function should never be called on objects of the class.
+At runtime when a method is called we use it's unique integer as an offset from the base of the vtable pointer in the object.
+
+Here is the genAsmVirtualTable function in it's entirety.
+\begin{lstlisting}
+genAsmVirtualTable :: SymbolDatabase -> ClassConstruct -> [String]
+genAsmVirtualTable sd (CC _ _ sym _) = header ++ code
+  where
+    header = ["__vft:"]
+    [(_, vtable)] = filter (\(symbol, _) -> symbol == sym) (instanceFUNCTable sd)
+    labelT = map (\symbol -> if isNothing symbol then "__exception" else (funcLabel sd) ! (fromJust symbol)) vtable
+    code = map (\str -> "dd " ++ str) labelT
+\end{lstlisting}
 
 \section{Challenges}
 Last but not least, we would like to cover some technicalities involving the following challenges. Each further demonstrates how we model the solution, and how we engineer solution taking into account the characteritics of pure functional language.
 
 \subsection{Unique Label Creation}
+It is necessary to have many unique labels throughout the generated assembly for control flow blocks as well as simple constructs like short circuiting boolean expressions.
+Since Haskell is pure it is not possible for us to simply have a global counter that we can rely on to generate these unique labels.
+Instead, we keep track of the nesting of statements and expressions.
+A nesting is a list of integers, where the last number is the order of the statement within the parent, and the prefix is the parents nesting.
+This ensures that within each function the nestings are unique, we then use nasms local label feature to ensure that labels in different functions do not clash.
+If we were to do it all again, we would use the state monad to handle this, maintaining the nesting value throughout generation was quite bothersome.
 
+Function labels are simply a concatenation of the package name, class name, the word instance or static, followed by a globally unique integer that identifies the function.
+By generating our function labels this way our assembly is still readable, and we can be sure that there are no conflicts.
 \subsection{Vtables}
 
 \section{Debugging and Testing Strategies}
