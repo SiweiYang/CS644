@@ -57,22 +57,22 @@ data InstanceConstruct = IC {
 -}
 
 objectInitializer :: ClassConstruct -> [DFExpression]
-objectInitializer (CC _ flds sym _) = map newexpr nonstatic
+objectInitializer (CC _ flds sym _) = zipWith newexpr [10000..] nonstatic
   where
     nonstatic = filter (not . isStatic) flds
     capsule = \sym -> ID $ Right (-1, sym)
     initialTPvalue = \tp -> if isPrimitive tp then (Value AST.TypeInt "0") else Null
     initialvalue = \expr tp -> if isNothing expr then initialTPvalue tp else fromJust expr
-    newexpr = \(FT _ tp sym expr _) -> Binary "=" (capsule sym) (initialvalue expr tp)
+    newexpr = \num (FT _ tp sym expr _) -> Binary "=" (capsule sym) (initialvalue expr tp) [num]
 
 classInitializer :: ClassConstruct -> [DFExpression]
-classInitializer (CC _ flds sym _) = map newexpr static
+classInitializer (CC _ flds sym _) = zipWith newexpr [20000..] static
   where
     static = filter isStatic flds
     capsule = \sym -> ID $ Right (0, sym)
     initialTPvalue = \tp -> if isPrimitive tp then (Value AST.TypeInt "0") else Null
     initialvalue = \expr tp -> if isNothing expr then initialTPvalue tp else fromJust expr
-    newexpr = \(FT _ tp sym expr _) -> Binary "=" (capsule sym) (initialvalue expr tp)
+    newexpr = \num (FT _ tp sym expr _) -> Binary "=" (capsule sym) (initialvalue expr tp) [num]
 
 ---------------------------------------------------------------
 
@@ -84,7 +84,7 @@ buildClassConstruct db imps (ENV su@(SU cname Class st parent) ch) = Just (CC cn
   where
     flds = [fld | fld@(Field sym mval) <- map (kind . semantic) ch]
     flds' = map (\(Field sym mval) -> if isJust mval
-                                         then (sym, Just $ buildDFExpression db imps su [] (fromJust mval))
+                                         then (sym, Just $ buildDFExpression db imps su [] ([0]) (fromJust mval))
                                          else (sym, Nothing)) flds
     ft = buildFieldType flds'
     [sym] = symbolTable parent
@@ -141,32 +141,32 @@ buildDFStatement db imps nesting (ENV (SU _ Statement _ _) ch) = (DFBlock block 
 buildDFStatement db imps nesting (ENV su@(SU _ (Var expr) st _) ch) = (DFLocal dfexpr):remain
   where
     [remain] = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
-    dfexpr = buildDFExpression db imps su [] expr
+    dfexpr = buildDFExpression db imps su [] (nesting ++ [1]) expr
 
 buildDFStatement db imps nesting (ENV su@(SU _ (Exp expr) _ _) ch) = (DFExpr dfexpr):remain
   where
     [remain] = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
-    dfexpr = buildDFExpression db imps su [] expr
+    dfexpr = buildDFExpression db imps su [] (nesting ++ [1]) expr
 
 
 buildDFStatement db imps nesting (ENV su@(SU scope (IfBlock expr) _ _) ch) = (DFIf dfexpr ifpart elsepart nesting):remain
   where
     [ifpart, elsepart, remain] = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
-    dfexpr = buildDFExpression db imps su [] expr
+    dfexpr = buildDFExpression db imps su [] (nesting ++ [1]) expr
 
 buildDFStatement db imps nesting (ENV su@(SU _ (Ret expr) _ _) ch) = (DFReturn dfexpr):remain
   where
     [remain] = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
     dfexpr = if scopeConstructor su
-                then Just (buildDFExpression db imps su [] (AST.This))
+                then Just (buildDFExpression db imps su [] (nesting ++ [1]) (AST.This))
                 else if (isNothing expr) then Nothing else Just dfexpr'
-    dfexpr' = buildDFExpression db imps su [] (fromJust expr)
+    dfexpr' = buildDFExpression db imps su [] (nesting ++ [1]) (fromJust expr)
 
 
 buildDFStatement db imps nesting (ENV su@(SU _ (WhileBlock expr) _ _) ch) = (DFWhile dfexpr whilepart nesting):remain
   where
     [whilepart, remain] = zipWith (\num child -> buildDFStatement db imps (nesting ++ [num]) child) [1..] ch
-    dfexpr = buildDFExpression db imps su [] expr
+    dfexpr = buildDFExpression db imps su [] (nesting ++ [1]) expr
 
 buildDFStatement db imps nesting (ENV su@(SU _ ForBlock st _) ch) = (DFFor initstmt expr' forstmt' forblock nesting):remain
   where
@@ -184,7 +184,7 @@ buildDFStatement db imps nesting (ENV su@(SU _ ForBlock st _) ch) = (DFFor inits
 data DFExpression = FunctionCall Symbol [DFExpression]
                    | ArrayAccess Symbol DFExpression DFExpression
                    | Unary { op :: String, expr :: DFExpression }
-                   | Binary { op :: String, exprL :: DFExpression, exprR :: DFExpression }
+                   | Binary { op :: String, exprL :: DFExpression, exprR :: DFExpression, shortcut :: [Int] }
                    | Attribute { struct :: DFExpression, mem :: Symbol }
                    | InstanceOf { refsym :: Symbol, expr :: DFExpression }
                    | Cast {reftype :: Either Type Symbol, expr :: DFExpression }
@@ -197,38 +197,38 @@ data DFExpression = FunctionCall Symbol [DFExpression]
                    deriving (Show)
 
 
-buildDFExpression :: TypeNode -> [[String]] -> SemanticUnit -> [Type] -> Expression -> DFExpression
+buildDFExpression :: TypeNode -> [[String]] -> SemanticUnit -> [Type] -> [Int] -> Expression -> DFExpression
 -- trivial ones
-buildDFExpression db imps su tps AST.Null = Null
-buildDFExpression db imps su tps AST.This = ID (Left $ thisOffset su)
-buildDFExpression db imps su tps (AST.Super msuper) = case msuper of
+buildDFExpression db imps su tps _ AST.Null = Null
+buildDFExpression db imps su tps _ AST.This = ID (Left $ thisOffset su)
+buildDFExpression db imps su tps _ (AST.Super msuper) = case msuper of
                                                         Nothing -> Super (thisOffset su) Nothing
                                                         Just nm -> let [tp] = take 1 (traverseTypeEntryWithImports db imps nm)
                                                                        Just tn = getTypeEntry db tp
                                                                        [con] = [sym | sym@(FUNC mds _ _ pt _) <- map symbol $ subNodes tn, elem "cons" mds, pt == []]
                                                                        [sym] = getSymbol db tp
                                                                    in Super (thisOffset su) (Just con)
-buildDFExpression db imps su tps (AST.Value t v _) = Value t v
-buildDFExpression db imps su tps e@(AST.CastA _ _ expr _) = Cast tpsym (buildDFExpression db imps su [] expr)
+buildDFExpression db imps su tps _ (AST.Value t v _) = Value t v
+buildDFExpression db imps su tps nesting e@(AST.CastA _ _ expr _) = Cast tpsym (buildDFExpression db imps su [] (nesting ++ [1]) expr)
   where
     [tp] = typeLinkingExpr db imps su e
     tpname = AST.Name $ AST.typeToName tp
     [sym] = symbolLinkingName db imps su tpname
     tpsym = if isPrimitive tp then Left tp else Right sym
-buildDFExpression db imps su tps e@(AST.CastB _ expr _) = Cast tpsym (buildDFExpression db imps su [] expr)
+buildDFExpression db imps su tps nesting e@(AST.CastB _ expr _) = Cast tpsym (buildDFExpression db imps su [] (nesting ++ [1]) expr)
   where
     [tp] = typeLinkingExpr db imps su e
     tpname = AST.Name $ AST.typeToName tp
     [sym] = symbolLinkingName db imps su tpname
     tpsym = if isPrimitive tp then Left tp else Right sym
-buildDFExpression db imps su tps e@(AST.CastC _ _ expr _) = Cast tpsym (buildDFExpression db imps su [] expr)
+buildDFExpression db imps su tps nesting e@(AST.CastC _ _ expr _) = Cast tpsym (buildDFExpression db imps su [] (nesting ++ [1]) expr)
   where
     [tp] = typeLinkingExpr db imps su e
     tpname = AST.Name $ AST.typeToName tp
     [sym] = symbolLinkingName db imps su tpname
     tpsym = if isPrimitive tp then Left tp else Right sym
 -- with modification to be more specific
-buildDFExpression db imps su tps e@(AST.ID n@(AST.Name cname@[nm]) _) = if take (length baseName) (init (localScope sym)) == baseName
+buildDFExpression db imps su tps _ e@(AST.ID n@(AST.Name cname@[nm]) _) = if take (length baseName) (init (localScope sym)) == baseName
                                                                         then let offset = (scopeOffset su sym) in ID $ Left offset
                                                                          --if offset >= 0 then ID (Left offset) else ID (Left offset)
                                                                         else ID $ Right (offthis, sym)
@@ -244,9 +244,9 @@ buildDFExpression db imps su tps e@(AST.ID n@(AST.Name cname@[nm]) _) = if take 
                              err -> error $ show su
     -}
     baseName = (AST.typeToName . lookUpThis) su
-buildDFExpression db imps su tps e@ (AST.ID n@(AST.Name cname@(nm:remain)) _) = if elem "static" (symbolModifiers sym)
+buildDFExpression db imps su tps nesting e@ (AST.ID n@(AST.Name cname@(nm:remain)) _) = if elem "static" (symbolModifiers sym)
                                                                                   then ID $ Right (thisOffset su, sym)
-                                                                                  else Attribute (buildDFExpression db imps su [tps'] (AST.ID (AST.Name (init cname)) 0)) sym
+                                                                                  else Attribute (buildDFExpression db imps su [tps'] (nesting ++ [1]) (AST.ID (AST.Name (init cname)) 0)) sym
   where
     syms = symbolLinkingName db imps su n
     --[sym] = case if tps == [] then syms else [sym | sym <- syms, elem (symbolToType' sym) tps] of
@@ -255,29 +255,29 @@ buildDFExpression db imps su tps e@ (AST.ID n@(AST.Name cname@(nm:remain)) _) = 
     [sym] = if tps == [] then syms else [sym | sym <- syms, elem (symbolToType' sym) tps]
     tps' = AST.Object (AST.Name (localScope sym))
 
-buildDFExpression db imps su tps e@(AST.Attribute expr mem _) = Attribute (buildDFExpression db imps su [tps'] expr) sym
+buildDFExpression db imps su tps nesting e@(AST.Attribute expr mem _) = Attribute (buildDFExpression db imps su [tps'] (nesting ++ [1]) expr) sym
   where
     syms = symbolLinkingExpr db imps su e
     [sym] = if tps == [] then syms else [sym | sym <- syms, elem (symbolToType' sym) tps]
     tps' = AST.Object (AST.Name (localScope sym))
 
 -- replace with function calls
-buildDFExpression db imps su tps e@(AST.FunctionCall expr args _) = if elem "static" (symbolModifiers sym)
-                                                                      then FunctionCall sym (map (buildDFExpression db imps su []) args)
-                                                                      else FunctionCall sym $ exprL:(map (buildDFExpression db imps su []) args)
+buildDFExpression db imps su tps nesting e@(AST.FunctionCall expr args _) = if elem "static" (symbolModifiers sym)
+                                                                      then FunctionCall sym (zipWith (\num arg -> buildDFExpression db imps su [] (nesting ++ [num]) $ arg) [1..] args)
+                                                                      else FunctionCall sym $ exprL:(zipWith (\num arg -> buildDFExpression db imps su [] (nesting ++ [num]) $ arg) [2..] args)
   where
     syms = symbolLinkingExpr db imps su e
     sym = case if tps == [] then syms else [sym | sym@(FUNC _ _ _ _ rt) <- syms, elem (typeRelax rt) tps] of
                  [sym] -> sym
                  err -> error $ (show e) ++ "cands after filter: " ++ (show err) ++ "cands: " ++ (show (map symbolToType' syms)) ++ "constriants: " ++ (show tps)
     tps' = symbolToType' sym
-    exprL = case buildDFExpression db imps su [tps'] expr of
+    exprL = case buildDFExpression db imps su [tps'] (nesting ++ [1]) expr of
               Attribute exprL sym -> exprL
               ID _ -> ID $ Left (thisOffset su)
 
 
 -- inject malloc calls
-buildDFExpression db imps su tps e@(AST.NewObject tp args _) = FunctionCall sym $ (buildMalloc sym):(map (buildDFExpression db imps su []) args)
+buildDFExpression db imps su tps nesting e@(AST.NewObject tp args _) = FunctionCall sym $ (buildMalloc sym):(zipWith (\num arg -> buildDFExpression db imps su [] (nesting ++ [num]) $ arg) [1..] args)
   where
     syms = symbolLinkingExpr db imps su e
     --if tps == [] then syms else [sym | sym <- syms, elem (symbolToType' sym) tps]
@@ -285,15 +285,15 @@ buildDFExpression db imps su tps e@(AST.NewObject tp args _) = FunctionCall sym 
             [sym] -> sym
             err -> error $ (show err) ++ (show syms) ++ (show tps)
 
-buildDFExpression db imps su tps (AST.NewArray tp expr _) = FunctionCall sym $ (buildMalloc sym):[buildDFExpression db imps su [] expr]
+buildDFExpression db imps su tps nesting (AST.NewArray tp expr _) = FunctionCall sym $ (buildMalloc sym):[buildDFExpression db imps su [] (nesting ++ [1]) expr]
   where
     [sym, _] = getSymbol db ["joosc native", "Array", "Array"]
     --sym = symbol arrayConstructor
 
-buildDFExpression db imps su tps (AST.Dimension dummy index _) = if dummy /= AST.Null then error $ "Dimension not NULL: " ++ (show dummy)
-                                                                 else buildDFExpression db imps su [] index
+buildDFExpression db imps su tps nesting (AST.Dimension dummy index _) = if dummy /= AST.Null then error $ "Dimension not NULL: " ++ (show dummy)
+                                                                 else buildDFExpression db imps su [] (nesting ++ [1]) index
 
-buildDFExpression db imps su tps (AST.InstanceOf tp expr _) = InstanceOf sym (buildDFExpression db imps su [] expr)
+buildDFExpression db imps su tps nesting (AST.InstanceOf tp expr _) = InstanceOf sym (buildDFExpression db imps su [] (nesting ++ [1]) expr)
   where
     nm = case tp of
            AST.Object nm -> nm
@@ -305,7 +305,7 @@ buildDFExpression db imps su tps (AST.InstanceOf tp expr _) = InstanceOf sym (bu
 
 
 -- noop
-buildDFExpression db imps su tps (AST.ArrayAccess expr expri _) = ArrayAccess sym dfexpr dfexpri
+buildDFExpression db imps su tps nesting (AST.ArrayAccess expr expri _) = ArrayAccess sym dfexpr dfexpri
     where
       sym = case getSymbol db ["joosc native", "Array", "get"] of
                 [sym'] -> sym'
@@ -313,13 +313,13 @@ buildDFExpression db imps su tps (AST.ArrayAccess expr expri _) = ArrayAccess sy
       tps' = case tps of
                --[tp] -> AST.Array tp
                _ -> AST.Object (AST.Name ["joosc native","Array"])
-      dfexpr = buildDFExpression db imps su [tps'] expr
-      dfexpri = buildDFExpression db imps su [] expri
+      dfexpr = buildDFExpression db imps su [tps'] (nesting ++ [1]) expr
+      dfexpri = buildDFExpression db imps su [] (nesting ++ [2]) expri
 
-buildDFExpression db imps su tps (AST.Unary op expr _) = Unary op (buildDFExpression db imps su tps expr)
-buildDFExpression db imps su tps (AST.Binary op exprL exprR _) = Binary op (buildDFExpression db imps su [] exprL) (buildDFExpression db imps su [] exprR)
+buildDFExpression db imps su tps nesting (AST.Unary op expr _) = Unary op (buildDFExpression db imps su tps (nesting ++ [1]) expr)
+buildDFExpression db imps su tps nesting (AST.Binary op exprL exprR _) = Binary op (buildDFExpression db imps su [] (nesting ++ [1]) exprL) (buildDFExpression db imps su [] (nesting ++ [2]) exprR) nesting
 
-buildDFExpression db imps su tps ow = error $ show ow
+buildDFExpression db imps su tps ow _ = error $ show ow
 
 
 ---------------------------------------------------------------
@@ -340,7 +340,7 @@ listStaticSYMFromStaticInit (CC cname ft sym mtdc) = concat $ map listStaticSYMF
 listStaticSYMFromDFExpr :: DFExpression -> [Symbol]
 listStaticSYMFromDFExpr (FunctionCall _ exprs) = concat $ map listStaticSYMFromDFExpr exprs
 listStaticSYMFromDFExpr (Unary _ expr) = listStaticSYMFromDFExpr expr
-listStaticSYMFromDFExpr (Binary _ exprL exprR) = (listStaticSYMFromDFExpr exprL) ++ (listStaticSYMFromDFExpr exprR)
+listStaticSYMFromDFExpr (Binary _ exprL exprR _) = (listStaticSYMFromDFExpr exprL) ++ (listStaticSYMFromDFExpr exprR)
 listStaticSYMFromDFExpr (Attribute expr sym) = listStaticSYMFromDFExpr expr
 listStaticSYMFromDFExpr (InstanceOf _ expr) = listStaticSYMFromDFExpr expr
 listStaticSYMFromDFExpr (Cast _ expr) = listStaticSYMFromDFExpr expr
@@ -369,7 +369,7 @@ listStringFromStatement (DFReturn mexpr) = case mexpr of
 listStringFromDFExpr :: DFExpression -> [String]
 listStringFromDFExpr (FunctionCall _ exprs) = concat $ map listStringFromDFExpr (exprs)
 listStringFromDFExpr (Unary _ expr) = listStringFromDFExpr expr
-listStringFromDFExpr (Binary _ exprL exprR) = (listStringFromDFExpr exprL) ++ (listStringFromDFExpr exprR)
+listStringFromDFExpr (Binary _ exprL exprR _) = (listStringFromDFExpr exprL) ++ (listStringFromDFExpr exprR)
 listStringFromDFExpr (Attribute expr sym) = listStringFromDFExpr expr
 listStringFromDFExpr (InstanceOf _ expr) = listStringFromDFExpr expr
 listStringFromDFExpr (Cast _ expr) = listStringFromDFExpr expr
@@ -555,8 +555,8 @@ genOpAsm "<" = ["cmp eax, ebx", "mov eax, 1", "jl short $+7", "mov eax, 0"]
 genOpAsm "<=" = ["cmp eax, ebx", "mov eax, 1", "jle short $+7", "mov eax, 0"]
 genOpAsm ">" = ["cmp eax, ebx", "mov eax, 1", "jg short $+7", "mov eax, 0"]
 genOpAsm ">=" = ["cmp eax, ebx", "mov eax, 1", "jge short $+7", "mov eax, 0"]
-genOpAsm "&&" = ["and eax, ebx"]
-genOpAsm "||" = ["or eax, ebx"]
+--genOpAsm "&&" = ["and eax, ebx"]
+--genOpAsm "||" = ["or eax, ebx"]
 genOpAsm "&" = ["and eax, ebx"]
 genOpAsm "|" = ["or eax, ebx"]
 genOpAsm "=" = ["mov [eax], ebx", "mov eax, [eax]"]
@@ -610,19 +610,26 @@ genExprAsm sd (Unary op expr) =
                     "!" -> ["xor eax, 1"]
   in [";Unary op: " ++ op] ++ exprCode ++ unaryCode
 
-genExprAsm sd (Binary op exprL exprR) =
-  let
+genExprAsm sd (Binary op exprL exprR nesting)
+  | op == "&&" = ["; Binary op: " ++ op ++ " with shortcut"] ++
+                 leftCode ++ ["cmp eax, 0", "je " ++ endLabel] ++
+                 rightCode ++ [endLabel ++ ":"]
+  | op == "||" = ["; Binary op: " ++ op ++ " with shortcut"] ++ 
+                 leftCode ++ ["cmp eax, 1", "je " ++ endLabel] ++
+                 rightCode ++ [endLabel ++ ":"]
+  | otherwise = [";Binary op: " ++ op] ++
+                leftCode ++ ["push eax ; Push left value to stack"] ++
+                rightCode ++
+                ["mov ebx, eax", "pop eax ; Pop right value from stack"] ++
+                opCode
+  where
+      opname = if op == "&&" then "And" else "Or"
+      endLabel = ".binary_End_" ++ opname ++ "_" ++ genLabel nesting
       rightCode = genExprAsm sd exprR
       opCode = genOpAsm op
       leftCode = case op of
-        "=" -> genExprLhsAsm sd exprL
-        _ -> genExprAsm sd exprL
-  in [";Binary op: " ++ op] ++
-     leftCode ++
-     ["push eax ; Push left value to stack"] ++
-     rightCode ++
-     ["mov ebx, eax", "pop eax ; Pop right value from stack"] ++
-     opCode
+                    "=" -> genExprLhsAsm sd exprL
+                    _ -> genExprAsm sd exprL
 
 genExprAsm sd (Attribute struct member) = (genExprLhsAsm sd (Attribute struct member)) ++ checkNull ++ ["mov eax, [eax]"]
 
