@@ -180,6 +180,15 @@ By generating our function labels this way our assembly is still readable, and w
 %Therefore, we use a list of numbers, namely \emph{nesting}, to encode current unique position in AST, and append these unique labels to statements and expression which need it.
 
 \subsection{Constructor}
+Constructor is one of most messy part in this final assignment.
+It involves many other parts to make it hard to think it clearly and implement it correctly, such as
+\begin{itemize}
+\item call \emph{\_\_malloc} to allocate space
+\item get this pointer
+\item put the class id and the pointer to its virtual function table
+\item implicitly call \emph{super()}, i.e. superclass' constructors
+\item call its initializer, starting from label \emph{\_\_initializer}
+\end{itemize}
 
 \subsection{Virtual Function Table}
 Dynamic dispatch on function calls is one of the most important feature provided by OOP languages. However, because of multiple inheritance(from interface for Joos), the implementation is not as straightforward as it sounds. For each \emph{Class}, the dynamic dispatch can be described by a list of pairs where each pair contains the function being called and the actual implementation to use.
