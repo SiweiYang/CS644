@@ -125,9 +125,15 @@ Instance variables are accessed by an offset from the variables memory address, 
 For function calls, the arguments are evaluated left to right and pushed to the stack.
 In the case of a static function the x86 'call' instruction is then used to store the base pointer and jump to the function.
 For instance methods the target function address is first retrieved from the vtable before being called.
+The address of the object, i.e. this pointer, is pushed as the first hidden argument.
 Our convention is to have the callee clean up the stack, so after the function call returns, the callee pops the arguments.
 
 \subsection{Static Initialization}
+For each class, we need first initialize all static fields at the beginning of program.
+So we put these initializing code separately into each individual assembly output file, and call them at the entrance point in output file \emph{main.s}.
+However, we allocate all space together using \emph{.data} section in file \emph{main.s}, and given each field an unique label to find it.
+There is one more challenge here: some static fields would use other static fields to initialize themselves, so different initializing order could give different results.
+To address this issue, we analyze the initialing dependencies of static fields in all classes, and build a dependency graph to give a topological order to initialize.
 
 \subsection{Virtual Function Table}
 Our vtable generation is handled by the function \emph{genAsmVirtualTable}.
@@ -166,6 +172,7 @@ By generating our function labels this way our assembly is still readable, and w
 %The reason that generation unique label can be thought as a challenge is we are using purely functional programming language, so that we cannot maintain a global label generator or counter to do this.
 %Therefore, we use a list of numbers, namely \emph{nesting}, to encode current unique position in AST, and append these unique labels to statements and expression which need it.
 
+\subsection{Constructor}
 
 \subsection{Virtual Function Table}
 
