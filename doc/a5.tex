@@ -130,6 +130,22 @@ Our convention is to have the callee clean up the stack, so after the function c
 \subsection{Static Initialization}
 
 \subsection{Vtables}
+Our vtable generation is handled by the function \emph{genAsmVirtualTable}.
+Since we have a unique integer for each function in the source being compiled, generating the vtable is actually quite easy.
+We iterate through all instance functions in the program and then look up the corresponding label for the classes implementation.
+If the class does not support a given label we put the label for \_\_exception to fill the gap, since that function should never be called on objects of the class.
+At runtime when a method is called we use it's unique integer as an offset from the base of the vtable pointer in the object.
+
+Here is the genAsmVirtualTable function in it's entirety.
+\begin{lstlisting}
+genAsmVirtualTable :: SymbolDatabase -> ClassConstruct -> [String]
+genAsmVirtualTable sd (CC _ _ sym _) = header ++ code
+  where
+    header = ["__vft:"]
+    [(_, vtable)] = filter (\(symbol, _) -> symbol == sym) (instanceFUNCTable sd)
+    labelT = map (\symbol -> if isNothing symbol then "__exception" else (funcLabel sd) ! (fromJust symbol)) vtable
+    code = map (\str -> "dd " ++ str) labelT
+\end{lstlisting}
 
 \section{Challenges}
 Last but not least, we would like to cover some technicalities involving the following challenges. Each further demonstrates how we model the solution, and how we engineer solution taking into account the characteritics of pure functional language.
