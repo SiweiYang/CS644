@@ -182,6 +182,24 @@ By generating our function labels this way our assembly is still readable, and w
 \subsection{Constructor}
 
 \subsection{Virtual Function Table}
+Dynamic dispatch on function calls is one of the most important feature provided by OOP languages. However, because of multiple inheritance(from interface for Joos), the implementation is not as straightforward as it sounds. For each \emph{Class}, the dynamic dispatch can be described by a list of pairs where each pair contains the function being called and the actual implementation to use.
+
+So, if correctness is the only concern, then we can run a linear scan on each dynamic function call to get the correct implemention for it. But we also want our program to be reasonably performant. Therefore, we would much rather do a offset based solution which requires only one redirection upon reading the contents for the virtual function table. However, multiple inheritance implies we can not guarantee a offset for a function declaration by reordering all the implemented functions.
+
+In class we have discussed various ways to fix the ordering issue. But we decided to go with a much simpler and performant solution. At the cost of increasing program size. Our approach can be illustrated by the following code.
+
+\begin{lstlisting}
+__vft:
+dd function_String_instance_toString_46
+dd function_String_instance_toString_46
+dd function_String_instance_toString_46
+dd __exception
+dd function_Object_instance_clone_24
+dd __exception
+dd function_String_instance_hashCode_41
+\end{lstlisting}
+
+Notice that on the virtual function table there is a slot not being filled, but goes to exception. That is the important relaxation we made so that a consistent offset can be decided for all function declarations. So an object can get the same function calls from all its supported interfaces. And all of those calls have to be translated into different offsets. But the virtual function table have entries for all of the offsets so that the call can be resolved correctly at runtime.
 
 \subsection{Saving inheritance info to assembly file}
 Since joosc language supports \emph{instanceOf} and \emph{casting} features, we cannot determine the type of an object at compile-time.
