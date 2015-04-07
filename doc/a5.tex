@@ -54,8 +54,29 @@ Winter 2015
 
 \section{General Strategy}
 This section describes the meta strategy we applied in developing the code generation phase of our compiler.
-In principle, we first distill the necessary information from the attribute grammar into DFStatements, which are then fairly trivial to convert to assembly.
+
+In principle, we divide the code generation into two stages where at the end of each stage we can look at the results to catch any mistakes. This not only saved us debugging effort, but also helped managing the complexity of assemly code generation. As looking at the assembly code is not an effective way of debugging the compiler, we tried minimize the need to delve into assembly code by making the generation a pretty mechanical process where the correctness can be easily checked and proved.
+
+The key to trivial assembly generation is refining our AST representation yet again. We first distill the necessary information from the attribute grammar into DFExpression, which have as much necessary information gathered as possible.
+
 The algebraic datatype for DFStatement and DFExpression is the following.
+\begin{lstlisting}
+data DFExpression = FunctionCall Symbol [DFExpression]
+                   | ArrayAccess Symbol DFExpression DFExpression
+                   | Unary { op :: String, expr :: DFExpression }
+                   | Binary { op :: String, exprL :: DFExpression, exprR :: DFExpression }
+                   | Attribute { struct :: DFExpression, mem :: Symbol }
+                   | InstanceOf { reftype :: Type, expr :: DFExpression }
+                   | Cast {reftype :: Type, expr :: DFExpression }
+                   | ID { identifier :: Either Int (Int, Symbol) }
+                   | Value { valuetype :: Type, value :: String }
+                   | Super { offset :: Int, super :: Maybe Symbol }
+                   | Null
+                   | NOOP
+\end{lstlisting}
+
+Note the change of strings representing \emph{names} being converted to our internal type \emph{Symbol}. The \emph{Symbol} is a data type uniquely represents entities of the source program: \emph{Type}, \emph{Method}, \emph{Field}. In short, all the type linking and name resolution results are condensed into the new \emph{DFExpression} now.
+
 \begin{lstlisting}
 data DFStatement = DFIf {
   condition :: DFExpression,
@@ -78,20 +99,8 @@ data DFStatement = DFIf {
 } | DFExpr DFExpression
   | DFLocal DFExpression
   | DFReturn (Maybe DFExpression)
-
-data DFExpression = FunctionCall Symbol [DFExpression]
-                   | ArrayAccess Symbol DFExpression DFExpression
-                   | Unary { op :: String, expr :: DFExpression }
-                   | Binary { op :: String, exprL :: DFExpression, exprR :: DFExpression }
-                   | Attribute { struct :: DFExpression, mem :: Symbol }
-                   | InstanceOf { reftype :: Type, expr :: DFExpression }
-                   | Cast {reftype :: Type, expr :: DFExpression }
-                   | ID { identifier :: Either Int (Int, Symbol) }
-                   | Value { valuetype :: Type, value :: String }
-                   | Super { offset :: Int, super :: Maybe Symbol }
-                   | Null
-                   | NOOP
 \end{lstlisting}
+
 All of the assembly generation related code is located in \emph{CodeConstruct.hs}.
 
 \subsection{Unary and Binary Operations}
