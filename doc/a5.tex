@@ -55,11 +55,13 @@ Winter 2015
 \section{General Strategy}
 This section describes the meta strategy we applied in developing the code generation phase of our compiler.
 
-In principle, we divide the code generation into two stages where at the end of each stage we can look at the results to catch any mistakes. This not only saved us debugging effort, but also helped managing the complexity of assemly code generation. As looking at the assembly code is not an effective way of debugging the compiler, we tried minimize the need to delve into assembly code by making the generation a pretty mechanical process where the correctness can be easily checked and proved.
+In principle, we divide the code generation into two stages where at the end of each stage we can look at the results to catch any mistakes.
+This not only saved us debugging effort, but also helped manage the complexity of assembly code generation.
+As looking at the assembly code is not an effective way of debugging the compiler, we tried to minimize the need to delve into assembly code by making the generation a pretty mechanical process where the correctness can be easily checked and proved.
 
-The key to trivial assembly generation is refining our AST representation yet again. We first distill the necessary information from the attribute grammar into DFExpression, which have as much necessary information gathered as possible.
+The key to trivial assembly generation is refining our AST representation yet again. We first distill the necessary information from the attribute grammar into DFExpression, which has as much necessary information as possible.
 
-The algebraic datatype for DFStatement and DFExpression is the following.
+The algebraic datatype for DFExpression has the following definition.
 \begin{lstlisting}
 data DFExpression = FunctionCall Symbol [DFExpression]
                    | ArrayAccess Symbol DFExpression DFExpression
@@ -75,8 +77,9 @@ data DFExpression = FunctionCall Symbol [DFExpression]
                    | NOOP
 \end{lstlisting}
 
-Note the change of strings representing \emph{names} being converted to our internal type \emph{Symbol}. The \emph{Symbol} is a data type uniquely represents entities of the source program: \emph{Type}, \emph{Method}, \emph{Field}. In short, all the type linking and name resolution results are condensed into the new \emph{DFExpression} now.
+Note the change of strings representing \emph{names} being converted to our internal type \emph{Symbol}. The \emph{Symbol} is a data type which uniquely represents entities of the source program: \emph{Type}, \emph{Method}, \emph{Field}. In short, all the type linking and name resolution results are condensed into the new \emph{DFExpression} now.
 
+The algebraic datatype for DFStatement has the following definition.
 \begin{lstlisting}
 data DFStatement = DFIf {
   condition :: DFExpression,
@@ -104,9 +107,9 @@ data DFStatement = DFIf {
 All of the assembly generation related code is located in \emph{CodeConstruct.hs}.
 
 \subsection{Unary and Binary Operations}
-Our approach to compiling operators was to use eax to store the left hand side and result, and use ebx to store the right hand side and result.
-Precedence aside, expressions are then evaluated left to right, and this would also take into account the side effect of evaluation order.
-The left hand side is evaluated and pushed to the stack, the right hand side is then evaluated and the result sits in eax, then move eax to ebx, then the left hand side is popped from the stack to eax, and the operation runs, leaving the final result in eax.
+Our approach to compiling operators was to use eax to store the left hand side and result, and use ebx to store the right hand side.
+Precedence aside, expressions are then evaluated left to right, since this takes into account the side effects of evaluation order.
+The left hand side is evaluated and pushed to the stack, then the right hand side is evaluated and its result is moved from eax to ebx, then the left hand side is popped from the stack to eax, and the operation runs, leaving the final result in eax.
 For unary operations there is simply no ebx, the single operand is stored in eax, and the result replaces it.
 
 \subsection{Variables}
@@ -126,14 +129,14 @@ For function calls, the arguments are evaluated left to right and pushed to the 
 In the case of a static function the x86 'call' instruction is then used to store the base pointer and jump to the function.
 For instance methods the target function address is first retrieved from the vtable before being called.
 The address of the object, i.e. this pointer, is pushed as the first hidden argument.
-Our convention is to have the callee clean up the stack, so after the function call returns, the callee pops the arguments.
+Our convention is to have the callee clean up the arguments from the stack, so after the function call returns, the callee pops the arguments.
 
 \subsection{Static Initialization}
 For each class, we need first initialize all static fields at the beginning of program.
-So we put these initializing code separately into each individual assembly output file, and call them at the entrance point in output file \emph{main.s}.
-However, we allocate all space together using \emph{.data} section in file \emph{main.s}, and given each field an unique label to find it.
-There is one more challenge here: some static fields would use other static fields to initialize themselves, so different initializing order could give different results.
-To address this issue, we analyze the initialing dependencies of static fields in all classes, and build a dependency graph to give a topological order to initialize.
+The initialization code for static fields resides in each individual assembly output file, and the code is run from the entrance point in the output file \emph{main.s}.
+All of the static fields exist in the \emph{.data} segment of \emph{main.s}, and are given each a unique label to be address it.
+The last challenge for static initialization is that some static fields use other static fields to initialize themselves, so different initialization orders could give different results.
+To address this issue, we analyze the initialization dependencies of static fields in all classes, and build a dependency graph to give a topological order for initialization.
 
 \subsection{Virtual Function Table}
 Our vtable generation is handled by the function \emph{genAsmVirtualTable}.
@@ -154,7 +157,7 @@ genAsmVirtualTable sd (CC _ _ sym _) = header ++ code
 \end{lstlisting}
 
 \subsection{Arrays}
-To simplify the implementation of arrays, we wrote an array implementation in Java which can be found in \emph{res/Array.java}.
+To simplify the assembly of arrays, we wrote an array implementation in Java which can be found in \emph{res/Array.java}.
 The implementation has two instance variables: a base pointer and a length.
 The length is used to throw runtime exceptions for out of bounds access, while the pointer is used for accessing elements.
 Array creations are transformed into calls to either of the array constructors, and accesses are transformed into calls to the get instance method.
@@ -164,7 +167,7 @@ By creating out array implementation in Java, arrays were no extra trouble to ha
 Last but not least, we would like to cover some technicalities involving the following challenges. Each further demonstrates how we model the solution, and how we engineer solution taking into account the characteristics of pure functional language.
 
 \subsection{Unique Label Creation}
-It is necessary to have many unique labels throughout the generated assembly for control flow blocks as well as simple constructs like short circuiting boolean expressions.
+It is necessary to have many unique labels throughout the generated assembly for control flow blocks as well as simple constructs such as short circuiting boolean expressions.
 Since Haskell is pure it is not possible for us to simply have a global counter that we can rely on to generate these unique labels.
 Instead, we keep track of the nesting of statements and expressions.
 A nesting is a list of integers, where the last number is the order of the statement within the parent, and the prefix is the parents nesting.
@@ -174,14 +177,10 @@ If we were to do it all again, we would use the state monad to handle this, main
 Function labels are simply a concatenation of the package name, class name, the word instance or static, followed by a globally unique integer that identifies the function.
 By generating our function labels this way our assembly is still readable, and we can be sure that there are no conflicts.
 
-%While generating new DFExpressions from Expression, we also generate some unique labels for assembly code.
-%For example, the labels for If, While, For, as well as short-circuiting for logical operator $\&\&$ and $||$.
-%The reason that generation unique label can be thought as a challenge is we are using purely functional programming language, so that we cannot maintain a global label generator or counter to do this.
-%Therefore, we use a list of numbers, namely \emph{nesting}, to encode current unique position in AST, and append these unique labels to statements and expression which need it.
-
 \subsection{Constructor}
-Constructor is one of most messy part in this final assignment.
-It involves many other parts to make it hard to think it clearly and implement it correctly, such as
+Constructors are one of the trickiest and messiest parts of this final assignment.
+The constructors involve many other parts of the program which makes it difficult to reason about and implement correctly.
+Some examples of this are,
 \begin{itemize}
 \item call \emph{\_\_malloc} to allocate space
 \item get this pointer
@@ -191,11 +190,18 @@ It involves many other parts to make it hard to think it clearly and implement i
 \end{itemize}
 
 \subsection{Virtual Function Table}
-Dynamic dispatch on function calls is one of the most important feature provided by OOP languages. However, because of multiple inheritance(from interface for Joos), the implementation is not as straightforward as it sounds. For each \emph{Class}, the dynamic dispatch can be described by a list of pairs where each pair contains the function being called and the actual implementation to use.
+Dynamic dispatch on function calls is one of the most important features provided by OOP languages.
+However, because of multiple inheritance from interfaces, the implementation is not as straightforward as it sounds.
+For each \emph{Class}, the dynamic dispatch can be described by a list of pairs where each pair contains the function being called and the actual implementation to use.
 
-So, if correctness is the only concern, then we can run a linear scan on each dynamic function call to get the correct implemention for it. But we also want our program to be reasonably performant. Therefore, we would much rather do a offset based solution which requires only one redirection upon reading the contents for the virtual function table. However, multiple inheritance implies we can not guarantee a offset for a function declaration by reordering all the implemented functions.
+Since correctness is the only concern, we can run a linear scan on each dynamic function call to get the correct implemention for it.
+We do want our program to be reasonably performant, though.
+Therefore, we would much rather implement an offset based solution which requires only one redirection upon reading the contents for the virtual function table.
+However, multiple inheritance implies we can not guarantee an offset for a function declaration by reordering all the implemented functions.
 
-In class we have discussed various ways to fix the ordering issue. But we decided to go with a much simpler and performant solution. At the cost of increasing program size. Our approach can be illustrated by the following code.
+In class we discussed various ways to fix the ordering issue.
+We decided to go with a much simpler and performant solution, at the cost of increasing program size.
+Our approach can be illustrated by the following code.
 
 \begin{lstlisting}
 __vft:
@@ -208,16 +214,19 @@ dd __exception
 dd function_String_instance_hashCode_41
 \end{lstlisting}
 
-Notice that on the virtual function table there is a slot not being filled, but goes to exception. That is the important relaxation we made so that a consistent offset can be decided for all function declarations. So an object can get the same function calls from all its supported interfaces. And all of those calls have to be translated into different offsets. But the virtual function table have entries for all of the offsets so that the call can be resolved correctly at runtime.
+Notice that on the virtual function table there is a slot not being filled by a function label, but by an exception.
+That is the important relaxation we made so that a consistent offset can be decided for all function declarations.
+An object can get the same function calls from all its supported interfaces, and all of those calls have to be translated into different offsets.
+The virtual function table can have entries for all of the offsets so that the call can be resolved correctly at runtime.
 
 \subsection{Saving inheritance info to assembly file}
 Since joosc language supports \emph{instanceOf} and \emph{casting} features, we cannot determine the type of an object at compile-time.
-All of inheritance info should be stored in assembly code constantly, and look it up when doing \emph{instanceOf} and \emph{casting}.
-In the assembly source file \emph{main.s}, starting from label \emph{\_\_characteristics:}, there is a large bitmap.
-To look up a relation is true or not, let $a$ be the class id stored in an object, and $b$ be the class id generated at the compile-time in terms of given class name.
+All of the inheritance info should be stored in assembly code so that it can be looked up when doing \emph{instanceOf} and \emph{casting}.
+In the assembly source file \emph{main.s}, there is a large bitmap residing at label \emph{\_\_characteristics:}.
+To determine if an instanceOf relation is true or not, let $a$ be the class id stored in an object, and $b$ be the class id generated at the compile-time in terms of given class name.
 The offset is $a \cdot total + b$, where $total$ is the number of classes, including stdlibs.
 And if that bit is 1, the relation is true.
-When doing object casting, we use the same procedure, but if result is 0, which means this conversion is invalid, just call \emph{\_\_exception} and throw an exception.
+When doing object casting, we use the same procedure, but if the result is 0, which means this conversion is invalid, we call \emph{\_\_exception} to throw an exception.
 
 \section{Debugging and Testing Strategies}
 For assignment 5 we wrote a test runner in bash.
